@@ -595,15 +595,37 @@ textarea.form-input{resize:vertical;min-height:70px}
 //  CONFIG SUPABASE
 // ══════════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://krbzipnoeroaofojccri.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: true,
-    lock: (name, acquireTimeout, fn) => fn()
-  }
-});
+const SUPABASE_KEY = 'sb_publishable_00DghQOW-_toZkmmA2uEkA_8yd9xNSP';
+
+function getToken(){ const s=getStoredSession(); return s?.access_token||SUPABASE_KEY; }
+
+async function sbGet(path){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+getToken()}});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'HTTP '+r.status);}
+  return r.json();
+}
+async function sbPost(table,data){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'HTTP '+r.status);}
+  return r.json();
+}
+async function sbPatch(table,filter,data){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'HTTP '+r.status);}
+  return r.json();
+}
+async function sbDelete(table,filter){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+getToken()}});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'HTTP '+r.status);}
+  return true;
+}
+async function sbAuthPost(endpoint,body,token){
+  const headers={'apikey':SUPABASE_KEY,'Content-Type':'application/json'};
+  if(token) headers['Authorization']='Bearer '+token;
+  const r=await fetch(`${SUPABASE_URL}/auth/v1/${endpoint}`,{method:'POST',headers,body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error_description||'HTTP '+r.status);}
+  return r.json();
+}
 
 // ══════════════════════════════════════════════════════════
 //  STATE
@@ -626,25 +648,24 @@ var ST = {
 async function doLogin(){
   const email = document.getElementById('login-email').value.trim();
   const pwd   = document.getElementById('login-pwd').value;
-  const errEl = document.getElementById('login-err');
   const btn   = document.querySelector('.btn-login');
-  errEl.style.display = 'none';
+  document.getElementById('login-err').style.display = 'none';
   if(!email || !pwd){ showErr('Renseignez email et mot de passe'); return; }
   btn.textContent = '⏳ Connexion…'; btn.disabled = true;
   try {
-    const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
-    if(error){ showErr('❌ ' + error.message); }
+    const data = await sbAuthPost('token?grant_type=password', {email, password: pwd});
+    localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token', JSON.stringify(data));
+    await startApp(data.user);
   } catch(e) {
-    showErr('❌ Impossible de joindre Supabase : ' + e.message);
+    showErr('❌ ' + e.message);
   } finally {
     btn.textContent = 'Se connecter'; btn.disabled = false;
   }
 }
 
 async function doLogout(){
-  try {
-    await Promise.race([sb.auth.signOut(), new Promise(r=>setTimeout(r,3000))]);
-  } catch(e){}
+  try { await sbAuthPost('logout', {}, getToken()); } catch(e){}
+  localStorage.removeItem('sb-krbzipnoeroaofojccri-auth-token');
   location.reload();
 }
 
@@ -676,10 +697,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   if(stored?.user) await startApp(stored.user);
 });
 
-sb.auth.onAuthStateChange(async (event, session) => {
-  if(session && (event==='SIGNED_IN'||event==='TOKEN_REFRESHED')) await startApp(session.user);
-  else if(event==='SIGNED_OUT'){ ST.user=null; document.getElementById('login-screen').style.display='flex'; document.getElementById('app').classList.remove('visible'); }
-});
 
 document.getElementById('login-pwd').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
@@ -694,36 +711,29 @@ async function loadAll(){
 
 async function loadLieux(){
   try {
-    const stored = getStoredSession();
-    const token = stored?.access_token || SUPABASE_KEY;
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/lieux?select=*&actif=eq.true&order=nom`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
-    });
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    const data = await sbGet('lieux?select=*&actif=eq.true&order=nom');
     ST.lieux = data||[]; ST.lieuxFiltered=[...ST.lieux];
     renderLieuxTable(); updateMapMarkers(); updateCatFilter();
-    diag('✅ '+ST.lieux.length+' lieux chargés', '#27AE60');
   } catch(e) {
     showToast('❌ Lieux : '+e.message, 6000);
-    diag('❌ lieux : '+e.message, '#E53935');
     document.getElementById('lieux-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ ${e.message}</td></tr>`;
   }
 }
 
 async function loadTournees(){
-  const {data,error} = await sb.from('tournees')
-    .select('*, distributeur:utilisateurs(nom,email), points:points_tournee(id,statut,quantite_flyers)')
-    .order('date',{ascending:false});
-  if(error){ console.error(error); return; }
-  ST.tournees=data||[]; ST.tourneesFiltered=[...ST.tournees];
-  renderTourneesTable(); renderDashboard(); updateMapTourneeFilter();
+  try {
+    const data = await sbGet('tournees?select=*,distributeur:utilisateurs(nom,email),points:points_tournee(id,statut,quantite_flyers)&order=date.desc');
+    ST.tournees=data||[]; ST.tourneesFiltered=[...ST.tournees];
+    renderTourneesTable(); renderDashboard(); updateMapTourneeFilter();
+  } catch(e){ console.error('loadTournees',e); }
 }
 
 async function loadDistributeurs(){
-  const {data} = await sb.from('utilisateurs').select('*').order('nom');
-  ST.distributeurs = data||[];
-  renderDistributeursSelects();
+  try {
+    const data = await sbGet('utilisateurs?select=*&order=nom.asc');
+    ST.distributeurs = data||[];
+    renderDistributeursSelects();
+  } catch(e){ console.error('loadDistributeurs',e); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -841,19 +851,18 @@ async function saveLieu(){
     actif:true
   };
   if(!data.nom){ showToast('⚠ Le nom est obligatoire'); return; }
-  let error;
-  if(editingLieuId){ ({error}=await sb.from('lieux').update(data).eq('id',editingLieuId)); }
-  else { ({error}=await sb.from('lieux').insert(data)); }
-  if(error){ showToast('❌ '+error.message); return; }
-  showToast(editingLieuId?'✅ Lieu mis à jour':'✅ Lieu ajouté');
-  closeModal('modal-lieu'); await loadLieux();
+  try {
+    if(editingLieuId){ await sbPatch('lieux','id=eq.'+editingLieuId,data); }
+    else { await sbPost('lieux',data); }
+    showToast(editingLieuId?'✅ Lieu mis à jour':'✅ Lieu ajouté');
+    closeModal('modal-lieu'); await loadLieux();
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 async function deleteLieu(id){
   if(!confirm('Supprimer ce lieu ?')) return;
-  const {error}=await sb.from('lieux').update({actif:false}).eq('id',id);
-  if(error){ showToast('❌ '+error.message); return; }
-  showToast('🗑 Lieu supprimé'); await loadLieux();
+  try { await sbPatch('lieux','id=eq.'+id,{actif:false}); showToast('🗑 Lieu supprimé'); await loadLieux(); }
+  catch(e){ showToast('❌ '+e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -919,32 +928,28 @@ async function saveTournee(){
   if(!ST.pickerSelected.size){showToast('⚠ Sélectionnez au moins un lieu');return;}
   const distId=document.getElementById('t-distributeur').value||null;
   const qty=parseInt(document.getElementById('t-quantite').value)||10;
-  const {data:tData,error:tErr}=await sb.from('tournees').insert({
-    nom,date,distributeur_id:distId,
-    secteur:document.getElementById('t-secteur').value.trim(),
-    commentaire:document.getElementById('t-commentaire').value.trim(),
-    statut:'planifiee'
-  }).select().single();
-  if(tErr){showToast('❌ '+tErr.message);return;}
-  const points=[...ST.pickerSelected].map((lieuId,i)=>({tournee_id:tData.id,lieu_id:lieuId,ordre_passage:i+1,quantite_flyers:qty,statut:'a_faire'}));
-  const {error:pErr}=await sb.from('points_tournee').insert(points);
-  if(pErr){showToast('❌ '+pErr.message);return;}
-  showToast('✅ Tournée créée avec '+points.length+' lieux');
-  closeModal('modal-tournee'); await loadTournees(); openTourneeDetail(tData.id);
+  try {
+    const tArr=await sbPost('tournees',{nom,date,distributeur_id:distId,secteur:document.getElementById('t-secteur').value.trim(),commentaire:document.getElementById('t-commentaire').value.trim(),statut:'planifiee'});
+    const tData=Array.isArray(tArr)?tArr[0]:tArr;
+    const points=[...ST.pickerSelected].map((lieuId,i)=>({tournee_id:tData.id,lieu_id:lieuId,ordre_passage:i+1,quantite_flyers:qty,statut:'a_faire'}));
+    await sbPost('points_tournee',points);
+    showToast('✅ Tournée créée avec '+points.length+' lieux');
+    closeModal('modal-tournee'); await loadTournees(); openTourneeDetail(tData.id);
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 async function deleteTournee(id){
   if(!confirm('Supprimer cette tournée et tous ses points ?')) return;
-  const {error}=await sb.from('tournees').delete().eq('id',id);
-  if(error){showToast('❌ '+error.message);return;}
-  showToast('🗑 Tournée supprimée'); await loadTournees();
+  try { await sbDelete('tournees','id=eq.'+id); showToast('🗑 Tournée supprimée'); await loadTournees(); }
+  catch(e){ showToast('❌ '+e.message); }
 }
 
 async function openTourneeDetail(id){
   ST.currentTourneeId=id;
-  const {data,error}=await sb.from('points_tournee').select('*, lieu:lieux(nom,adresse,ville,categorie,latitude,longitude)').eq('tournee_id',id).order('ordre_passage');
-  if(error){showToast('❌ '+error.message);return;}
-  ST.currentTourneeStops=data||[];
+  try {
+    const data=await sbGet(`points_tournee?select=*,lieu:lieux(nom,adresse,ville,categorie,latitude,longitude)&tournee_id=eq.${id}&order=ordre_passage.asc`);
+    ST.currentTourneeStops=data||[];
+  } catch(e){ showToast('❌ '+e.message); return; }
   const t=ST.tournees.find(x=>x.id===id);
   document.getElementById('detail-title').textContent=t?.nom||'Tournée';
   document.getElementById('detail-badge').className='badge b-'+(t?.statut||'planifiee');
@@ -984,11 +989,12 @@ function closeTourneeDetail(){
 
 async function updateTourneeStatut(statut){
   if(!ST.currentTourneeId) return;
-  const {error}=await sb.from('tournees').update({statut}).eq('id',ST.currentTourneeId);
-  if(error){showToast('❌ '+error.message);return;}
-  showToast('✅ Statut mis à jour'); await loadTournees();
-  document.getElementById('detail-badge').className='badge b-'+statut;
-  document.getElementById('detail-badge').textContent=statutLabel(statut);
+  try {
+    await sbPatch('tournees','id=eq.'+ST.currentTourneeId,{statut});
+    showToast('✅ Statut mis à jour'); await loadTournees();
+    document.getElementById('detail-badge').className='badge b-'+statut;
+    document.getElementById('detail-badge').textContent=statutLabel(statut);
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 function openGmapTournee(){
@@ -1017,10 +1023,11 @@ async function saveAddStops(){
   const maxOrdre=ST.currentTourneeStops.reduce((m,s)=>Math.max(m,s.ordre_passage),0);
   const qty=parseInt(document.getElementById('add-stops-qty').value)||10;
   const points=[...ST.addStopsSelected].map((lieuId,i)=>({tournee_id:ST.currentTourneeId,lieu_id:lieuId,ordre_passage:maxOrdre+i+1,quantite_flyers:qty,statut:'a_faire'}));
-  const {error}=await sb.from('points_tournee').insert(points);
-  if(error){showToast('❌ '+error.message);return;}
-  showToast('✅ '+points.length+' lieu(x) ajouté(s)');
-  closeModal('modal-add-stops'); await openTourneeDetail(ST.currentTourneeId);
+  try {
+    await sbPost('points_tournee',points);
+    showToast('✅ '+points.length+' lieu(x) ajouté(s)');
+    closeModal('modal-add-stops'); await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1142,11 +1149,7 @@ async function openFicheLieu(id) {
   openModal('modal-fiche-lieu');
 
   const yr = new Date().getFullYear();
-  const {data} = await sb.from('points_tournee')
-    .select('id, statut, quantite_flyers, heure_validation, commentaire_distributeur, photo_preuve, tournees(id, nom, date, distributeur:utilisateurs(nom))')
-    .eq('lieu_id', id).neq('statut','a_faire').not('heure_validation','is',null)
-    .order('heure_validation',{ascending:false});
-  const all = data||[];
+  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${id}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
   const annee = all.filter(p=>p.heure_validation&&p.heure_validation.startsWith(yr));
   const flyAn  = annee.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const flyAll = all.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
@@ -1256,11 +1259,12 @@ function openPhotoLbD(url, caption){
 //  DISTRIBUTEURS
 // ══════════════════════════════════════════════════════════
 async function loadDistributeurs(){
-  const {data,error} = await sb.from('utilisateurs').select('*').order('nom');
-  if(error){ console.error(error); return; }
-  ST.distributeurs = data||[];
-  renderDistributeursSelects();
-  if(document.getElementById('section-distributeurs').classList.contains('active')) renderDistributeursTable();
+  try {
+    const data = await sbGet('utilisateurs?select=*&order=nom.asc');
+    ST.distributeurs = data||[];
+    renderDistributeursSelects();
+    if(document.getElementById('section-distributeurs').classList.contains('active')) renderDistributeursTable();
+  } catch(e){ console.error('loadDistributeurs',e); }
 }
 
 function renderDistributeursTable(){
@@ -1324,33 +1328,31 @@ async function saveDistributeur(){
   if(!nom){ showToast('⚠ Le nom est obligatoire'); return; }
   btn.disabled=true; btn.textContent='⏳ En cours…';
 
-  if(editingDistId){
-    const {error} = await sb.from('utilisateurs').update({nom, telephone:tel||null}).eq('id',editingDistId);
-    if(error){ showToast('❌ '+error.message); btn.disabled=false; btn.textContent='Enregistrer'; return; }
-    showToast('✅ Profil mis à jour');
-    closeModal('modal-distributeur');
-    await loadDistributeurs(); renderDistributeursTable();
-  } else {
-    const email = document.getElementById('d-email').value.trim();
-    const pwd   = document.getElementById('d-pwd').value;
-    const pwd2  = document.getElementById('d-pwd2').value;
-    if(!email||!pwd){ showToast('⚠ Email et mot de passe obligatoires'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
-    if(pwd!==pwd2){ showToast('⚠ Les mots de passe ne correspondent pas'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
-    if(pwd.length<6){ showToast('⚠ Mot de passe trop court (min. 6 caractères)'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
+  try {
+    if(editingDistId){
+      await sbPatch('utilisateurs','id=eq.'+editingDistId,{nom, telephone:tel||null});
+      showToast('✅ Profil mis à jour');
+      closeModal('modal-distributeur');
+      await loadDistributeurs(); renderDistributeursTable();
+    } else {
+      const email = document.getElementById('d-email').value.trim();
+      const pwd   = document.getElementById('d-pwd').value;
+      const pwd2  = document.getElementById('d-pwd2').value;
+      if(!email||!pwd){ showToast('⚠ Email et mot de passe obligatoires'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
+      if(pwd!==pwd2){ showToast('⚠ Les mots de passe ne correspondent pas'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
+      if(pwd.length<6){ showToast('⚠ Mot de passe trop court (min. 6 caractères)'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
 
-    const {data:authData, error:authErr} = await sb.auth.signUp({email, password:pwd});
-    if(authErr){ showToast('❌ '+authErr.message); btn.disabled=false; btn.textContent='Créer le compte'; return; }
+      const authData = await sbAuthPost('signup',{email, password:pwd});
+      const userId = authData.user?.id||authData.id;
+      if(!userId){ showToast('❌ Impossible de récupérer l\'ID utilisateur'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
 
-    const userId = authData.user?.id;
-    if(!userId){ showToast('❌ Impossible de récupérer l\'ID utilisateur'); btn.disabled=false; btn.textContent='Créer le compte'; return; }
-
-    const {error:profErr} = await sb.from('utilisateurs').insert({id:userId, nom, email, role:'distributeur', telephone:tel||null});
-    if(profErr){ showToast('⚠ Compte créé mais profil incomplet : '+profErr.message); }
-    else { showToast('✅ Compte créé pour '+nom); }
-
-    closeModal('modal-distributeur');
-    await loadDistributeurs(); renderDistributeursTable();
-  }
+      try { await sbPost('utilisateurs',{id:userId, nom, email, role:'distributeur', telephone:tel||null}); }
+      catch(pe){ showToast('⚠ Compte créé mais profil incomplet : '+pe.message); btn.disabled=false; return; }
+      showToast('✅ Compte créé pour '+nom);
+      closeModal('modal-distributeur');
+      await loadDistributeurs(); renderDistributeursTable();
+    }
+  } catch(e){ showToast('❌ '+e.message); }
   btn.disabled=false;
 }
 
@@ -1358,11 +1360,12 @@ async function deleteDistributeur(id, nom){
   const nb = ST.tournees.filter(t=>t.distributeur_id===id).length;
   const msg = nb>0 ? `Supprimer "${nom}" ? Il a ${nb} tournée(s) assignée(s) qui seront désassignées.` : `Supprimer "${nom}" ?`;
   if(!confirm(msg)) return;
-  if(nb>0) await sb.from('tournees').update({distributeur_id:null}).eq('distributeur_id',id);
-  const {error} = await sb.from('utilisateurs').delete().eq('id',id);
-  if(error){ showToast('❌ '+error.message); return; }
-  showToast('🗑 '+nom+' supprimé');
-  await loadDistributeurs(); renderDistributeursTable();
+  try {
+    if(nb>0) await sbPatch('tournees','distributeur_id=eq.'+id,{distributeur_id:null});
+    await sbDelete('utilisateurs','id=eq.'+id);
+    showToast('🗑 '+nom+' supprimé');
+    await loadDistributeurs(); renderDistributeursTable();
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
