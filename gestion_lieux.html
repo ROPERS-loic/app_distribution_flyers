@@ -598,7 +598,11 @@ const SUPABASE_URL = 'https://krbzipnoeroaofojccri.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: true }
+  auth: {
+    autoRefreshToken: false,
+    persistSession: true,
+    lock: (name, acquireTimeout, fn) => fn()
+  }
 });
 
 // ══════════════════════════════════════════════════════════
