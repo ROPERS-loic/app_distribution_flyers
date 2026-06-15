@@ -308,10 +308,6 @@ textarea.form-input{resize:vertical;min-height:70px}
           <div class="page-sub">Points de distribution de flyers</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary" onclick="document.getElementById('csv-import-input').click()">📂 Importer CSV</button>
-          <input type="file" id="csv-import-input" accept=".csv,.json" style="display:none" onchange="importLieux(this)">
-          <button class="btn btn-secondary" onclick="document.getElementById('zones-import-input').click()" style="background:var(--green);color:#fff" title="Importer zones_export.json depuis l'éditeur">🗂 Sync zones</button>
-          <input type="file" id="zones-import-input" accept=".json" style="display:none" onchange="importZones(this)">
           <button class="btn btn-primary" onclick="openLieuModal()">+ Nouveau lieu</button>
         </div>
       </div>
@@ -842,77 +838,6 @@ async function deleteLieu(id){
   const {error}=await sb.from('lieux').update({actif:false}).eq('id',id);
   if(error){ showToast('❌ '+error.message); return; }
   showToast('🗑 Lieu supprimé'); await loadLieux();
-}
-
-function parseCSVRobust(text){
-  const clean=text.replace(/^﻿/,'');
-  const firstLine=clean.split('\n')[0];
-  const sep=firstLine.split(';').length>firstLine.split(',').length?';':',';
-  const rows=[]; let field='',inQuote=false,row=[];
-  for(let i=0;i<clean.length;i++){
-    const c=clean[i];
-    if(inQuote){ if(c==='"'&&clean[i+1]==='"'){field+='"';i++;}else if(c==='"'){inQuote=false;}else{field+=c;} }
-    else{ if(c==='"'){inQuote=true;}else if(c===sep){row.push(field.trim());field='';}else if(c==='\n'){row.push(field.trim());rows.push(row);row=[];field='';}else if(c!=='\r'){field+=c;} }
-  }
-  if(field||row.length){row.push(field.trim());rows.push(row);}
-  if(!rows.length) return [];
-  const headers=rows[0].map(h=>h.toLowerCase().replace(/"/g,'').trim());
-  return rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{const obj={};headers.forEach((h,i)=>obj[h]=(r[i]||'').replace(/^"|"$/g,'').trim());return obj;});
-}
-
-async function importLieux(input){
-  const file=input.files[0]; if(!file) return;
-  const text=await file.text();
-  let rows=[];
-  if(file.name.endsWith('.json')){ try{rows=JSON.parse(text);}catch(e){showToast('❌ JSON invalide');return;} }
-  else { rows=parseCSVRobust(text); }
-  const mapped=rows.filter(r=>r.nom||r.name).map(r=>({
-    nom:r.nom||r.name||'',categorie:r.type_lieu||r.categorie||r.type||'',
-    adresse:r.adresse||r.address||'',code_postal:r.code_postal||r.cp||'',
-    ville:r.commune||r.ville||r.city||'',
-    latitude:parseFloat((r.latitude||r.lat||'').replace(',','.'))||null,
-    longitude:parseFloat((r.longitude||r.lon||r.lng||'').replace(',','.'))||null,
-    telephone:r.telephone||r.tel||'',zone_tournee:r.zone_tournee||r.zone||'',
-    notes:[r.description,r.classements].filter(Boolean).join(' | ')||'',actif:true
-  }));
-  if(!mapped.length){showToast('⚠ Aucun lieu trouvé');return;}
-  const {data:existingRaw}=await sb.from('lieux').select('id,nom');
-  const existingByNom={};
-  (existingRaw||[]).forEach(l=>{existingByNom[(l.nom||'').toLowerCase().trim()]=l;});
-  const toInsert=[],toUpdate=[];
-  mapped.forEach(data=>{
-    const key=(data.nom||'').toLowerCase().trim();
-    const ex=existingByNom[key];
-    if(ex) toUpdate.push({id:ex.id,data}); else toInsert.push(data);
-  });
-  let inserted=0,updated=0,errors=0;
-  for(let i=0;i<toInsert.length;i+=50){
-    const {error}=await sb.from('lieux').insert(toInsert.slice(i,i+50));
-    if(error) errors++; else inserted+=Math.min(50,toInsert.length-i);
-  }
-  for(const {id,data} of toUpdate){
-    const {error}=await sb.from('lieux').update(data).eq('id',id);
-    if(error) errors++; else updated++;
-  }
-  showToast(`✅ ${inserted} insérés · ${updated} mis à jour${errors?' · ❌ '+errors+' erreurs':''}`);
-  input.value=''; await loadLieux();
-}
-
-async function importZones(input){
-  const file=input.files[0]; if(!file) return;
-  let zones=[];
-  try{zones=JSON.parse(await file.text());}catch(e){showToast('❌ JSON invalide');return;}
-  if(!Array.isArray(zones)||!zones.length){showToast('⚠ Fichier zones vide');return;}
-  let ok=0,notFound=0,errors=0;
-  for(const z of zones){
-    if(!z.zone_tournee) continue;
-    const match=ST.lieux.find(l=>(l.nom||'').toLowerCase().trim()===(z.nom||'').toLowerCase().trim());
-    if(!match){notFound++;continue;}
-    const {error}=await sb.from('lieux').update({zone_tournee:z.zone_tournee}).eq('id',match.id);
-    if(error) errors++; else ok++;
-  }
-  showToast(`✅ ${ok} zones sync · ${notFound} non trouvés${errors?' · ❌ '+errors:''}`);;
-  input.value=''; await loadLieux();
 }
 
 // ══════════════════════════════════════════════════════════
