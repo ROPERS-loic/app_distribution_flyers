@@ -477,7 +477,7 @@ function setSbStatus(msg, connected){
 // Vérifie la session au chargement
 window.addEventListener('load', async function(){
   var { data: { session } } = await sb.auth.getSession();
-  if(session){ setSbStatus('☁️ ' + session.user.email, true); }
+  if(session){ setSbStatus('☁️ ' + session.user.email, true); autoSyncSupabase(); }
   else { setSbStatus('☁️ Non connecté', false); showSbLogin(); }
   sb.auth.onAuthStateChange(function(event, session){
     if(session){ setSbStatus('☁️ ' + session.user.email, true); }
@@ -677,7 +677,7 @@ function buildMarkers(){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
     var m=L.marker([lat,lon],{draggable:true,icon:makeIcon(zoneColor(p.zone_tournee),false,null),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
     m.on('click',function(){ tourneeMode?toggleTourneeStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
-    m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); showToast('📍 Position mise à jour'); });
+    m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
   });
 }
@@ -765,7 +765,7 @@ function saveEdit(){
   if(markers[p.id]&&!isNaN(lat)&&!isNaN(lon)) markers[p.id].setLatLng([lat,lon]);
   refreshMarkerIcon(p.id);
   document.getElementById('edit-title').textContent='✏️ '+p.nom;
-  applyFilters(); pushHistory(); saveState(); autoSaveCSV(); showToast('✓ Modifié : '+p.nom);
+  applyFilters(); pushHistory(); saveState(); autoSaveCSV(); savePOIToSupabase(p); showToast('✓ Modifié : '+p.nom);
 }
 function deletePoi(){
   var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
@@ -1214,6 +1214,62 @@ async function syncDepuisSupabase() {
 
   showToast('✅ Sync terminée — ' + updated + ' mis à jour, ' + added + ' ajoutés');
   btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════
+//  AUTO-SYNC SUPABASE AU DÉMARRAGE (silencieux)
+// ══════════════════════════════════════════════════════════
+async function autoSyncSupabase() {
+  var { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  var { data, error } = await sb.from('lieux').select('*').eq('actif', true).order('nom');
+  if (error || !data || !data.length) return;
+  POIS.length = 0;
+  var maxId = 0;
+  data.forEach(function(l) {
+    if (!l.latitude || !l.longitude) return;
+    var id = 90000 + l.id;
+    if (id > maxId) maxId = id;
+    POIS.push({
+      id: id, supabase_id: l.id,
+      nom: l.nom || '', type_lieu: l.categorie || '',
+      commune: l.ville || '', code_postal: l.code_postal || '',
+      departement: '', adresse: l.adresse || '',
+      lat: String(l.latitude), lon: String(l.longitude),
+      contacts: l.telephone || '', zone_tournee: l.zone_tournee || '',
+      statut: '', source: 'Supabase'
+    });
+  });
+  nextId = maxId + 1;
+  Object.keys(markers).forEach(function(id) { map.removeLayer(markers[id]); });
+  markers = {};
+  document.getElementById('restore-banner').classList.add('hidden');
+  buildMarkers(); applyFilters(); saveState();
+  showToast('✅ ' + POIS.length + ' lieux chargés depuis Supabase');
+}
+
+// ══════════════════════════════════════════════════════════
+//  SAUVEGARDE INDIVIDUELLE VERS SUPABASE
+// ══════════════════════════════════════════════════════════
+async function savePOIToSupabase(p) {
+  var { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  var payload = {
+    nom: p.nom || '', categorie: p.type_lieu || '',
+    adresse: p.adresse || '', code_postal: p.code_postal || '',
+    ville: p.commune || '',
+    latitude: parseFloat(p.lat) || null,
+    longitude: parseFloat(p.lon) || null,
+    telephone: p.contacts || '', zone_tournee: p.zone_tournee || '',
+    actif: true
+  };
+  if (p.supabase_id) {
+    await sb.from('lieux').update(payload).eq('id', p.supabase_id);
+  } else {
+    var { data: existing } = await sb.from('lieux').select('id').eq('nom', p.nom).maybeSingle();
+    if (existing) { p.supabase_id = existing.id; await sb.from('lieux').update(payload).eq('id', existing.id); }
+    else { var { data: ins } = await sb.from('lieux').insert(payload).select('id').single(); if(ins) p.supabase_id = ins.id; }
+  }
 }
 
 // ══════════════════════════════════════════════════════════
