@@ -597,9 +597,7 @@ textarea.form-input{resize:vertical;min-height:70px}
 const SUPABASE_URL = 'https://krbzipnoeroaofojccri.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ══════════════════════════════════════════════════════════
 //  STATE
@@ -661,16 +659,10 @@ async function startApp(user){
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const result = await Promise.race([
-      sb.auth.getSession(),
-      new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-    ]);
-    if(result.data?.session) await startApp(result.data.session.user);
-  } catch(e) {
-    // Session refresh bloquée — affiche le formulaire de login
-    console.log('Session non restaurée, connexion requise');
-  }
+  console.log('🔵 DOMContentLoaded');
+  const { data: { session } } = await sb.auth.getSession();
+  console.log('🔵 getSession done', session ? 'session ok' : 'no session');
+  if(session) await startApp(session.user);
 });
 
 sb.auth.onAuthStateChange(async (event, session) => {
@@ -690,6 +682,7 @@ async function loadAll(){
 }
 
 async function loadLieux(){
+  console.log('🟡 loadLieux start');
   try {
     const timeout = new Promise((_,reject) => setTimeout(()=>reject(new Error('Timeout — vérifiez votre connexion ou les paramètres de confidentialité du navigateur')), 20000));
     const {data,error} = await Promise.race([
