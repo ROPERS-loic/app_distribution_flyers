@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tournée J13</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body { margin:0; font-family: Arial, sans-serif; }
+  #map { height: calc(100vh - 130px); }
+  #header { background:#2E74B5; color:#fff; padding:10px 16px; }
+  #header h2 { margin:0 0 4px 0; font-size:18px; }
+  #header .meta { font-size:12px; opacity:0.9; }
+  #legend { position:absolute; bottom:20px; right:10px; z-index:1000; background:white;
+             border:1px solid #ccc; border-radius:6px; padding:10px; font-size:12px;
+             box-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+  .leg-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
+  .leg-dot { width:14px; height:14px; border-radius:50%; display:inline-block; }
+  #stats { position:absolute; top:140px; right:10px; z-index:1000; background:white;
+            border:1px solid #ccc; border-radius:6px; padding:10px; font-size:12px;
+            max-width:220px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+  #stats .stat-row { margin:3px 0; }
+  #stats .zone-label { font-weight:bold; color:#1E88E5; font-size:11px; }
+  #stats .zone-label.pm { color:#F57C00; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h2>📅 JOURNÉE 13  –  28 arrêts</h2>
+  <div class="meta">
+    🌅 Matin 8h–12h : 10 arrêts | 57 km entre arrêts
+    &nbsp;&nbsp;|&nbsp;&nbsp; 🌇 Après-midi 14h–18h : 18 arrêts | 79 km entre arrêts
+    &nbsp;&nbsp;|&nbsp;&nbsp; 🌙 Brujas (07150)
+  </div>
+</div>
+<div id="map"></div>
+
+<div id="stats">
+  <b>🌅 Matin</b><br>
+  <div class="zone-label">Z4 - Barjac / Cèze nord (Gard)</div>
+  <div class="stat-row">Communes : Saint-Privat-de-Champclos, Saint-Jean-de-Maruéjols-et-Avéjan...</div>
+  <div class="stat-row">10 arrêts · 57 km</div>
+  <br><b>🌇 Après-midi</b><br><div class="zone-label pm">Z5 - Gorges de la Cèze / Gard sud</div><div class="stat-row">Communes : Goudargues, Cornillon, La Roque-sur-Cèze, Carsan, Cavillargu...</div><div class="stat-row">18 arrêts · 79 km</div>
+</div>
+
+<div id="legend">
+  <b>Légende</b><br>
+  <div class="leg-row"><span class="leg-dot" style="background:#1E88E5"></span> Matin (AM)</div>
+  <div class="leg-row"><span class="leg-dot" style="background:#F57C00"></span> Après-midi (PM)</div>
+  <div class="leg-row">🟢 Départ / Nuit</div>
+  <div class="leg-row">↩️ Retour fin journée</div>
+</div>
+
+<script>
+var map = L.map('map').setView([44.239478500000004, 4.278058], 9);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+function makeIcon(num, color) {
+    return L.divIcon({
+        html: '<div style="background:' + color + ';color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5)">' + num + '</div>',
+        iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-14], className:''
+    });
+}
+
+function makeStar(color, label) {
+    return L.divIcon({
+        html: '<div style="background:' + color + ';color:white;width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.6)" title="' + label + '">★</div>',
+        iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-18], className:''
+    });
+}
+
+// ── AM markers & route ──────────────────────────────────────────────────────
+var amPois = [{
+            lat:44.293, lng:4.326,
+            num:1, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>1. Village de Saint-Privat-de-Champclos</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-Privat-de-Champclos<br>            <b>Adresse :</b> 30430 Saint-Privat-de-Champclos<br>                    </div>"
+        },
+{
+            lat:44.29, lng:4.31,
+            num:2, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>2. Village de Saint-Jean-de-Maruéjols</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-Jean-de-Maruéjols-et-Avéjan<br>            <b>Adresse :</b> 30430 Saint-Jean-de-Maruéjols-et-Avéjan<br>                    </div>"
+        },
+{
+            lat:44.27405, lng:4.348803,
+            num:3, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>3. Domaine le Clos des Capitelles</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Saint-Privat-de-Champclos<br>            <b>Adresse :</b> 1030 Route Du Mas, 30430 Saint-Privat-de-Champclos<br>            <b>Contact :</b> #https://www.campingclosdescapitelles.com/<br>        </div>"
+        },
+{
+            lat:44.266986, lng:4.351861,
+            num:4, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>4. Domaine naturiste de La Sablière</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Saint-Privat-de-Champclos<br>            <b>Adresse :</b> 1890 Route du Mas, 30430 Saint-Privat-de-Champclos<br>            <b>Contact :</b> #http://www.villagesabliere.com/<br>        </div>"
+        },
+{
+            lat:44.282, lng:4.37,
+            num:5, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>5. Village de Tharaux</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Tharaux<br>            <b>Adresse :</b> 30430 Tharaux<br>                    </div>"
+        },
+{
+            lat:44.279516, lng:4.38439,
+            num:6, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>6. Camping Le Mas de Linde</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Saint-Privat-de-Champclos<br>            <b>Adresse :</b> 208 Chemin de Linde, 30430 Saint-Privat-de-Champclos<br>            <b>Contact :</b> #https://masdelinde.com/camping-a-la-ferme-gard/emplacements/<br>        </div>"
+        },
+{
+            lat:44.258594, lng:4.299706,
+            num:7, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>7. Camping l&#39;Oliveraie</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Saint-Jean-de-Maruéjols-et-Avéjan<br>            <b>Adresse :</b> 230 Chemin de la Guinguette Camping L&#39;Oliveraie, 30430 Saint-Jean-de-Maruéjols-et-Avéjan<br>            <b>Contact :</b> #https://www.gites-oliveraie.com/<br>        </div>"
+        },
+{
+            lat:44.326804, lng:4.026537,
+            num:8, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>8. Eglise Notre Dame de l&#39;Assomption à Sénéchas</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Sénéchas<br>            <b>Adresse :</b> Place de l&#39;Eglise, 30450 Sénéchas<br>                    </div>"
+        },
+{
+            lat:44.365006, lng:3.962676,
+            num:9, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>9. Blason de Sénéchas</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Sénéchas<br>            <b>Adresse :</b> Place de l&#39;Eglise, 30450 Sénéchas<br>            <b>Contact :</b> #http://www.senechas.com/<br>        </div>"
+        },
+{
+            lat:44.365006, lng:3.962676,
+            num:10, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>10. Sénéchas</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Sénéchas<br>            <b>Adresse :</b> Place de l&#39;Eglise, 30450 Sénéchas<br>            <b>Contact :</b> #http://www.senechas.com/<br>        </div>"
+        }];
+var amCoords = [[44.387, 4.363], [44.293, 4.326], [44.29, 4.31], [44.27405, 4.348803], [44.266986, 4.351861], [44.282, 4.37], [44.279516, 4.38439], [44.258594, 4.299706], [44.326804, 4.026537], [44.365006, 3.962676], [44.365006, 3.962676]];
+
+// Route line AM
+L.polyline(amCoords, {color:'#1E88E5', weight:3, opacity:0.7, dashArray:'6,4'}).addTo(map);
+
+amPois.forEach(function(p) {
+    L.marker([p.lat, p.lng], {icon: makeIcon(p.num, p.color)})
+     .addTo(map)
+     .bindPopup(p.popup);
+});
+
+// ── PM markers & route ──────────────────────────────────────────────────
+var pmPois = [{
+            lat:44.222189, lng:4.462331,
+            num:1, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>1. Flower Camping Le Saint Michelet</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> Route de Frigoulet 112 Chemin du Bouillidou, 30630 Goudargues<br>            <b>Contact :</b> #https://www.gard-camping.com/<br>        </div>"
+        },
+{
+            lat:44.215, lng:4.465,
+            num:2, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>2. Camping du Lac</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Cornillon<br>            <b>Adresse :</b> 30630 Cornillon<br>                    </div>"
+        },
+{
+            lat:44.214305, lng:4.468844,
+            num:3, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>3. Camping La Grenouille</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> 4 Avenue du Lavoir, 30630 Goudargues<br>            <b>Contact :</b> #https://www.camping-la-grenouille.com/<br>        </div>"
+        },
+{
+            lat:44.215903, lng:4.469777,
+            num:4, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>4. Goudargues</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> 4, route de Pont-Saint-Esprit, 30630 Goudargues<br>            <b>Contact :</b> #http://www.goudargues.fr/<br>        </div>"
+        },
+{
+            lat:44.21598, lng:4.469691,
+            num:5, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>5. Bureau d&#39;Information Touristique de Goudargues</b><br>            <span style='color:#666'>Office de tourisme</span> ℹ️<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> 4 Route de Pont-Saint-Esprit, 30630 Goudargues<br>            <b>Contact :</b> #https://www.provenceoccitane.com/<br>        </div>"
+        },
+{
+            lat:44.220521, lng:4.479062,
+            num:6, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>6. Camping Paradis Les Amarines</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Cornillon<br>            <b>Adresse :</b> 181 Route de Goudargues, 30630 Cornillon<br>            <b>Contact :</b> #https://www.campinglesamarines.com/<br>        </div>"
+        },
+{
+            lat:44.225162, lng:4.487851,
+            num:7, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>7. Cornillon</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Cornillon<br>            <b>Adresse :</b> Parking sous les remparts, 30630 Cornillon<br>            <b>Contact :</b> #http://www.cornillon.fr/<br>        </div>"
+        },
+{
+            lat:44.21, lng:4.462,
+            num:8, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>8. Hôtel La Glycine</b><br>            <span style='color:#666'>Hôtel</span> 🏨<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> 30630 Goudargues<br>                    </div>"
+        },
+{
+            lat:44.200747, lng:4.477573,
+            num:9, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>9. Camping et Aire Naturelle Le Mas de Rome</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Goudargues<br>            <b>Adresse :</b> 553 Chemin de Rome, 30630 Goudargues<br>            <b>Contact :</b> #https://campinglemasderome.com/<br>        </div>"
+        },
+{
+            lat:44.192632, lng:4.502501,
+            num:10, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>10. Camping Les Libellules</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Cornillon<br>            <b>Adresse :</b> Hameau de Saint-Gély 2319 Chemin des Campings, 30630 Cornillon<br>            <b>Contact :</b> #https://campingleslibellules.com/?page_id=81&lang=fr<br>        </div>"
+        },
+{
+            lat:44.201752, lng:4.508879,
+            num:11, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>11. Camping Domaine des Bords de Cèze</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Cornillon<br>            <b>Adresse :</b> 1044 Chemin des Campings, 30630 Cornillon<br>            <b>Contact :</b> #https://www.lesbordsdeceze.com/<br>        </div>"
+        },
+{
+            lat:44.193659, lng:4.518653,
+            num:12, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>12. La Roque sur Cèze, village classé \"Plus Beaux Villages de France\"</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> La Roque-sur-Cèze<br>            <b>Adresse :</b> 30200 La Roque-sur-Cèze<br>            <b>Contact :</b> #http://www.laroquesurceze.fr/<br>        </div>"
+        },
+{
+            lat:44.192338, lng:4.524408,
+            num:13, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>13. Les Cascades du Sautadet</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> La Roque-sur-Cèze<br>            <b>Adresse :</b> Cascades du Sautadet, 30200 La Roque-sur-Cèze<br>            <b>Contact :</b> #http://www.laroquesurceze.fr/<br>        </div>"
+        },
+{
+            lat:44.188402, lng:4.524144,
+            num:14, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>14. Camping Slow Village La Roque sur Cèze</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> La Roque-sur-Cèze<br>            <b>Adresse :</b> 529 Route de Donnat, 30200 La Roque-sur-Cèze<br>            <b>Contact :</b> #https://www.slow-village.com/destinations/occitanie/la-roque-sur-ceze/<br>        </div>"
+        },
+{
+            lat:44.187649, lng:4.524704,
+            num:15, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>15. Camping Yelloh! Village Les Cascades</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> La Roque-sur-Cèze<br>            <b>Adresse :</b> 693 Route de Donnat, 30200 La Roque-sur-Cèze<br>            <b>Contact :</b> #https://www.campinglescascades.com/<br>        </div>"
+        },
+{
+            lat:44.224, lng:4.558,
+            num:16, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>16. Jardin des Grands Causses</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Carsan<br>            <b>Adresse :</b> 30130 Carsan<br>                    </div>"
+        },
+{
+            lat:44.23786, lng:4.59344,
+            num:17, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>17. Carsan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Carsan<br>            <b>Adresse :</b> 30130 Carsan<br>            <b>Contact :</b> #http://www.carsan.fr/<br>        </div>"
+        },
+{
+            lat:44.113951, lng:4.521934,
+            num:18, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>18. Cavillargues</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Cavillargues<br>            <b>Adresse :</b> Tour de Ville, 30330 Cavillargues<br>            <b>Contact :</b> #https://mairiedecavillargues.com/<br>        </div>"
+        }];
+var pmCoords = [[44.365006, 3.962676], [44.222189, 4.462331], [44.215, 4.465], [44.214305, 4.468844], [44.215903, 4.469777], [44.21598, 4.469691], [44.220521, 4.479062], [44.225162, 4.487851], [44.21, 4.462], [44.200747, 4.477573], [44.192632, 4.502501], [44.201752, 4.508879], [44.193659, 4.518653], [44.192338, 4.524408], [44.188402, 4.524144], [44.187649, 4.524704], [44.224, 4.558], [44.23786, 4.59344], [44.113951, 4.521934]];
+L.polyline(pmCoords, {color:"#F57C00", weight:3, opacity:0.7, dashArray:"6,4"}).addTo(map);
+pmPois.forEach(function(p) {{ L.marker([p.lat, p.lng], {icon: makeIcon(p.num, p.color)}).addTo(map).bindPopup(p.popup); }});
+
+// ── Special markers ─────────────────────────────────────────────────────────
+// Start of day
+var startLat = 44.387, startLon = 4.363;
+var startLabel = startLat == 44.3905 ? "Départ : Nougaterie du Pont d\'Arc" : "Départ matin : Brujas (07150)";
+L.marker([startLat, startLon], {icon: makeStar('#2E7D32', startLabel)})
+ .addTo(map).bindPopup('<b>' + startLabel + '</b>');
+
+// End of day / night
+var nuitLabel = "🌙 Brujas (07150)";
+L.marker([44.387, 4.363], {icon: makeStar('#6A1B9A', nuitLabel)})
+ .addTo(map).bindPopup('<b>' + nuitLabel + '</b>');
+
+</script>
+</body>
+</html>

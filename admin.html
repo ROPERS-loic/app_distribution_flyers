@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin – Nougaterie Distribution</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ══ VARIABLES ══ */
+:root{
+  --gold:#F5C21A;--gold-dk:#DBA10E;--gold-lt:#FFF8DC;
+  --black:#1A1A1A;--grey:#6B6B6B;--grey-lt:#F0F0F0;
+  --cream:#F7F6F2;--white:#fff;
+  --green:#27AE60;--green-lt:#E8F8EF;
+  --red:#E53935;--red-lt:#FFEBEE;
+  --orange:#E8870A;--orange-lt:#FFF3E0;
+  --blue:#2563EB;--blue-lt:#EFF6FF;
+  --sidebar:220px;--header:54px;
+  --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--black);height:100vh;overflow:hidden}
+h1,h2,h3,.title{font-family:'Montserrat',sans-serif}
+button{cursor:pointer;font-family:'Inter',sans-serif}
+input,select,textarea{font-family:'Inter',sans-serif}
+a{color:inherit;text-decoration:none}
+
+/* ══ LOGIN ══ */
+#login-screen{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--black)}
+.login-card{background:var(--white);border-radius:16px;padding:40px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo .bee{font-size:48px}
+.login-logo h2{font-size:18px;font-weight:800;margin-top:8px}
+.login-logo p{font-size:12px;color:var(--grey);margin-top:4px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.login-field input{width:100%;padding:11px 13px;border:1.5px solid #E5E5E5;border-radius:var(--radius);font-size:14px;outline:none;transition:.15s}
+.login-field input:focus{border-color:var(--gold)}
+.login-err{background:var(--red-lt);color:var(--red);border-radius:var(--radius);padding:10px;font-size:12px;margin-bottom:12px;display:none}
+.btn-login{width:100%;padding:13px;background:var(--gold);color:var(--black);border:none;border-radius:var(--radius);font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;margin-top:4px}
+.btn-login:hover{background:var(--gold-dk)}
+
+/* ══ APP SHELL ══ */
+#app{display:none;height:100vh;flex-direction:column}
+#app.visible{display:flex}
+
+/* Header */
+#app-header{height:var(--header);background:var(--black);color:var(--white);display:flex;align-items:center;padding:0 16px;gap:14px;flex-shrink:0;z-index:100}
+.hdr-logo{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
+.hdr-logo .bee{font-size:20px}
+.hdr-tabs{display:flex;gap:2px;margin-left:8px}
+.hdr-tab{padding:7px 14px;border:none;background:none;color:rgba(255,255,255,.55);border-radius:7px;font-size:12px;font-weight:600;transition:.15s}
+.hdr-tab:hover{background:rgba(255,255,255,.1);color:var(--white)}
+.hdr-tab.active{background:var(--gold);color:var(--black)}
+.hdr-spacer{flex:1}
+.hdr-user{font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:8px}
+.btn-logout{padding:6px 12px;background:rgba(255,255,255,.1);border:none;border-radius:7px;color:var(--white);font-size:11px;font-weight:600}
+.btn-logout:hover{background:rgba(255,255,255,.2)}
+
+/* Body */
+#app-body{flex:1;overflow:hidden;display:flex}
+
+/* Sections */
+.section{display:none;flex:1;overflow-y:auto;padding:20px}
+.section.active{display:block}
+#section-carte{display:none;flex:1;overflow:hidden;padding:0}
+#section-carte.active{display:flex;flex-direction:column}
+
+/* ══ COMMON COMPONENTS ══ */
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px}
+.page-sub{font-size:12px;color:var(--grey);margin-bottom:20px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card-header{padding:14px 16px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:13px;font-weight:700}
+
+/* Buttons */
+.btn{padding:8px 16px;border:none;border-radius:7px;font-size:12px;font-weight:700;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--gold);color:var(--black)}
+.btn-primary:hover{background:var(--gold-dk)}
+.btn-secondary{background:var(--grey-lt);color:var(--black)}
+.btn-secondary:hover{background:#e0e0e0}
+.btn-danger{background:var(--red-lt);color:var(--red)}
+.btn-danger:hover{background:#ffd6d6}
+.btn-success{background:var(--green-lt);color:var(--green)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat-card{background:var(--white);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.stat-card .val{font-family:'Montserrat',sans-serif;font-size:28px;font-weight:800;color:var(--black)}
+.stat-card .lbl{font-size:11px;color:var(--grey);margin-top:4px}
+.stat-card .trend{font-size:11px;font-weight:600;margin-top:6px}
+.trend-up{color:var(--green)}
+.trend-ok{color:var(--orange)}
+
+/* Table */
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{background:var(--cream);padding:10px 13px;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:1px solid var(--grey-lt)}
+.data-table td{padding:11px 13px;font-size:12px;border-bottom:1px solid var(--grey-lt);vertical-align:middle}
+.data-table tr:hover td{background:var(--cream)}
+.data-table tr:last-child td{border-bottom:none}
+
+/* Search bar */
+.search-row{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+.search-input{padding:9px 13px;border:1.5px solid #E5E5E5;border-radius:var(--radius);font-size:13px;outline:none;width:280px;transition:.15s}
+.search-input:focus{border-color:var(--gold)}
+.filter-select{padding:9px 11px;border:1.5px solid #E5E5E5;border-radius:var(--radius);font-size:12px;outline:none;background:var(--white)}
+
+/* Badges */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.b-planifiee{background:#E3F2FD;color:#1565C0}
+.b-en_cours{background:var(--orange-lt);color:var(--orange)}
+.b-terminee{background:var(--green-lt);color:var(--green)}
+.b-annulee{background:var(--grey-lt);color:var(--grey)}
+.b-a_faire{background:var(--grey-lt);color:var(--grey)}
+.b-distribue{background:var(--green-lt);color:var(--green)}
+.b-ferme{background:var(--red-lt);color:var(--red)}
+.b-refus{background:#F3E5F5;color:#7B1FA2}
+.b-absent{background:var(--orange-lt);color:var(--orange)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:14px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
+.modal-header h3{font-size:15px;font-weight:800}
+.modal-close{background:none;border:none;font-size:20px;color:var(--grey);line-height:1}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--grey-lt);display:flex;justify-content:flex-end;gap:10px}
+
+/* Form */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:10px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.form-input{width:100%;padding:10px 12px;border:1.5px solid #E5E5E5;border-radius:8px;font-size:13px;outline:none;transition:.15s;background:var(--white);color:var(--black)}
+.form-input:focus{border-color:var(--gold)}
+textarea.form-input{resize:vertical;min-height:70px}
+
+/* ══ DASHBOARD ══ */
+.dash-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.tournee-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--grey-lt);cursor:pointer}
+.tournee-row:last-child{border-bottom:none}
+.tournee-row:hover{background:var(--cream);margin:0 -16px;padding:10px 16px}
+.tr-icon{width:36px;height:36px;border-radius:8px;background:var(--gold-lt);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.tr-info{flex:1;min-width:0}
+.tr-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-meta{font-size:11px;color:var(--grey);margin-top:2px}
+.prog-mini{background:#E5E5E5;height:4px;border-radius:2px;margin-top:5px;overflow:hidden}
+.prog-mini-fill{background:var(--gold);height:4px;border-radius:2px}
+
+/* Realtime list */
+.rt-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--grey-lt);font-size:12px}
+.rt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rt-nom{flex:1;font-weight:600}
+
+/* ══ SECTION TOURNÉE DETAIL ══ */
+#tournee-detail-view{display:none}
+.detail-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.detail-header h2{font-size:18px;font-weight:800}
+
+/* Stop list in detail */
+.stop-list-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--grey-lt);transition:.15s}
+.stop-list-item:hover{background:var(--cream)}
+.stop-ord{width:26px;height:26px;border-radius:50%;background:var(--gold-lt);color:var(--gold-dk);font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stop-info{flex:1;min-width:0}
+.stop-nom{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stop-addr{font-size:10px;color:var(--grey);margin-top:1px}
+
+/* Carte */
+#map-container{flex:1;position:relative}
+#map{width:100%;height:100%}
+.map-controls{position:absolute;top:10px;right:10px;z-index:400;display:flex;flex-direction:column;gap:6px}
+.map-filter{background:var(--white);border:none;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:700;box-shadow:var(--shadow);cursor:pointer}
+.map-filter.active{background:var(--gold)}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.92);color:var(--white);padding:10px 20px;border-radius:20px;font-size:12px;font-weight:600;z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s;white-space:nowrap}
+#toast.show{opacity:1}
+
+/* Loader */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--gold-dk);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Suivi live */
+.live-badge{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Lieux picker in tournée */
+#lieux-picker{max-height:260px;overflow-y:auto;border:1.5px solid #E5E5E5;border-radius:8px;margin-top:6px}
+.lieu-pick-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--grey-lt);cursor:pointer;transition:.15s}
+.lieu-pick-item:hover{background:var(--cream)}
+.lieu-pick-item.selected{background:var(--gold-lt)}
+.lieu-pick-item:last-child{border-bottom:none}
+.lpi-check{width:18px;height:18px;border-radius:4px;border:2px solid #ddd;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.15s}
+.lieu-pick-item.selected .lpi-check{background:var(--gold);border-color:var(--gold)}
+.lpi-name{font-size:12px;font-weight:600;flex:1}
+.lpi-cat{font-size:10px;color:var(--grey)}
+.lpi-search{width:100%;padding:9px 12px;border:none;border-bottom:1.5px solid var(--grey-lt);font-size:12px;outline:none}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="bee">🐝</div>
+      <h2>Nougaterie Distribution</h2>
+      <p>Interface administrateur</p>
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="votre@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="app-header">
+    <div class="hdr-logo"><span class="bee">🐝</span> Nougaterie</div>
+    <div class="hdr-tabs">
+      <button class="hdr-tab active" onclick="showSection('dashboard')" id="tab-dashboard">🏠 Dashboard</button>
+      <button class="hdr-tab" onclick="showSection('lieux')" id="tab-lieux">📍 Lieux</button>
+      <button class="hdr-tab" onclick="showSection('tournees')" id="tab-tournees">🗺️ Tournées</button>
+      <button class="hdr-tab" onclick="showSection('carte')" id="tab-carte">🗺 Carte</button>
+      <button class="hdr-tab" onclick="showSection('suivi')" id="tab-suivi">📡 Suivi live</button>
+    </div>
+    <div class="hdr-spacer"></div>
+    <div class="hdr-user">
+      <span id="hdr-username">—</span>
+      <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div id="app-body">
+
+    <!-- ══ DIAGNOSTIC ══ -->
+    <div id="diag-banner" style="background:#1A1A1A;color:#F5C21A;padding:12px 20px;font-size:13px;font-family:monospace;display:none;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;flex-shrink:0"></div>
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="section active" id="section-dashboard">
+      <div class="page-title">Tableau de bord</div>
+      <div class="page-sub">Vue d'ensemble de la distribution</div>
+
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card"><div class="val" id="st-lieux">—</div><div class="lbl">Lieux actifs</div></div>
+        <div class="stat-card"><div class="val" id="st-tournees">—</div><div class="lbl">Tournées</div></div>
+        <div class="stat-card"><div class="val" id="st-distribues">—</div><div class="lbl">Points validés</div></div>
+        <div class="stat-card"><div class="val" id="st-flyers">—</div><div class="lbl">Flyers distribués</div></div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3>Tournées récentes</h3>
+            <button class="btn btn-primary btn-sm" onclick="showSection('tournees')">Voir tout</button>
+          </div>
+          <div style="padding:4px 16px" id="dash-tournees-list">
+            <div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Chargement…</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Activité récente <span class="live-badge" style="margin-left:6px"></span></h3>
+          </div>
+          <div style="padding:4px 16px" id="dash-activity">
+            <div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">En attente…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LIEUX ══ -->
+    <div class="section" id="section-lieux">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div class="page-title">Gestion des lieux</div>
+          <div class="page-sub">Points de distribution de flyers</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="document.getElementById('csv-import-input').click()">📂 Importer CSV</button>
+          <input type="file" id="csv-import-input" accept=".csv,.json" style="display:none" onchange="importLieux(this)">
+          <button class="btn btn-secondary" onclick="document.getElementById('zones-import-input').click()" title="Importer le fichier zones_export.json généré depuis l'éditeur de lieux" style="background:var(--green);color:#fff">🗂 Sync zones</button>
+          <input type="file" id="zones-import-input" accept=".json" style="display:none" onchange="importZones(this)">
+          <button class="btn btn-primary" onclick="openLieuModal()">+ Nouveau lieu</button>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input class="search-input" type="search" id="lieux-search" placeholder="🔍 Rechercher…" oninput="filterLieuxTable()">
+        <select class="filter-select" id="lieux-cat-filter" onchange="filterLieuxTable()">
+          <option value="">Toutes catégories</option>
+        </select>
+        <select class="filter-select" id="lieux-zone-filter" onchange="filterLieuxTable()">
+          <option value="">Toutes zones</option>
+        </select>
+        <span style="font-size:12px;color:var(--grey)" id="lieux-count"></span>
+      </div>
+
+      <div class="card">
+        <table class="data-table" id="lieux-table">
+          <thead>
+            <tr>
+              <th>Nom</th><th>Catégorie</th><th>Ville</th><th>Zone</th><th>Statut</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="lieux-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ TOURNÉES ══ -->
+    <div class="section" id="section-tournees">
+
+      <!-- LIST VIEW -->
+      <div id="tournees-list-view">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+          <div>
+            <div class="page-title">Tournées</div>
+            <div class="page-sub">Créez et gérez les tournées de distribution</div>
+          </div>
+          <button class="btn btn-primary" onclick="openTourneeModal()">+ Nouvelle tournée</button>
+        </div>
+
+        <div class="search-row">
+          <input class="search-input" type="search" id="tournees-search" placeholder="🔍 Rechercher…" oninput="filterTourneesTable()">
+          <select class="filter-select" id="tournees-statut-filter" onchange="filterTourneesTable()">
+            <option value="">Tous statuts</option>
+            <option value="planifiee">Planifiée</option>
+            <option value="en_cours">En cours</option>
+            <option value="terminee">Terminée</option>
+            <option value="annulee">Annulée</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <table class="data-table">
+            <thead>
+              <tr><th>Tournée</th><th>Date</th><th>Distributeur</th><th>Secteur</th><th>Statut</th><th>Progression</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="tournees-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DETAIL VIEW -->
+      <div id="tournee-detail-view">
+        <div class="detail-header">
+          <button class="btn btn-secondary btn-sm" onclick="closeTourneeDetail()">← Retour</button>
+          <h2 id="detail-title">Tournée</h2>
+          <span class="badge" id="detail-badge"></span>
+          <div style="flex:1"></div>
+          <button class="btn btn-primary btn-sm" onclick="openAddStopModal()">+ Ajouter des lieux</button>
+          <button class="btn btn-secondary btn-sm" onclick="openGmapTournee()">🗺️ Google Maps</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-header">
+              <h3 id="detail-stops-title">Arrêts</h3>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span id="detail-prog-text" style="font-size:11px;color:var(--grey)"></span>
+              </div>
+            </div>
+            <div id="detail-stops-list"></div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-header"><h3>Informations</h3></div>
+              <div style="padding:14px;display:flex;flex-direction:column;gap:8px" id="detail-infos"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Changer le statut</h3></div>
+              <div style="padding:14px;display:flex;flex-direction:column;gap:8px">
+                <button class="btn btn-sm" style="background:#E3F2FD;color:#1565C0" onclick="updateTourneeStatut('planifiee')">Planifiée</button>
+                <button class="btn btn-sm" style="background:var(--orange-lt);color:var(--orange)" onclick="updateTourneeStatut('en_cours')">En cours</button>
+                <button class="btn btn-sm btn-success" onclick="updateTourneeStatut('terminee')">✓ Terminée</button>
+                <button class="btn btn-sm" style="background:var(--grey-lt);color:var(--grey)" onclick="updateTourneeStatut('annulee')">Annulée</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CARTE ══ -->
+    <div class="section" id="section-carte">
+      <div style="padding:10px 14px;background:var(--white);border-bottom:1px solid var(--grey-lt);display:flex;gap:8px;align-items:center">
+        <span style="font-size:13px;font-weight:700">Carte des lieux</span>
+        <select class="filter-select" id="map-tournee-filter" onchange="filterMap()" style="margin-left:auto">
+          <option value="">Tous les lieux</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="centerMap()">📍 Recentrer</button>
+      </div>
+      <div id="map-container"><div id="map"></div></div>
+    </div>
+
+    <!-- ══ SUIVI LIVE ══ -->
+    <div class="section" id="section-suivi">
+      <div class="page-title">Suivi en temps réel <span class="live-badge"></span></div>
+      <div class="page-sub">Progression des distributeurs en direct</div>
+
+      <div id="suivi-tournees-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+        <div style="color:var(--grey);font-size:13px">Aucune tournée en cours…</div>
+      </div>
+    </div>
+
+  </div><!-- /app-body -->
+</div><!-- /app -->
+
+<!-- ══ MODALS ══ -->
+
+<!-- Lieu modal -->
+<div class="modal-overlay" id="modal-lieu">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="lieu-modal-title">Nouveau lieu</h3>
+      <button class="modal-close" onclick="closeModal('modal-lieu')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="f-nom" placeholder="Nom du lieu"></div>
+        <div class="form-group"><label class="form-label">Catégorie</label>
+          <select class="form-input" id="f-categorie">
+            <option value="">— Choisir —</option>
+            <option>Hôtel</option><option>Camping</option><option>Office de tourisme</option>
+            <option>Restaurant</option><option>Site touristique</option><option>Gîte</option>
+            <option>Chambre d'hôtes</option><option>Loisirs</option><option>Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="f-adresse" placeholder="Rue, numéro…"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Code postal</label><input class="form-input" id="f-cp" placeholder="07150"></div>
+        <div class="form-group"><label class="form-label">Ville</label><input class="form-input" id="f-ville" placeholder="Vallon-Pont-d'Arc"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="f-lat" type="number" step="0.0001" placeholder="44.4073"></div>
+        <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="f-lon" type="number" step="0.0001" placeholder="4.3980"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-tel" placeholder="04 75…"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" type="email" placeholder="contact@…"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Zone de tournée</label><input class="form-input" id="f-zone" placeholder="ex: Vallon, Ruoms, Alba…"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="f-notes" placeholder="Informations utiles…"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-lieu')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveLieu()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tournée modal -->
+<div class="modal-overlay" id="modal-tournee">
+  <div class="modal-box" style="width:680px">
+    <div class="modal-header">
+      <h3>Nouvelle tournée</h3>
+      <button class="modal-close" onclick="closeModal('modal-tournee')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nom de la tournée *</label><input class="form-input" id="t-nom" placeholder="ex: Vallon / Ruoms"></div>
+        <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="t-date" type="date"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Distributeur</label>
+          <select class="form-input" id="t-distributeur">
+            <option value="">— Choisir —</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Secteur</label><input class="form-input" id="t-secteur" placeholder="ex: Zone Ardèche"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Commentaire</label><textarea class="form-input" id="t-commentaire" rows="2" placeholder="Instructions pour le distributeur…"></textarea></div>
+
+      <div class="form-group">
+        <label class="form-label">Lieux à inclure</label>
+        <input class="lpi-search" type="search" id="lieux-picker-search" placeholder="🔍 Filtrer les lieux…" oninput="filterLieuxPicker()">
+        <div id="lieux-picker"></div>
+        <div style="margin-top:6px;font-size:11px;color:var(--grey)" id="picker-count">0 lieu sélectionné</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité de flyers par lieu (défaut)</label>
+        <input class="form-input" id="t-quantite" type="number" min="0" value="10" style="width:120px">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-tournee')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTournee()">Créer la tournée</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add stops modal -->
+<div class="modal-overlay" id="modal-add-stops">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Ajouter des lieux</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-stops')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="lpi-search" type="search" id="add-stops-search" placeholder="🔍 Filtrer…" oninput="filterAddStops()">
+      <div id="add-stops-picker" style="max-height:340px;overflow-y:auto;border:1.5px solid #E5E5E5;border-radius:8px;margin-top:8px"></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--grey)" id="add-stops-count">0 sélectionné</div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Quantité flyers</label>
+        <input class="form-input" id="add-stops-qty" type="number" value="10" style="width:120px">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-stops')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAddStops()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  CONFIG SUPABASE
+// ══════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://krbzipnoeroaofojccri.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+var ST = {
+  user: null, profile: null,
+  lieux: [], lieuxFiltered: [],
+  tournees: [], tourneesFiltered: [],
+  distributeurs: [],
+  currentTourneeId: null,
+  currentTourneeStops: [],
+  pickerSelected: new Set(),
+  addStopsSelected: new Set(),
+  map: null, mapMarkers: [],
+  realtimeSub: null
+};
+
+// ══════════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════════
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+  const errEl = document.getElementById('login-err');
+  const btn   = document.querySelector('.btn-login');
+  errEl.style.display = 'none';
+  if(!email || !pwd){ showErr('Renseignez email et mot de passe'); return; }
+  btn.textContent = '⏳ Connexion…';
+  btn.disabled = true;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    clearTimeout(timeout);
+    if(error){ showErr('❌ ' + error.message); }
+  } catch(e) {
+    showErr('❌ Impossible de joindre Supabase : ' + e.message + '. Vérifie ta connexion internet et que ton projet Supabase n\'est pas en pause.');
+  } finally {
+    btn.textContent = 'Se connecter';
+    btn.disabled = false;
+  }
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+function showErr(msg){ const e=document.getElementById('login-err'); e.textContent=msg; e.style.display='block'; }
+
+// ── Diagnostic visible ──
+function diag(msg, color){
+  const el = document.getElementById('diag-banner');
+  el.style.display = 'flex';
+  const line = document.createElement('div');
+  line.style.color = color || '#F5C21A';
+  line.textContent = new Date().toLocaleTimeString('fr-FR') + ' › ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function testNetwork(){
+  diag('🔌 Test réseau Supabase…');
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(
+      SUPABASE_URL + '/rest/v1/lieux?limit=1',
+      { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token }, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    const text = await resp.text();
+    diag('📡 Réponse HTTP ' + resp.status + ' : ' + text.substring(0, 120), resp.ok ? '#27AE60' : '#E53935');
+  } catch(e) {
+    diag('❌ Réseau KO : ' + e.message, '#E53935');
+  }
+}
+
+async function startApp(user){
+  if(ST.user) return;
+  ST.user = user;
+  // Afficher l'appli immédiatement
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('hdr-username').textContent = user.email;
+  diag('✅ Connecté : ' + user.email, '#27AE60');
+
+  // Test réseau en arrière-plan (non bloquant)
+  testNetwork();
+
+  diag('⏳ Chargement des données…');
+  await loadAll();
+  diag('✅ Données chargées — lieux: ' + ST.lieux.length + ' / tournées: ' + ST.tournees.length, '#27AE60');
+  setupRealtime();
+}
+
+// Vérification au chargement (session existante)
+window.addEventListener('DOMContentLoaded', async () => {
+  diag('🔄 Vérification de la session…');
+  const { data: { session }, error } = await sb.auth.getSession();
+  if(error){ diag('❌ getSession error: ' + error.message, '#E53935'); return; }
+  if(session){
+    diag('🔑 Session trouvée', '#27AE60');
+    await startApp(session.user);
+  } else {
+    diag('⚠️ Aucune session — veuillez vous connecter', '#E8870A');
+    setTimeout(() => {
+      document.getElementById('diag-banner').style.display = 'none';
+    }, 3000);
+  }
+});
+
+// Écoute les changements d'état (connexion / déconnexion)
+sb.auth.onAuthStateChange(async (event, session) => {
+  diag('🔔 Auth event: ' + event);
+  if(session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')){
+    await startApp(session.user);
+  } else if(event === 'SIGNED_OUT'){
+    ST.user = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').classList.remove('visible');
+  }
+});
+
+// Enter key on login
+document.getElementById('login-pwd').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// ══════════════════════════════════════════════════════════
+//  LOAD ALL DATA
+// ══════════════════════════════════════════════════════════
+async function loadAll(){
+  await Promise.all([loadLieux(), loadTournees(), loadDistributeurs()]);
+  renderDashboard();
+  initMap();
+}
+
+async function loadLieux(){
+  diag('⏳ Requête lieux…');
+  // Timeout de 15 secondes pour éviter un blocage infini
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000));
+  let data, error;
+  try {
+    ({ data, error } = await Promise.race([
+      sb.from('lieux').select('*').eq('actif', true).order('nom'),
+      timeout
+    ]));
+  } catch(e) {
+    diag('❌ lieux : ' + e.message + ' — rechargez la page', '#E53935');
+    document.getElementById('lieux-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ Impossible de charger les lieux (${e.message})</td></tr>`;
+    return;
+  }
+  if(error){
+    diag('❌ lieux: ' + error.message + ' (code: ' + error.code + ')', '#E53935');
+    document.getElementById('lieux-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ ${esc(error.message)}</td></tr>`;
+    return;
+  }
+  diag('✅ lieux OK — ' + (data?.length||0) + ' enregistrements', '#27AE60');
+  ST.lieux = data || [];
+  ST.lieuxFiltered = [...ST.lieux];
+  renderLieuxTable();
+  updateMapMarkers();
+  updateCatFilter();
+}
+
+async function loadTournees(){
+  const { data, error } = await sb
+    .from('tournees')
+    .select('*, distributeur:utilisateurs(nom, email), points:points_tournee(id, statut, quantite_flyers)')
+    .order('date', { ascending: false });
+  if(error){
+    console.error('loadTournees error:', error);
+    document.getElementById('tournees-tbody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--red)">❌ Erreur : ${esc(error.message)}</td></tr>`;
+    return;
+  }
+  ST.tournees = data || [];
+  ST.tourneesFiltered = [...ST.tournees];
+  renderTourneesTable();
+  renderDashboard();
+  updateMapTourneeFilter();
+}
+
+async function loadDistributeurs(){
+  const { data, error } = await sb.from('utilisateurs').select('*').order('nom');
+  if(error){ console.error('loadDistributeurs error:', error); }
+  ST.distributeurs = data || [];
+  renderDistributeursSelects();
+}
+
+// ══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════
+function showSection(name){
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.hdr-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name === 'carte') { setTimeout(() => ST.map && ST.map.invalidateSize(), 100); renderSuivi(); }
+  if(name === 'suivi') renderSuivi();
+}
+
+// ══════════════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════════════
+function renderDashboard(){
+  document.getElementById('st-lieux').textContent    = ST.lieux.length;
+  document.getElementById('st-tournees').textContent = ST.tournees.length;
+  const totalPts  = ST.tournees.reduce((s,t) => s + (t.points?.length||0), 0);
+  const donePts   = ST.tournees.reduce((s,t) => s + (t.points?.filter(p=>p.statut!=='a_faire').length||0), 0);
+  const totalFlyers = ST.tournees.reduce((s,t) => s + (t.points?.filter(p=>p.statut==='distribue').reduce((a,p)=>a+(p.quantite_flyers||0),0)||0), 0);
+  document.getElementById('st-distribues').textContent = donePts + ' / ' + totalPts;
+  document.getElementById('st-flyers').textContent     = totalFlyers;
+
+  // Recent tournées
+  const el = document.getElementById('dash-tournees-list');
+  const recent = [...ST.tournees].slice(0, 6);
+  if(!recent.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucune tournée</div>'; }
+  else {
+    el.innerHTML = recent.map(t => {
+      const pts = t.points || [];
+      const done = pts.filter(p => p.statut !== 'a_faire').length;
+      const pct  = pts.length ? Math.round(done/pts.length*100) : 0;
+      return `<div class="tournee-row" onclick="openTourneeDetail(${t.id})">
+        <div class="tr-icon">${statutEmoji(t.statut)}</div>
+        <div class="tr-info">
+          <div class="tr-name">${esc(t.nom)}</div>
+          <div class="tr-meta">${fmtDate(t.date)} · ${t.distributeur?.nom||'Non assigné'}</div>
+          <div class="prog-mini"><div class="prog-mini-fill" style="width:${pct}%"></div></div>
+        </div>
+        <span class="badge b-${t.statut}">${statutLabel(t.statut)}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  LIEUX
+// ══════════════════════════════════════════════════════════
+function renderLieuxTable(){
+  const tbody = document.getElementById('lieux-tbody');
+  const data  = ST.lieuxFiltered;
+  document.getElementById('lieux-count').textContent = data.length + ' lieux';
+  if(!data.length){ tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--grey)">Aucun lieu</td></tr>'; return; }
+  tbody.innerHTML = data.map(l => `
+    <tr>
+      <td><strong>${esc(l.nom)}</strong></td>
+      <td><span class="badge" style="background:var(--gold-lt);color:var(--gold-dk)">${esc(l.categorie||'—')}</span></td>
+      <td>${esc(l.ville||'—')}</td>
+      <td>${l.zone_tournee ? `<span class="badge" style="background:var(--blue-lt);color:var(--blue)">${esc(l.zone_tournee)}</span>` : '<span style="color:var(--grey)">—</span>'}</td>
+      <td>${l.actif ? '<span class="badge b-distribue">Actif</span>' : '<span class="badge b-ferme">Inactif</span>'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="editLieu(${l.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLieu(${l.id})">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+function filterLieuxTable(){
+  const q    = document.getElementById('lieux-search').value.toLowerCase();
+  const cat  = document.getElementById('lieux-cat-filter').value;
+  const zone = document.getElementById('lieux-zone-filter').value;
+  ST.lieuxFiltered = ST.lieux.filter(l =>
+    (!q    || (l.nom||'').toLowerCase().includes(q) || (l.ville||'').toLowerCase().includes(q)) &&
+    (!cat  || l.categorie === cat) &&
+    (!zone || l.zone_tournee === zone)
+  );
+  renderLieuxTable();
+}
+
+function updateCatFilter(){
+  const cats = [...new Set(ST.lieux.map(l => l.categorie).filter(Boolean))].sort();
+  const sel  = document.getElementById('lieux-cat-filter');
+  const cur  = sel.value;
+  sel.innerHTML = '<option value="">Toutes catégories</option>' + cats.map(c=>`<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
+
+  const zones = [...new Set(ST.lieux.map(l => l.zone_tournee).filter(Boolean))].sort();
+  const selZ  = document.getElementById('lieux-zone-filter');
+  const curZ  = selZ.value;
+  selZ.innerHTML = '<option value="">Toutes zones</option>' + zones.map(z=>`<option value="${esc(z)}" ${z===curZ?'selected':''}>${esc(z)}</option>`).join('');
+}
+
+var editingLieuId = null;
+function openLieuModal(lieu=null){
+  editingLieuId = lieu ? lieu.id : null;
+  document.getElementById('lieu-modal-title').textContent = lieu ? 'Modifier le lieu' : 'Nouveau lieu';
+  const fields = {nom:'',categorie:'',adresse:'',cp:'',ville:'',lat:'',lon:'',tel:'',email:'',zone:'',notes:''};
+  if(lieu){ Object.assign(fields, {nom:lieu.nom,categorie:lieu.categorie||'',adresse:lieu.adresse||'',cp:lieu.code_postal||'',ville:lieu.ville||'',lat:lieu.latitude||'',lon:lieu.longitude||'',tel:lieu.telephone||'',email:lieu.email||'',zone:lieu.zone_tournee||'',notes:lieu.notes||''}); }
+  Object.keys(fields).forEach(k => { const el=document.getElementById('f-'+k); if(el) el.value=fields[k]; });
+  openModal('modal-lieu');
+}
+
+function editLieu(id){ const l=ST.lieux.find(x=>x.id===id); if(l) openLieuModal(l); }
+
+async function saveLieu(){
+  const data = {
+    nom: document.getElementById('f-nom').value.trim(),
+    categorie: document.getElementById('f-categorie').value,
+    adresse: document.getElementById('f-adresse').value.trim(),
+    code_postal: document.getElementById('f-cp').value.trim(),
+    ville: document.getElementById('f-ville').value.trim(),
+    latitude: parseFloat(document.getElementById('f-lat').value)||null,
+    longitude: parseFloat(document.getElementById('f-lon').value)||null,
+    telephone: document.getElementById('f-tel').value.trim(),
+    email: document.getElementById('f-email').value.trim(),
+    zone_tournee: document.getElementById('f-zone').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+    actif: true
+  };
+  if(!data.nom){ showToast('⚠ Le nom est obligatoire'); return; }
+  let error;
+  if(editingLieuId){
+    ({ error } = await sb.from('lieux').update(data).eq('id', editingLieuId));
+  } else {
+    ({ error } = await sb.from('lieux').insert(data));
+  }
+  if(error){ showToast('❌ Erreur : '+error.message); return; }
+  showToast(editingLieuId ? '✅ Lieu mis à jour' : '✅ Lieu ajouté');
+  closeModal('modal-lieu');
+  await loadLieux();
+}
+
+async function deleteLieu(id){
+  if(!confirm('Supprimer ce lieu ?')) return;
+  const { error } = await sb.from('lieux').update({ actif: false }).eq('id', id);
+  if(error){ showToast('❌ '+error.message); return; }
+  showToast('🗑 Lieu supprimé');
+  await loadLieux();
+}
+
+// Parser CSV robuste — gère les champs entre guillemets avec ; ou , à l'intérieur
+function parseCSVRobust(text){
+  // Supprime le BOM UTF-8 (U+FEFF)
+  const clean = text.replace(/^﻿/, '');
+  // Détecte le séparateur sur la première ligne
+  const firstLine = clean.split('\n')[0];
+  const sep = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+  const rows = [];
+  let field = '', inQuote = false, row = [];
+  for(let i=0; i<clean.length; i++){
+    const c = clean[i];
+    if(inQuote){
+      if(c==='"' && clean[i+1]==='"'){ field+='"'; i++; }   // guillemet échappé ""
+      else if(c==='"'){ inQuote=false; }
+      else { field+=c; }
+    } else {
+      if(c==='"'){ inQuote=true; }
+      else if(c===sep){ row.push(field.trim()); field=''; }
+      else if(c==='\n'){ row.push(field.trim()); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r'){ field+=c; }
+    }
+  }
+  if(field||row.length){ row.push(field.trim()); rows.push(row); }
+
+  if(!rows.length) return [];
+  const headers = rows[0].map(h=>h.toLowerCase().replace(/"/g,'').trim());
+  return rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+    const obj={};
+    headers.forEach((h,i)=>obj[h]=(r[i]||'').replace(/^"|"$/g,'').trim());
+    return obj;
+  });
+}
+
+// Import CSV / JSON — insert si nouveau, mise à jour si le nom existe déjà
+async function importLieux(input){
+  const file = input.files[0]; if(!file) return;
+  diag('📂 Import fichier : '+file.name);
+  const text = await file.text();
+  let rows = [];
+  if(file.name.endsWith('.json')){
+    try{ rows = JSON.parse(text); }catch(e){ showToast('❌ JSON invalide'); return; }
+  } else {
+    rows = parseCSVRobust(text);
+    diag('📋 Lignes CSV lues : '+rows.length + ' | Colonnes : '+(Object.keys(rows[0]||{}).join(', ')||'—'));
+  }
+
+  // Convertit chaque ligne CSV en objet lieux
+  const mapped = rows.filter(r=>r.nom||r.name).map(r=>({
+    nom:          r.nom||r.name||'',
+    categorie:    r.type_lieu||r.categorie||r.type||'',
+    adresse:      r.adresse||r.address||'',
+    code_postal:  r.code_postal||r.cp||'',
+    ville:        r.commune||r.ville||r.city||'',
+    latitude:     parseFloat((r.latitude||r.lat||'').replace(',','.'))||null,
+    longitude:    parseFloat((r.longitude||r.lon||r.lng||'').replace(',','.'))||null,
+    telephone:    r.telephone||r.tel||'',
+    zone_tournee: r.zone_tournee||r.zone||'',
+    notes:        [r.description, r.classements].filter(Boolean).join(' | ')||'',
+    actif:        true
+  }));
+
+  if(!mapped.length){ showToast('⚠ Aucun lieu trouvé dans le fichier'); return; }
+
+  // Récupère les lieux existants directement depuis Supabase (fiable même si ST.lieux est vide)
+  diag('🔍 Vérification des doublons dans Supabase…');
+  const { data: existingRaw, error: fetchErr } = await sb.from('lieux').select('id, nom');
+  if(fetchErr){ showToast('❌ Impossible de vérifier les doublons : '+fetchErr.message); return; }
+  const existingByNom = {};
+  (existingRaw||[]).forEach(l => { existingByNom[(l.nom||'').toLowerCase().trim()] = l; });
+  diag(`📊 ${existingRaw?.length||0} lieux déjà en base`);
+
+  const toInsert = [];
+  const toUpdate = []; // [{id, data}]
+
+  mapped.forEach(data => {
+    const key = (data.nom||'').toLowerCase().trim();
+    const existing = existingByNom[key];
+    if(existing){
+      toUpdate.push({ id: existing.id, data });
+    } else {
+      toInsert.push(data);
+    }
+  });
+
+  diag(`📍 ${toInsert.length} nouveaux lieux · ${toUpdate.length} à mettre à jour`);
+
+  let inserted=0, updated=0, errors=0;
+
+  // INSERT par lots de 50
+  for(let i=0; i<toInsert.length; i+=50){
+    const batch = toInsert.slice(i, i+50);
+    const { error } = await sb.from('lieux').insert(batch);
+    if(error){ errors++; diag('❌ Insert lot '+(i/50+1)+' : '+error.message, '#E53935'); }
+    else { inserted+=batch.length; diag(`✅ Insérés : ${inserted}/${toInsert.length}`, '#27AE60'); }
+  }
+
+  // UPDATE un par un (pas d'upsert en masse sans colonne unique)
+  for(const {id, data} of toUpdate){
+    const { error } = await sb.from('lieux').update(data).eq('id', id);
+    if(error){ errors++; diag('❌ Update "'+data.nom+'" : '+error.message, '#E53935'); }
+    else { updated++; }
+  }
+  if(updated) diag(`✅ Mis à jour : ${updated}/${toUpdate.length}`, '#27AE60');
+
+  showToast(`✅ ${inserted} insérés · ${updated} mis à jour${errors?' · ❌ '+errors+' erreurs':''}`);
+  input.value='';
+  await loadLieux();
+}
+
+// Sync zones depuis zones_export.json (généré par editeur_lieux.html)
+async function importZones(input){
+  const file = input.files[0]; if(!file) return;
+  diag('🗂 Import zones : '+file.name);
+  let zones = [];
+  try{ zones = JSON.parse(await file.text()); }
+  catch(e){ showToast('❌ Fichier JSON invalide'); return; }
+  if(!Array.isArray(zones)||!zones.length){ showToast('⚠ Fichier zones vide'); return; }
+  diag('📋 '+zones.length+' zones à synchroniser…');
+
+  let ok=0, notFound=0, errors=0;
+  for(const z of zones){
+    if(!z.zone_tournee) continue;
+    // Cherche le lieu par nom (correspondance insensible à la casse)
+    const match = ST.lieux.find(l =>
+      (l.nom||'').toLowerCase().trim() === (z.nom||'').toLowerCase().trim()
+    );
+    if(!match){ notFound++; continue; }
+    const { error } = await sb.from('lieux').update({ zone_tournee: z.zone_tournee }).eq('id', match.id);
+    if(error){ errors++; diag('❌ '+z.nom+' : '+error.message, '#E53935'); }
+    else { ok++; }
+  }
+  diag(`✅ Sync terminée — ${ok} mis à jour, ${notFound} non trouvés, ${errors} erreurs`, ok>0?'#27AE60':'#E8870A');
+  showToast(`✅ ${ok} zones synchronisées`);
+  input.value='';
+  await loadLieux();
+}
+
+// ══════════════════════════════════════════════════════════
+//  TOURNÉES
+// ══════════════════════════════════════════════════════════
+function renderTourneesTable(){
+  const tbody = document.getElementById('tournees-tbody');
+  const data  = ST.tourneesFiltered;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--grey)">Aucune tournée</td></tr>'; return; }
+  tbody.innerHTML = data.map(t => {
+    const pts  = t.points || [];
+    const done = pts.filter(p => p.statut !== 'a_faire').length;
+    const pct  = pts.length ? Math.round(done/pts.length*100) : 0;
+    return `<tr>
+      <td><strong style="cursor:pointer;color:var(--blue)" onclick="openTourneeDetail(${t.id})">${esc(t.nom)}</strong></td>
+      <td>${fmtDate(t.date)}</td>
+      <td>${esc(t.distributeur?.nom||'—')}</td>
+      <td>${esc(t.secteur||'—')}</td>
+      <td><span class="badge b-${t.statut}">${statutLabel(t.statut)}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;min-width:120px">
+          <div class="prog-mini" style="flex:1"><div class="prog-mini-fill" style="width:${pct}%"></div></div>
+          <span style="font-size:11px;color:var(--grey);white-space:nowrap">${done}/${pts.length}</span>
+        </div>
+      </td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-secondary btn-sm" onclick="openTourneeDetail(${t.id})">Détail</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTournee(${t.id})">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTourneesTable(){
+  const q = document.getElementById('tournees-search').value.toLowerCase();
+  const s = document.getElementById('tournees-statut-filter').value;
+  ST.tourneesFiltered = ST.tournees.filter(t =>
+    (!q || (t.nom||'').toLowerCase().includes(q)) &&
+    (!s || t.statut === s)
+  );
+  renderTourneesTable();
+}
+
+function renderDistributeursSelects(){
+  const opts = '<option value="">— Choisir —</option>' +
+    ST.distributeurs.map(d=>`<option value="${d.id}">${esc(d.nom)}</option>`).join('');
+  ['t-distributeur'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.innerHTML = opts;
+  });
+}
+
+function openTourneeModal(){
+  document.getElementById('t-nom').value = '';
+  document.getElementById('t-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('t-distributeur').value = '';
+  document.getElementById('t-secteur').value = '';
+  document.getElementById('t-commentaire').value = '';
+  document.getElementById('t-quantite').value = '10';
+  ST.pickerSelected = new Set();
+  renderLieuxPicker();
+  openModal('modal-tournee');
+}
+
+function renderLieuxPicker(){
+  const q = (document.getElementById('lieux-picker-search')||{}).value||'';
+  const filtered = ST.lieux.filter(l => !q || (l.nom||'').toLowerCase().includes(q.toLowerCase()) || (l.ville||'').toLowerCase().includes(q.toLowerCase()));
+  const el = document.getElementById('lieux-picker');
+  el.innerHTML = filtered.map(l => `
+    <div class="lieu-pick-item ${ST.pickerSelected.has(l.id)?'selected':''}" onclick="togglePicker(${l.id})">
+      <div class="lpi-check">${ST.pickerSelected.has(l.id)?'✓':''}</div>
+      <div style="flex:1;min-width:0">
+        <div class="lpi-name">${esc(l.nom)}</div>
+        <div class="lpi-cat">${esc(l.categorie||'')} ${l.ville?'· '+esc(l.ville):''}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('picker-count').textContent = ST.pickerSelected.size + ' lieu' + (ST.pickerSelected.size>1?'x':'') + ' sélectionné' + (ST.pickerSelected.size>1?'s':'');
+}
+
+function filterLieuxPicker(){ renderLieuxPicker(); }
+
+function togglePicker(id){
+  if(ST.pickerSelected.has(id)) ST.pickerSelected.delete(id);
+  else ST.pickerSelected.add(id);
+  renderLieuxPicker();
+}
+
+async function saveTournee(){
+  const nom = document.getElementById('t-nom').value.trim();
+  const date = document.getElementById('t-date').value;
+  if(!nom || !date){ showToast('⚠ Nom et date obligatoires'); return; }
+  if(!ST.pickerSelected.size){ showToast('⚠ Sélectionnez au moins un lieu'); return; }
+
+  const distId = document.getElementById('t-distributeur').value || null;
+  const qty    = parseInt(document.getElementById('t-quantite').value)||10;
+
+  const { data: tData, error: tErr } = await sb.from('tournees').insert({
+    nom, date, distributeur_id: distId,
+    secteur: document.getElementById('t-secteur').value.trim(),
+    commentaire: document.getElementById('t-commentaire').value.trim(),
+    statut: 'planifiee'
+  }).select().single();
+
+  if(tErr){ showToast('❌ '+tErr.message); return; }
+
+  // Insert points
+  const points = [...ST.pickerSelected].map((lieuId, i) => ({
+    tournee_id: tData.id, lieu_id: lieuId,
+    ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire'
+  }));
+  const { error: pErr } = await sb.from('points_tournee').insert(points);
+  if(pErr){ showToast('❌ '+pErr.message); return; }
+
+  showToast('✅ Tournée créée avec '+points.length+' lieux');
+  closeModal('modal-tournee');
+  await loadTournees();
+  openTourneeDetail(tData.id);
+}
+
+async function deleteTournee(id){
+  if(!confirm('Supprimer cette tournée et tous ses points ?')) return;
+  const { error } = await sb.from('tournees').delete().eq('id', id);
+  if(error){ showToast('❌ '+error.message); return; }
+  showToast('🗑 Tournée supprimée');
+  await loadTournees();
+}
+
+// ── Tournée detail ───────────────────
+async function openTourneeDetail(id){
+  ST.currentTourneeId = id;
+  const { data, error } = await sb
+    .from('points_tournee')
+    .select('*, lieu:lieux(nom, adresse, ville, categorie, latitude, longitude)')
+    .eq('tournee_id', id)
+    .order('ordre_passage');
+  if(error){ showToast('❌ '+error.message); return; }
+  ST.currentTourneeStops = data || [];
+
+  const tournee = ST.tournees.find(t => t.id === id);
+  document.getElementById('detail-title').textContent = tournee?.nom || 'Tournée';
+  document.getElementById('detail-badge').className = 'badge b-'+(tournee?.statut||'planifiee');
+  document.getElementById('detail-badge').textContent = statutLabel(tournee?.statut);
+
+  // Infos
+  document.getElementById('detail-infos').innerHTML = `
+    <div style="font-size:12px"><strong>Date :</strong> ${fmtDate(tournee?.date)}</div>
+    <div style="font-size:12px"><strong>Distributeur :</strong> ${esc(tournee?.distributeur?.nom||'Non assigné')}</div>
+    <div style="font-size:12px"><strong>Secteur :</strong> ${esc(tournee?.secteur||'—')}</div>
+    <div style="font-size:12px"><strong>Commentaire :</strong> ${esc(tournee?.commentaire||'—')}</div>`;
+
+  renderDetailStops();
+  document.getElementById('tournees-list-view').style.display = 'none';
+  document.getElementById('tournee-detail-view').style.display = 'block';
+  showSection('tournees');
+}
+
+function renderDetailStops(){
+  const stops = ST.currentTourneeStops;
+  const done  = stops.filter(s => s.statut !== 'a_faire').length;
+  document.getElementById('detail-stops-title').textContent = stops.length + ' arrêts';
+  document.getElementById('detail-prog-text').textContent   = done + '/' + stops.length + ' validés';
+
+  document.getElementById('detail-stops-list').innerHTML = stops.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun arrêt</div>'
+    : stops.map(s => `
+      <div class="stop-list-item">
+        <div class="stop-ord">${s.ordre_passage}</div>
+        <div class="stop-info">
+          <div class="stop-nom">${esc(s.lieu?.nom||'?')}</div>
+          <div class="stop-addr">${esc(s.lieu?.ville||s.lieu?.adresse||'')}</div>
+        </div>
+        <span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>
+        <span class="badge b-${s.statut}">${statutLabel(s.statut)}</span>
+        ${s.heure_validation?`<span style="font-size:10px;color:var(--grey)">${new Date(s.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+      </div>`).join('');
+}
+
+function closeTourneeDetail(){
+  document.getElementById('tournees-list-view').style.display = 'block';
+  document.getElementById('tournee-detail-view').style.display = 'none';
+  ST.currentTourneeId = null;
+}
+
+async function updateTourneeStatut(statut){
+  if(!ST.currentTourneeId) return;
+  const { error } = await sb.from('tournees').update({ statut }).eq('id', ST.currentTourneeId);
+  if(error){ showToast('❌ '+error.message); return; }
+  showToast('✅ Statut mis à jour');
+  await loadTournees();
+  const tournee = ST.tournees.find(t => t.id === ST.currentTourneeId);
+  if(tournee){
+    document.getElementById('detail-badge').className = 'badge b-'+statut;
+    document.getElementById('detail-badge').textContent = statutLabel(statut);
+  }
+}
+
+function openGmapTournee(){
+  const stops = ST.currentTourneeStops.filter(s => s.lieu?.latitude && s.lieu?.longitude);
+  if(!stops.length){ showToast('⚠ Aucune coordonnée disponible'); return; }
+  const parts = stops.map(s => encodeURIComponent(s.lieu.latitude+','+s.lieu.longitude));
+  window.open('https://www.google.com/maps/dir/'+parts.join('/'), '_blank');
+}
+
+// Add stops to existing tournée
+function openAddStopModal(){
+  ST.addStopsSelected = new Set();
+  renderAddStops();
+  openModal('modal-add-stops');
+}
+
+function renderAddStops(){
+  const q = (document.getElementById('add-stops-search')||{}).value||'';
+  const existingIds = new Set(ST.currentTourneeStops.map(s => s.lieu_id));
+  const filtered = ST.lieux.filter(l =>
+    !existingIds.has(l.id) &&
+    (!q || (l.nom||'').toLowerCase().includes(q.toLowerCase()))
+  );
+  const el = document.getElementById('add-stops-picker');
+  el.innerHTML = filtered.map(l => `
+    <div class="lieu-pick-item ${ST.addStopsSelected.has(l.id)?'selected':''}" onclick="toggleAddStop(${l.id})">
+      <div class="lpi-check">${ST.addStopsSelected.has(l.id)?'✓':''}</div>
+      <div style="flex:1;min-width:0">
+        <div class="lpi-name">${esc(l.nom)}</div>
+        <div class="lpi-cat">${esc(l.categorie||'')} ${l.ville?'· '+esc(l.ville):''}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('add-stops-count').textContent = ST.addStopsSelected.size + ' sélectionné(s)';
+}
+
+function filterAddStops(){ renderAddStops(); }
+function toggleAddStop(id){
+  if(ST.addStopsSelected.has(id)) ST.addStopsSelected.delete(id);
+  else ST.addStopsSelected.add(id);
+  renderAddStops();
+}
+
+async function saveAddStops(){
+  if(!ST.addStopsSelected.size){ showToast('⚠ Aucun lieu sélectionné'); return; }
+  const maxOrdre = ST.currentTourneeStops.reduce((m,s) => Math.max(m,s.ordre_passage), 0);
+  const qty = parseInt(document.getElementById('add-stops-qty').value)||10;
+  const points = [...ST.addStopsSelected].map((lieuId, i) => ({
+    tournee_id: ST.currentTourneeId, lieu_id: lieuId,
+    ordre_passage: maxOrdre+i+1, quantite_flyers: qty, statut: 'a_faire'
+  }));
+  const { error } = await sb.from('points_tournee').insert(points);
+  if(error){ showToast('❌ '+error.message); return; }
+  showToast('✅ '+points.length+' lieu(x) ajouté(s)');
+  closeModal('modal-add-stops');
+  await openTourneeDetail(ST.currentTourneeId);
+}
+
+// ══════════════════════════════════════════════════════════
+//  CARTE (Leaflet)
+// ══════════════════════════════════════════════════════════
+function initMap(){
+  if(ST.map) return;
+  ST.map = L.map('map').setView([44.4073, 4.3980], 10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap',maxZoom:18
+  }).addTo(ST.map);
+  updateMapMarkers();
+}
+
+function updateMapMarkers(){
+  if(!ST.map) return;
+  ST.mapMarkers.forEach(m => m.remove());
+  ST.mapMarkers = [];
+  const catColors = {
+    'Hôtel':'#1E88E5','Camping':'#43A047','Office de tourisme':'#E53935',
+    'Restaurant':'#FB8C00','Site touristique':'#8E24AA','Gîte':'#00ACC1',default:'#F5C21A'
+  };
+  ST.lieux.forEach(l => {
+    if(!l.latitude || !l.longitude) return;
+    const color = catColors[l.categorie] || catColors.default;
+    const icon = L.divIcon({
+      html:`<div style="width:12px;height:12px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
+      iconSize:[12,12], iconAnchor:[6,6], className:''
+    });
+    const m = L.marker([l.latitude, l.longitude], {icon})
+      .bindPopup(`<strong>${l.nom}</strong><br>${l.categorie||''}<br>${l.adresse||''}${l.ville?' – '+l.ville:''}`)
+      .addTo(ST.map);
+    ST.mapMarkers.push(m);
+  });
+}
+
+function centerMap(){
+  if(!ST.map || !ST.mapMarkers.length) return;
+  const group = L.featureGroup(ST.mapMarkers);
+  ST.map.fitBounds(group.getBounds().pad(0.1));
+}
+
+function updateMapTourneeFilter(){
+  const el = document.getElementById('map-tournee-filter');
+  el.innerHTML = '<option value="">Tous les lieux</option>' +
+    ST.tournees.map(t=>`<option value="${t.id}">${esc(t.nom)}</option>`).join('');
+}
+
+function filterMap(){ updateMapMarkers(); }
+
+// ══════════════════════════════════════════════════════════
+//  SUIVI LIVE
+// ══════════════════════════════════════════════════════════
+async function renderSuivi(){
+  const actives = ST.tournees.filter(t => t.statut === 'en_cours' || t.statut === 'planifiee');
+  const el = document.getElementById('suivi-tournees-grid');
+  if(!actives.length){ el.innerHTML='<div style="color:var(--grey);font-size:13px;padding:20px">Aucune tournée en cours</div>'; return; }
+
+  el.innerHTML = actives.map(t => {
+    const pts  = t.points || [];
+    const done = pts.filter(p => p.statut !== 'a_faire').length;
+    const pct  = pts.length ? Math.round(done/pts.length*100) : 0;
+    const dist = t.distributeur?.nom || 'Non assigné';
+    return `<div class="card">
+      <div class="card-header">
+        <h3>${esc(t.nom)}</h3>
+        <span class="badge b-${t.statut}">${statutLabel(t.statut)}</span>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:12px;color:var(--grey);margin-bottom:10px">👤 ${esc(dist)} · 📅 ${fmtDate(t.date)}</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:600">${done} / ${pts.length} points</span>
+          <span style="font-size:12px;font-weight:700;color:var(--gold-dk)">${pct}%</span>
+        </div>
+        <div class="prog-mini" style="height:8px;border-radius:4px"><div class="prog-mini-fill" style="width:${pct}%;height:8px;border-radius:4px;background:${pct===100?'var(--green)':'var(--gold)'}"></div></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          ${['distribue','ferme','refus','absent'].map(s=>{
+            const n=pts.filter(p=>p.statut===s).length;
+            return n?`<span class="badge b-${s}">${statutLabel(s)} : ${n}</span>`:'';
+          }).join('')}
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px;width:100%" onclick="openTourneeDetail(${t.id})">Voir le détail</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+//  REALTIME
+// ══════════════════════════════════════════════════════════
+function setupRealtime(){
+  ST.realtimeSub = sb
+    .channel('db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'points_tournee' }, async payload => {
+      await loadTournees();
+      renderSuivi();
+      if(ST.currentTourneeId){
+        const updated = payload.new;
+        if(updated && updated.tournee_id === ST.currentTourneeId){
+          const idx = ST.currentTourneeStops.findIndex(s => s.id === updated.id);
+          if(idx > -1){ ST.currentTourneeStops[idx] = { ...ST.currentTourneeStops[idx], ...updated }; renderDetailStops(); }
+        }
+      }
+      // Activity feed
+      addActivity(payload);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournees' }, async () => {
+      await loadTournees();
+      renderSuivi();
+    })
+    .subscribe();
+}
+
+var activityFeed = [];
+function addActivity(payload){
+  if(payload.eventType === 'UPDATE' && payload.new && payload.new.statut !== 'a_faire'){
+    const t = ST.tournees.find(t => t.id === payload.new.tournee_id);
+    const stop = ST.currentTourneeStops.find(s => s.id === payload.new.id);
+    activityFeed.unshift({
+      msg: `${stop?.lieu?.nom||'Lieu'} — ${statutLabel(payload.new.statut)}`,
+      ts: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+      color: statutColor(payload.new.statut)
+    });
+    activityFeed = activityFeed.slice(0, 10);
+    renderActivity();
+  }
+}
+
+function renderActivity(){
+  const el = document.getElementById('dash-activity');
+  if(!activityFeed.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">En attente de mises à jour…</div>'; return; }
+  el.innerHTML = activityFeed.map(a=>`
+    <div class="rt-item">
+      <div class="rt-dot" style="background:${a.color}"></div>
+      <div class="rt-nom">${esc(a.msg)}</div>
+      <div style="font-size:10px;color:var(--grey)">${a.ts}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){ return d; } }
+
+function statutLabel(s){
+  return {planifiee:'Planifiée',en_cours:'En cours',terminee:'Terminée',annulee:'Annulée',
+          a_faire:'À faire',distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'}[s]||s||'';
+}
+function statutEmoji(s){
+  return {planifiee:'📋',en_cours:'🏃',terminee:'✅',annulee:'❌'}[s]||'📋';
+}
+function statutColor(s){
+  return {distribue:'var(--green)',ferme:'var(--red)',refus:'#7B1FA2',absent:'var(--orange)'}[s]||'var(--grey)';
+}
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) closeModal(m.id); });
+});
+</script>
+</body>
+</html>
