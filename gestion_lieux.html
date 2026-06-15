@@ -659,8 +659,16 @@ async function startApp(user){
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if(session) await startApp(session.user);
+  try {
+    const result = await Promise.race([
+      sb.auth.getSession(),
+      new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+    ]);
+    if(result.data?.session) await startApp(result.data.session.user);
+  } catch(e) {
+    // Session refresh bloquée — affiche le formulaire de login
+    console.log('Session non restaurée, connexion requise');
+  }
 });
 
 sb.auth.onAuthStateChange(async (event, session) => {

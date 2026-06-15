@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tournée J14</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body { margin:0; font-family: Arial, sans-serif; }
+  #map { height: calc(100vh - 130px); }
+  #header { background:#2E74B5; color:#fff; padding:10px 16px; }
+  #header h2 { margin:0 0 4px 0; font-size:18px; }
+  #header .meta { font-size:12px; opacity:0.9; }
+  #legend { position:absolute; bottom:20px; right:10px; z-index:1000; background:white;
+             border:1px solid #ccc; border-radius:6px; padding:10px; font-size:12px;
+             box-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+  .leg-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
+  .leg-dot { width:14px; height:14px; border-radius:50%; display:inline-block; }
+  #stats { position:absolute; top:140px; right:10px; z-index:1000; background:white;
+            border:1px solid #ccc; border-radius:6px; padding:10px; font-size:12px;
+            max-width:220px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+  #stats .stat-row { margin:3px 0; }
+  #stats .zone-label { font-weight:bold; color:#1E88E5; font-size:11px; }
+  #stats .zone-label.pm { color:#F57C00; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h2>📅 JOURNÉE 14  –  37 arrêts</h2>
+  <div class="meta">
+    🌅 Matin 8h–12h : 19 arrêts | 29 km entre arrêts
+    &nbsp;&nbsp;|&nbsp;&nbsp; 🌇 Après-midi 14h–18h : 18 arrêts | 58 km entre arrêts
+    &nbsp;&nbsp;|&nbsp;&nbsp; 🏠 Retour Nougaterie
+  </div>
+</div>
+<div id="map"></div>
+
+<div id="stats">
+  <b>🌅 Matin</b><br>
+  <div class="zone-label">Z5 - Gorges de la Cèze / Gard sud</div>
+  <div class="stat-row">Communes : Lussan</div>
+  <div class="stat-row">19 arrêts · 29 km</div>
+  <br><b>🌇 Après-midi</b><br><div class="zone-label pm">Z5 - Gorges de la Cèze / Gard sud</div><div class="stat-row">Communes : Navacelles, Montclus, Saint-André-de-Roquepertuis, Saint-Lau...</div><div class="stat-row">18 arrêts · 58 km</div>
+</div>
+
+<div id="legend">
+  <b>Légende</b><br>
+  <div class="leg-row"><span class="leg-dot" style="background:#1E88E5"></span> Matin (AM)</div>
+  <div class="leg-row"><span class="leg-dot" style="background:#F57C00"></span> Après-midi (PM)</div>
+  <div class="leg-row">🟢 Départ / Nuit</div>
+  <div class="leg-row">↩️ Retour fin journée</div>
+</div>
+
+<script>
+var map = L.map('map').setView([44.2069725, 4.5043735], 10);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+function makeIcon(num, color) {
+    return L.divIcon({
+        html: '<div style="background:' + color + ';color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5)">' + num + '</div>',
+        iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-14], className:''
+    });
+}
+
+function makeStar(color, label) {
+    return L.divIcon({
+        html: '<div style="background:' + color + ';color:white;width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.6)" title="' + label + '">★</div>',
+        iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-18], className:''
+    });
+}
+
+// ── AM markers & route ──────────────────────────────────────────────────────
+var amPois = [{
+            lat:44.181443, lng:4.404054,
+            num:1, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>1. Les Concluses de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Parking Les Concluses, 30580 Lussan<br>            <b>Contact :</b> #http://www.mairie-lussan.fr/<br>        </div>"
+        },
+{
+            lat:44.153856, lng:4.366927,
+            num:2, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>2. Bibliothèque de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place du Château, 30580 Lussan<br>            <b>Contact :</b> #https://www.mediatheques.ccpaysduzes.fr/taxonomy/term/483<br>        </div>"
+        },
+{
+            lat:44.153645, lng:4.366894,
+            num:3, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>3. Château de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place du Château, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.153407, lng:4.366137,
+            num:4, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>4. Hôtel Maison Gramme</b><br>            <span style='color:#666'>Hôtel</span> 🏨<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> 88 Place des Marronniers, 30580 Lussan<br>            <b>Contact :</b> #https://maisongramme.fr/<br>        </div>"
+        },
+{
+            lat:44.1536, lng:4.365789,
+            num:5, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>5. Ancienne chapelle du castrale</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue Comte d’Audibert de Lussan, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.153002, lng:4.366057,
+            num:6, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>6. Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> 30580 Lussan<br>            <b>Contact :</b> #https://www.uzes-pontdugard.com/<br>        </div>"
+        },
+{
+            lat:44.152839, lng:4.366222,
+            num:7, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>7. Place des Marronniers</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place des Marronniers, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152774, lng:4.365804,
+            num:8, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>8. Eglise Saint-Pierre de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place André Gide, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152273, lng:4.366137,
+            num:9, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>9. La filature Roux</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue de la Filature, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.151937, lng:4.366566,
+            num:10, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>10. Le Jardin des Buis de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue de la Ritournelle, 30580 Lussan<br>            <b>Contact :</b> #https://lesbuisdelussan.fr/le-jardin-de-lussan/<br>        </div>"
+        },
+{
+            lat:44.151861, lng:4.366658,
+            num:11, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>11. La tournelle</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue Tour des Remparts, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152261, lng:4.367045,
+            num:12, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>12. Temple protestant de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue Tour des Remparts, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152554, lng:4.367076,
+            num:13, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>13. La filature Chastanier</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue Tour des Remparts, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152753, lng:4.367136,
+            num:14, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>14. La Fontasse</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue Tour des Remparts, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.152642, lng:4.364891,
+            num:15, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>15. La porte des Pauses</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Rue du Chemin des Pauses, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.154085, lng:4.365025,
+            num:16, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>16. La place du Forail</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place du Foirail, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.154085, lng:4.365025,
+            num:17, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>17. La poterne</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place du Foirail, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.154085, lng:4.365025,
+            num:18, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>18. Le puits du verger de Lussan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> Place du Foirail, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.156709, lng:4.358901,
+            num:19, period:"AM", color:"#1E88E5",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#1E88E5'>19. Le château de Fan</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Lussan<br>            <b>Adresse :</b> D979 - Route de Barjac Lussan Viel, 30580 Lussan<br>            <b>Contact :</b> #<br>        </div>"
+        }];
+var amCoords = [[44.387, 4.363], [44.181443, 4.404054], [44.153856, 4.366927], [44.153645, 4.366894], [44.153407, 4.366137], [44.1536, 4.365789], [44.153002, 4.366057], [44.152839, 4.366222], [44.152774, 4.365804], [44.152273, 4.366137], [44.151937, 4.366566], [44.151861, 4.366658], [44.152261, 4.367045], [44.152554, 4.367076], [44.152753, 4.367136], [44.152642, 4.364891], [44.154085, 4.365025], [44.154085, 4.365025], [44.154085, 4.365025], [44.156709, 4.358901]];
+
+// Route line AM
+L.polyline(amCoords, {color:'#1E88E5', weight:3, opacity:0.7, dashArray:'6,4'}).addTo(map);
+
+amPois.forEach(function(p) {
+    L.marker([p.lat, p.lng], {icon: makeIcon(p.num, p.color)})
+     .addTo(map)
+     .bindPopup(p.popup);
+});
+
+// ── PM markers & route ──────────────────────────────────────────────────
+var pmPois = [{
+            lat:44.214, lng:4.355,
+            num:1, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>1. Village de Navacelles</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Navacelles<br>            <b>Adresse :</b> 30580 Navacelles<br>                    </div>"
+        },
+{
+            lat:44.261014, lng:4.419824,
+            num:2, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>2. Montclus, village classé \"Plus Beaux Villages de France\"</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Montclus<br>            <b>Adresse :</b> 30630 Montclus<br>            <b>Contact :</b> #http://village-montclus.fr/<br>        </div>"
+        },
+{
+            lat:44.262084, lng:4.419322,
+            num:3, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>3. Plage du Pont du Moulin à Montclus</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Montclus<br>            <b>Adresse :</b> Pont du Moulin, 30630 Montclus<br>            <b>Contact :</b> #http://village-montclus.fr/<br>        </div>"
+        },
+{
+            lat:44.255378, lng:4.441596,
+            num:4, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>4. Cèze Park - Parc de châteaux gonflables</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Montclus<br>            <b>Adresse :</b> 2048 Route de Bagnols sur Cèze Cèze Park Hameau de Martel, 30630 Montclus<br>            <b>Contact :</b> #http://cezepark.fr/<br>        </div>"
+        },
+{
+            lat:44.248412, lng:4.448457,
+            num:5, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>5. Plage du Pont du Courau</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-André-de-Roquepertuis<br>            <b>Adresse :</b> Pont du Courau Route de Montclus, 30630 Saint-André-de-Roquepertuis<br>            <b>Contact :</b> #http://www.saintandrederoquepertuis.fr/<br>        </div>"
+        },
+{
+            lat:44.245833, lng:4.450557,
+            num:6, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>6. Camping La Plage</b><br>            <span style='color:#666'>Camping</span> 🏕️<br>            <b>Commune :</b> Saint-André-de-Roquepertuis<br>            <b>Adresse :</b> 85 Route du Courau, 30630 Saint-André-de-Roquepertuis<br>            <b>Contact :</b> #https://www.campinglaplage-gard.fr/<br>        </div>"
+        },
+{
+            lat:44.24013, lng:4.457035,
+            num:7, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>7. Saint André de Roquepertuis</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-André-de-Roquepertuis<br>            <b>Adresse :</b> Le village, 30630 Saint-André-de-Roquepertuis<br>            <b>Contact :</b> #<br>        </div>"
+        },
+{
+            lat:44.215, lng:4.469,
+            num:8, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>8. Tour médiévale de Montclus</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Montclus<br>            <b>Adresse :</b> 30630 Montclus<br>                    </div>"
+        },
+{
+            lat:44.211225, lng:4.53128,
+            num:9, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>9. Saint Laurent de Carnols</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-Laurent-de-Carnols<br>            <b>Adresse :</b> Place de l&#39;Abbé-Diet, 30200 Saint-Laurent-de-Carnols<br>            <b>Contact :</b> #https://www.carnols.org/<br>        </div>"
+        },
+{
+            lat:44.228046, lng:4.621546,
+            num:10, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>10. Saint Alexandre</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Saint-Alexandre<br>            <b>Adresse :</b> Le village, 30130 Saint-Alexandre<br>            <b>Contact :</b> #http://www.saintalexandre.fr/<br>        </div>"
+        },
+{
+            lat:44.242792, lng:4.642495,
+            num:11, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>11. Hôtel Restaurant Le Mas de l&#39;Olivier</b><br>            <span style='color:#666'>Hôtel</span> 🏨<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> 1475 Avenue du Général de Gaulle, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://www.mas-olivier.com/<br>        </div>"
+        },
+{
+            lat:44.247043, lng:4.653747,
+            num:12, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>12. Chambre d&#39;hôtes Le Mas des Iles</b><br>            <span style='color:#666'>Hôtel</span> 🏨<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> 707 Chemin des îles, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://provence-mas-des-iles.com/<br>        </div>"
+        },
+{
+            lat:44.255201, lng:4.650926,
+            num:13, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>13. Maison des Chevaliers - Musée laïque d&#39;Art Sacré du Gard</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> 2, rue Saint-Jacques, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://www.gard.fr/le-gard-pour-vous/les-musees-de-la-conservation-departementale-du-gard/<br>        </div>"
+        },
+{
+            lat:44.256, lng:4.651,
+            num:14, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>14. Office de Tourisme des Gorges de l&#39;Ardèche</b><br>            <span style='color:#666'>Office de tourisme</span> ℹ️<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> 1 Rue Dorée, 30130 Pont-Saint-Esprit<br>                    </div>"
+        },
+{
+            lat:44.255221, lng:4.648093,
+            num:15, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>15. Chambre d&#39;hôtes Les Chambres de la Bourse</b><br>            <span style='color:#666'>Hôtel</span> 🏨<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> 8 Place de la République, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://www.leschambresdelabourse.fr/<br>        </div>"
+        },
+{
+            lat:44.255078, lng:4.64776,
+            num:16, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>16. Bureau d&#39;Information Touristique de Pont-Saint-Esprit</b><br>            <span style='color:#666'>Office de tourisme</span> ℹ️<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> Avenue Gambetta Cazerne Pépin, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://www.provenceoccitane.com/<br>        </div>"
+        },
+{
+            lat:44.26109, lng:4.647837,
+            num:17, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>17. Pont-Saint-Esprit, ville historique</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Pont-Saint-Esprit<br>            <b>Adresse :</b> Hôtel de Ville 254, Avenue Kennedy, 30130 Pont-Saint-Esprit<br>            <b>Contact :</b> #https://pontsaintesprit.fr/<br>        </div>"
+        },
+{
+            lat:44.170266, lng:4.445657,
+            num:18, period:"PM", color:"#F57C00",
+            popup:"        <div style='font-family:Arial;min-width:200px'>            <b style='color:#F57C00'>18. Verfeuil</b><br>            <span style='color:#666'>Site touristique</span> 🏛️<br>            <b>Commune :</b> Verfeuil<br>            <b>Adresse :</b> Le village, 30630 Verfeuil<br>            <b>Contact :</b> #<br>        </div>"
+        }];
+var pmCoords = [[44.156709, 4.358901], [44.214, 4.355], [44.261014, 4.419824], [44.262084, 4.419322], [44.255378, 4.441596], [44.248412, 4.448457], [44.245833, 4.450557], [44.24013, 4.457035], [44.215, 4.469], [44.211225, 4.53128], [44.228046, 4.621546], [44.242792, 4.642495], [44.247043, 4.653747], [44.255201, 4.650926], [44.256, 4.651], [44.255221, 4.648093], [44.255078, 4.64776], [44.26109, 4.647837], [44.170266, 4.445657]];
+L.polyline(pmCoords, {color:"#F57C00", weight:3, opacity:0.7, dashArray:"6,4"}).addTo(map);
+pmPois.forEach(function(p) {{ L.marker([p.lat, p.lng], {icon: makeIcon(p.num, p.color)}).addTo(map).bindPopup(p.popup); }});
+
+// ── Special markers ─────────────────────────────────────────────────────────
+// Start of day
+var startLat = 44.387, startLon = 4.363;
+var startLabel = startLat == 44.3905 ? "Départ : Nougaterie du Pont d\'Arc" : "Départ matin : Brujas (07150)";
+L.marker([startLat, startLon], {icon: makeStar('#2E7D32', startLabel)})
+ .addTo(map).bindPopup('<b>' + startLabel + '</b>');
+
+// End of day / night
+var nuitLabel = "🏠 Retour Nougaterie";
+L.marker([44.3905, 4.3995], {icon: makeStar('#E65100', nuitLabel)})
+ .addTo(map).bindPopup('<b>' + nuitLabel + '</b>');
+
+</script>
+</body>
+</html>
