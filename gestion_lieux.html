@@ -636,7 +636,9 @@ async function doLogin(){
 }
 
 async function doLogout(){
-  await sb.auth.signOut();
+  try {
+    await Promise.race([sb.auth.signOut(), new Promise(r=>setTimeout(r,3000))]);
+  } catch(e){}
   location.reload();
 }
 
@@ -653,7 +655,7 @@ async function startApp(user){
   diag('✅ Connecté : ' + user.email, '#27AE60');
   diag('⏳ Chargement des données…');
   await loadAll();
-  setupRealtime();
+  // setupRealtime(); // désactivé — connexion WebSocket bloque Edge tracking prevention
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
