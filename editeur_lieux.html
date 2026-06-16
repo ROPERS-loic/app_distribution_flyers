@@ -481,6 +481,10 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
   <div id="pointage-list"></div>
   <div id="pointage-footer">
+    <div style="margin-bottom:7px;font-size:11px">
+      <label style="font-weight:bold;color:#555;display:block;margin-bottom:3px">Date de visite</label>
+      <input id="pointage-date" type="date" style="width:100%;padding:5px;border:1px solid #CE93D8;border-radius:5px;font-size:12px;box-sizing:border-box">
+    </div>
     <button id="btn-save-pointage" onclick="savePointageSupabase()">Valider tout</button>
   </div>
 </div>
@@ -1268,7 +1272,12 @@ function togglePointageMode(){
   btn.textContent=pointageMode?'Annuler pointage':'Pointage';
   btn.classList.toggle('active',pointageMode);
   document.getElementById('pointage-panel').classList.toggle('open',pointageMode);
-  if(pointageMode){pointageStops=[];renderPointageList();}
+  if(pointageMode){
+    pointageStops=[];
+    var td=new Date().toISOString().slice(0,10);
+    document.getElementById('pointage-date').value=td;
+    renderPointageList();
+  }
   else{pointageStops=[];POIS.forEach(function(p){refreshMarkerIcon(p.id);});renderList();}
 }
 function togglePointageStop(id){
@@ -1305,7 +1314,8 @@ async function savePointageSupabase(){
   if(!pointageStops.length){showToast('Aucun lieu selectionne');return;}
   showToast('Enregistrement...');
   try{
-    var tId=await getOrCreateJournalTournee('Pointage');
+    var pDate=document.getElementById('pointage-date').value||new Date().toISOString().slice(0,10);
+    var tId=await getOrCreateJournalTournee('Pointage_'+pDate);
     var points=[];
     pointageStops.forEach(function(id,i){
       var p=POIS.find(function(p){return p.id===id;}); if(!p||!p.supabase_id) return;
@@ -1314,7 +1324,7 @@ async function savePointageSupabase(){
       var comment=document.getElementById('ps-comment-'+id).value.trim();
       points.push({tournee_id:tId,lieu_id:p.supabase_id,ordre_passage:i+1,
         quantite_flyers:qty,statut:statut,
-        heure_validation:new Date().toISOString(),
+        heure_validation:pDate+'T12:00:00.000Z',
         commentaire_distributeur:comment||null});
     });
     await sbPost('points_tournee',points);
