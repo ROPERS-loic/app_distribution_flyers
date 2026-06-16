@@ -353,22 +353,7 @@ textarea.form-input{resize:vertical;min-height:60px}
       </div>
       <div id="pl-browse" style="overflow-y:auto;max-height:35vh;border-bottom:1px solid #eee"></div>
       <div id="pl-selected-section" style="overflow-y:auto;flex:1">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px">
-          <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
-          <button class="btn-export-pdf" id="btn-export-pdf" onclick="exportListePDF()" style="margin:0;width:auto;padding:6px 12px;font-size:11px">Exporter PDF</button>
-        </div>
-        <div class="vf-row" style="padding:0 0 8px">
-          <button class="vchip active" onclick="setVisiteFilter('tous')">Tous</button>
-          <button class="vchip" onclick="setVisiteFilter('jour')">Aujourd hui</button>
-          <button class="vchip" onclick="setVisiteFilter('semaine')">Cette semaine</button>
-          <button class="vchip" onclick="setVisiteFilter('mois')">Ce mois</button>
-          <button class="vchip" onclick="setVisiteFilter('perso')">Personnalise</button>
-        </div>
-        <div class="vf-date-range" id="vf-range">
-          <input type="date" id="vf-from" onchange="loadVisitesFiltered()">
-          <span style="font-size:11px;color:#888">au</span>
-          <input type="date" id="vf-to" onchange="loadVisitesFiltered()">
-        </div>
+        <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
         <div id="pl-sel-list"></div>
       </div>
       <div id="pl-bar">
