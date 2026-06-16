@@ -637,7 +637,7 @@ function renderList(){
     div.innerHTML=(rn>=0?'<div class="route-num">'+(rn+1)+'</div>':'')
       +'<div class="poi-dot" style="background:'+color+'"></div>'
       +'<div class="poi-info"><div class="poi-nom">'+escHtml(p.nom)+statBadge+'</div><div class="poi-sub">'+escHtml(p.type_lieu)+' · '+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>';
-    div.onclick=function(){ routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
+    div.onclick=function(){ tourneeMode?toggleTourneeStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
     list.appendChild(div);
   });
   document.getElementById('poi-count').textContent=filteredPois.length+' lieu'+(filteredPois.length>1?'x':'');
@@ -1154,8 +1154,14 @@ function toggleTourneeMode(){
 
 function toggleTourneeStop(id){
   var p = POIS.find(function(p){ return p.id===id; });
-  tourneeStops.push(id);
-  showToast('✓ Ajouté : '+(p?p.nom:''));
+  var idx = tourneeStops.indexOf(id);
+  if(idx >= 0){
+    tourneeStops.splice(idx, 1);
+    showToast('✕ Retiré : '+(p?p.nom:''));
+  } else {
+    tourneeStops.push(id);
+    showToast('✓ Ajouté : '+(p?p.nom:''));
+  }
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
   renderList(); renderTourneeList(); clearTourneeLayer();
   document.getElementById('tournee-result').style.display = 'none';
