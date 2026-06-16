@@ -536,6 +536,7 @@ var markers    = {};
 var routeLayer = null;
 var tourneeRouteLayer = null;
 var selectedId = null;
+function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
 var addMode    = false;
 var routeMode  = false;
 var tourneeMode = false;
@@ -1462,10 +1463,4 @@ restoreState();
 checkStoredHandle();
 (function(){
   var ind = document.getElementById('save-indicator');
-  if(ind && !localStorage.getItem(POIS_STORE_KEY)){
-    ind.textContent = '💾 non sauvegardé'; ind.className = '';
-  }
-})();
-</script>
-</body>
-</html>
+  if(ind && !localSt
