@@ -12,12 +12,9 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #header{background:#2B2B2B;color:#fff;padding:0 10px;display:flex;align-items:center;gap:7px;height:50px;flex-shrink:0}
 #header h1{font-size:12px;font-weight:bold;flex:1}
 .hbtn{padding:5px 9px;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-weight:bold;white-space:nowrap}
-#btn-export{background:#E8A020;color:#2B2B2B}
 #btn-add{background:#43A047;color:#fff}
 #btn-zones{background:#546E7A;color:#fff}
 #btn-route{background:#1E88E5;color:#fff}
-#btn-saved{background:#6A1B9A;color:#fff}
-#btn-export-mobile{background:#E53935;color:#fff}
 /* Mini login Supabase */
 #sb-login-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center}
 #sb-login-overlay.hidden{display:none}
@@ -28,8 +25,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #sb-login-btn{width:100%;padding:10px;background:#E8A020;color:#2B2B2B;border:none;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer}
 #sb-login-btn:hover{background:#d4911a}
 #sb-login-err{color:#E53935;font-size:11px;margin-top:6px;display:none}
-#sb-status{font-size:10px;padding:2px 8px;border-radius:8px;border:1px solid #555;background:rgba(255,255,255,0.08);color:#aaa;white-space:nowrap}
-#sb-status.connected{color:#81C784;border-color:#43A047}
 .hbtn:hover{filter:brightness(1.15)}
 #btn-undo{background:#37474F;color:#fff}
 #btn-undo:disabled{opacity:.35;cursor:not-allowed;filter:none}
@@ -254,15 +249,9 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   <button class="hbtn" id="btn-add" onclick="toggleAddMode()">➕ Ajouter</button>
   <button class="hbtn" id="btn-zones" onclick="openZoneModal()">🎨 Zones</button>
   <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
-  <button class="hbtn" id="btn-saved" onclick="toggleSavedPanel()">📋 Mes itinéraires</button>
   <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
-  <span id="save-indicator">💾 …</span>
   <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
-  <button class="hbtn" id="btn-link-csv" onclick="linkCSV()" style="background:#546E7A;color:#fff" title="Lier le fichier CSV pour l'écriture directe">📁 Lier CSV</button>
-  <button class="hbtn" id="btn-sync-supa" onclick="syncDepuisSupabase()" style="background:#1565C0;color:#fff" title="Charger les données depuis Supabase">⬇️ Sync Supabase</button>
-  <span id="sb-status">☁️ …</span>
-  <button class="hbtn" id="btn-export" onclick="enregistrer()" style="background:#E8A020;color:#2B2B2B;font-size:12px;padding:6px 14px">💾 Enregistrer</button>
 </div>
 
 <!-- Login Supabase -->
@@ -362,7 +351,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="rbtn rbtn-clear" onclick="clearRoute()">🗑</button>
       </div>
       <div class="route-action-row">
-        <button class="rbtn rbtn-save" onclick="openSaveModal()">💾 Enregistrer l'itinéraire</button>
       </div>
       <div class="route-action-row" id="gmap-row" style="display:none">
         <button class="rbtn rbtn-gmap" onclick="openInGoogleMaps()">🗺 Ouvrir dans Google Maps</button>
@@ -401,14 +389,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     </div>
   </div>
 
-  <!-- SAVED PANEL -->
-  <div id="saved-panel">
-    <div id="saved-header">
-      <h3>📋 Mes itinéraires enregistrés</h3>
-      <button onclick="toggleSavedPanel()">✕</button>
-    </div>
-    <div id="saved-list"></div>
-  </div>
 </div>
 
 <!-- GMAP SEGMENTS MODAL -->
@@ -438,24 +418,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
 </div>
 
-<!-- SAVE NAME MODAL -->
-<div id="save-modal">
-  <div id="save-box">
-    <div id="save-box-header">
-      <h2>💾 Enregistrer l'itinéraire</h2>
-      <button onclick="closeSaveModal()">✕</button>
-    </div>
-    <div id="save-box-body">
-      <label>Nom de l'itinéraire</label>
-      <input id="save-name-input" type="text" placeholder="ex: Tournée Vallon–Ruoms J1 matin" autocomplete="off">
-      <div class="save-stops-preview" id="save-stops-preview"></div>
-    </div>
-    <div id="save-box-footer">
-      <button class="sfbtn sfbtn-ok" onclick="confirmSave()">✓ Enregistrer</button>
-      <button class="sfbtn sfbtn-cancel" onclick="closeSaveModal()">Annuler</button>
-    </div>
-  </div>
-</div>
 
 <div id="toast"></div>
 
@@ -473,18 +435,11 @@ async function sbPost(table,data){var r=await fetch(SB_URL+'/rest/v1/'+table,{me
 async function sbPatch(table,filter,data){var r=await fetch(SB_URL+'/rest/v1/'+table+'?'+filter,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||'HTTP '+r.status);}return r.json();}
 async function sbAuthPost(endpoint,body,token){var h={'apikey':SB_KEY,'Content-Type':'application/json'};if(token)h['Authorization']='Bearer '+token;var r=await fetch(SB_URL+'/auth/v1/'+endpoint,{method:'POST',headers:h,body:JSON.stringify(body)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||e.error_description||'HTTP '+r.status);}return r.json();}
 
-function setSbStatus(msg, connected){
-  var el = document.getElementById('sb-status');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = connected ? 'connected' : '';
-}
-
 // Vérifie la session au chargement
 window.addEventListener('load', async function(){
   var stored = getStoredSession();
-  if(stored && stored.user){ setSbStatus('☁️ ' + stored.user.email, true); autoSyncSupabase(); }
-  else { setSbStatus('☁️ Non connecté', false); showSbLogin(); }
+  if(stored && stored.user){ autoSyncSupabase(); }
+  else { showSbLogin(); }
 });
 
 function showSbLogin(){ document.getElementById('sb-login-overlay').classList.remove('hidden'); }
@@ -498,21 +453,10 @@ async function sbLogin(){
   try {
     var data = await sbAuthPost('token?grant_type=password', {email: email, password: pwd});
     localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token', JSON.stringify(data));
-    setSbStatus('☁️ ' + (data.user && data.user.email), true);
     hideSbLogin(); autoSyncSupabase();
   } catch(e){ err.textContent = e.message; err.style.display = 'block'; }
 }
 
-// Enregistre : CSV + Supabase
-async function enregistrer(){
-  var btn = document.getElementById('btn-export');
-  btn.textContent = '⏳ Enregistrement…'; btn.disabled = true;
-  // 1. Sauvegarde CSV
-  await autoSaveCSV();
-  // 2. Sync Supabase
-  await syncSupabase();
-  btn.textContent = '💾 Enregistrer'; btn.disabled = false;
-}
 
 async function syncSupabase(){
   var stored = getStoredSession();
@@ -599,33 +543,6 @@ var routeStops = [];
 var tourneeStops = [];
 var tourneeDistributeurs = [];
 var nextId     = POIS.length + 10000;
-var STORE_KEY  = 'nougaterie_itineraires';
-
-// ══════════════════════════════════════════════════════════
-//  STORAGE
-// ══════════════════════════════════════════════════════════
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); }catch(e){ return []; }
-}
-function writeSaved(arr){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }catch(e){ showToast('⚠ Impossible de sauvegarder'); }
-}
-
-function exportPourMobile(){
-  var saved = loadSaved();
-  if(!saved || !saved.length){
-    showToast('⚠ Aucun itinéraire sauvegardé à exporter');
-    return;
-  }
-  var data = JSON.stringify(saved, null, 2);
-  var blob = new Blob([data], {type: 'application/json;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  var date = new Date().toLocaleDateString('fr-FR').replace(/\//g,'-');
-  a.download = 'itineraires_nougaterie_' + date + '.json';
-  a.click();
-  showToast('📱 ' + saved.length + ' itinéraire(s) exporté(s) — transférez ce fichier sur votre téléphone');
-}
 
 // ══════════════════════════════════════════════════════════
 //  ZONE HELPERS
@@ -769,7 +686,7 @@ function saveEdit(){
   if(markers[p.id]&&!isNaN(lat)&&!isNaN(lon)) markers[p.id].setLatLng([lat,lon]);
   refreshMarkerIcon(p.id);
   document.getElementById('edit-title').textContent='✏️ '+p.nom;
-  applyFilters(); pushHistory(); saveState(); autoSaveCSV(); savePOIToSupabase(p); showToast('✓ Modifié : '+p.nom);
+  applyFilters(); pushHistory(); saveState(); savePOIToSupabase(p); showToast('✓ Modifié : '+p.nom);
 }
 function deletePoi(){
   var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
@@ -851,7 +768,7 @@ function saveZones(){
   });
   ZONES.length=0; zoneEdits.forEach(function(z){ZONES.push({id:z.id,name:z.name,color:z.color});});
   POIS.forEach(function(p){refreshMarkerIcon(p.id);});
-  rebuildZoneSelects(); applyFilters(); pushHistory(); saveState(); autoSaveCSV(); closeZoneModal();
+  rebuildZoneSelects(); applyFilters(); pushHistory(); saveState(); closeZoneModal();
   showToast('✓ Zones mises à jour');
 }
 function closeZoneModal(){ document.getElementById('zone-modal').classList.remove('open'); }
@@ -1066,159 +983,6 @@ function openInGoogleMaps(){
 }
 
 
-
-// ══════════════════════════════════════════════════════════
-//  SAVE / LOAD ITINERARY
-// ══════════════════════════════════════════════════════════
-function openSaveModal(){
-  if(routeStops.length<2){showToast('⚠ Ajoutez au moins 2 arrêts');return;}
-  var inp=document.getElementById('save-name-input');
-  inp.value=''; inp.focus();
-  var names=routeStops.slice(0,5).map(function(id){ var p=POIS.find(function(p){return p.id===id;}); return p?p.commune:'?'; });
-  var preview=routeStops.length+' arrêts · '+[...new Set(names)].join(', ')+(routeStops.length>5?' …':'');
-  document.getElementById('save-stops-preview').textContent=preview;
-  document.getElementById('save-modal').classList.add('open');
-  setTimeout(function(){inp.focus();},80);
-}
-function closeSaveModal(){ document.getElementById('save-modal').classList.remove('open'); }
-
-function confirmSave(){
-  var name=document.getElementById('save-name-input').value.trim();
-  if(!name){showToast('⚠ Donnez un nom à l\'itinéraire');document.getElementById('save-name-input').focus();return;}
-  var stops=routeStops.map(function(id){
-    var p=POIS.find(function(p){return p.id===id;}); if(!p) return null;
-    return {id:p.id,nom:p.nom,commune:p.commune,adresse:p.adresse,lat:p.lat,lon:p.lon,zone:p.zone_tournee,type:p.type_lieu};
-  }).filter(Boolean);
-  var saved=loadSaved();
-  saved.push({name:name,date:new Date().toLocaleDateString('fr-FR'),stops:stops});
-  writeSaved(saved);
-  closeSaveModal();
-  renderSavedList();
-  showToast('💾 Itinéraire enregistré : '+name);
-}
-
-// ── SAVED PANEL ──────────────────────────────────────────
-function toggleSavedPanel(){
-  var panel=document.getElementById('saved-panel');
-  var isOpen=panel.classList.contains('open');
-  panel.classList.toggle('open',!isOpen);
-  if(!isOpen) renderSavedList();
-}
-function renderSavedList(){
-  var saved=loadSaved();
-  var list=document.getElementById('saved-list');
-  if(saved.length===0){list.innerHTML='<div id="saved-empty">Aucun itinéraire enregistré</div>';return;}
-  list.innerHTML='';
-  saved.forEach(function(it,i){
-    var div=document.createElement('div'); div.className='saved-item';
-    var stopNames=it.stops.slice(0,4).map(function(s){return s.nom;}).join(', ')+(it.stops.length>4?' …':'');
-    div.innerHTML='<div class="saved-item-header"><span class="saved-item-name">'+escHtml(it.name)+'</span></div>'
-      +'<div class="saved-item-meta">'+escHtml(it.date)+' · '+it.stops.length+' arrêts</div>'
-      +'<div class="saved-item-stops">'+escHtml(stopNames)+'</div>'
-      +'<div class="saved-actions">'
-        +'<button class="sa-btn sa-load" onclick="loadItinerary('+i+')">📍 Charger</button>'
-        +'<button class="sa-btn sa-gmap" onclick="openSavedInGoogleMaps('+i+')">🗺 Google Maps</button>'
-        +'<button class="sa-btn sa-pdf" onclick="exportRoutePDF('+i+')">📄 PDF</button>'
-        +'<button class="sa-btn sa-del" onclick="deleteSaved('+i+')">🗑</button>'
-      +'</div>';
-    list.appendChild(div);
-  });
-}
-function loadItinerary(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  // Try to match stops to current POIS by id, fallback by name+commune
-  routeStops=[];
-  it.stops.forEach(function(s){
-    var p=POIS.find(function(p){return p.id===s.id;});
-    if(!p) p=POIS.find(function(p){return p.nom===s.nom&&p.commune===s.commune;});
-    if(p) routeStops.push(p.id);
-  });
-  if(!routeMode) toggleRouteMode();
-  POIS.forEach(function(p){refreshMarkerIcon(p.id);}); renderList(); renderRouteList(); clearRouteLayer();
-  document.getElementById('route-result').style.display='none';
-  document.getElementById('gmap-row').style.display='none';
-  toggleSavedPanel();
-  showToast('📍 Chargé : '+it.name+' ('+routeStops.length+' arrêts)');
-}
-function openSavedInGoogleMaps(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  if(it.stops.length<2){showToast('⚠ Pas assez d\'arrêts');return;}
-  var wps=_stopsToWps(it.stops);
-  openGmapModal(it.name, wps);
-}
-function deleteSaved(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  if(!confirm('Supprimer l\'itinéraire "'+it.name+'" ?')) return;
-  saved.splice(i,1); writeSaved(saved); renderSavedList();
-  showToast('🗑 Supprimé : '+it.name);
-}
-
-// ══════════════════════════════════════════════════════════
-//  SYNC DEPUIS SUPABASE → ÉDITEUR
-// ══════════════════════════════════════════════════════════
-async function syncDepuisSupabase() {
-  var btn = document.getElementById('btn-sync-supa');
-  if (!getStoredSession()) { showToast('⚠ Non connecté à Supabase'); return; }
-
-  if (!confirm('Charger toutes les données depuis Supabase ?\nCela remplacera les données locales par les données enregistrées dans Supabase.')) return;
-
-  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
-
-  var data;
-  try { data = await sbGet('lieux?select=*&actif=eq.true&order=nom'); }
-  catch(e) { showToast('❌ Erreur : ' + e.message); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
-  if (!data || !data.length) { showToast('⚠ Aucun lieu dans Supabase'); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
-
-  var updated = 0, added = 0;
-
-  data.forEach(function(l) {
-    if (!l.latitude || !l.longitude) return;
-    // Cherche le POI existant par nom
-    var existing = POIS.find(function(p) { return p.nom === l.nom; });
-    if (existing) {
-      existing.lat        = String(l.latitude);
-      existing.lon        = String(l.longitude);
-      existing.commune    = l.ville || existing.commune;
-      existing.adresse    = l.adresse || existing.adresse;
-      existing.code_postal= l.code_postal || existing.code_postal;
-      existing.contacts   = l.telephone || existing.contacts;
-      existing.zone_tournee = l.zone_tournee || existing.zone_tournee;
-      existing.statut     = existing.statut || '';
-      updated++;
-    } else {
-      // Nouveau lieu présent dans Supabase mais pas dans POIS
-      POIS.push({
-        id: 90000 + l.id,
-        nom: l.nom,
-        type_lieu: l.categorie || '',
-        commune: l.ville || '',
-        code_postal: l.code_postal || '',
-        departement: '',
-        adresse: l.adresse || '',
-        lat: String(l.latitude),
-        lon: String(l.longitude),
-        contacts: l.telephone || '',
-        zone_tournee: l.zone_tournee || '',
-        statut: '',
-        source: 'Supabase'
-      });
-      added++;
-    }
-  });
-
-  // Mettre à jour les marqueurs sur la carte
-  Object.keys(markers).forEach(function(id) { map.removeLayer(markers[id]); });
-  markers = {};
-  buildMarkers();
-  applyFilters();
-  saveState();
-
-  showToast('✅ Sync terminée — ' + updated + ' mis à jour, ' + added + ' ajoutés');
-  btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false;
-}
 
 // ══════════════════════════════════════════════════════════
 //  AUTO-SYNC SUPABASE AU DÉMARRAGE (silencieux)
@@ -1689,324 +1453,6 @@ async function exportRoutePDF(i){
   win.document.close();
 }
 
-// ══════════════════════════════════════════════════════════
-//  FILE SYSTEM ACCESS API – liaison directe CSV
-// ══════════════════════════════════════════════════════════
-var _csvFileHandle = null;
-var _CSV_IDB_NAME  = 'nougaterie_fs';
-var _CSV_IDB_KEY   = 'csv_handle_v1';
-
-function _openHandleDb(cb){
-  try {
-    var req = indexedDB.open(_CSV_IDB_NAME, 1);
-    req.onupgradeneeded = function(e){ e.target.result.createObjectStore('handles'); };
-    req.onsuccess  = function(e){ cb(e.target.result); };
-    req.onerror    = function(){ cb(null); };
-  } catch(e){ cb(null); }
-}
-function _saveHandle(handle){
-  _openHandleDb(function(db){
-    if(!db) return;
-    try { var tx=db.transaction('handles','readwrite'); tx.objectStore('handles').put(handle,_CSV_IDB_KEY); } catch(e){}
-  });
-}
-function _loadHandle(cb){
-  _openHandleDb(function(db){
-    if(!db){ cb(null); return; }
-    try {
-      var tx=db.transaction('handles','readonly');
-      var req=tx.objectStore('handles').get(_CSV_IDB_KEY);
-      req.onsuccess=function(e){ cb(e.target.result||null); };
-      req.onerror=function(){ cb(null); };
-    } catch(e){ cb(null); }
-  });
-}
-function _clearHandle(){
-  _openHandleDb(function(db){
-    if(!db) return;
-    try { var tx=db.transaction('handles','readwrite'); tx.objectStore('handles').delete(_CSV_IDB_KEY); } catch(e){}
-  });
-  _csvFileHandle = null;
-  updateLinkBtn();
-}
-function updateLinkBtn(){
-  var btn    = document.getElementById('btn-link-csv');
-  var expBtn = document.getElementById('btn-export');
-  if(!btn || !expBtn) return;
-  if(_csvFileHandle){
-    btn.textContent  = '🔗 ' + _csvFileHandle.name;
-    btn.style.background = '#2E7D32';
-    btn.title        = 'Cliquez pour changer de fichier CSV lié';
-    expBtn.textContent = '💾 Sauvegarder CSV';
-    expBtn.title     = 'Écrit directement dans ' + _csvFileHandle.name;
-  } else {
-    btn.textContent  = '📁 Lier CSV';
-    btn.style.background = '#546E7A';
-    btn.title        = 'Lier le fichier CSV pour l\'écriture directe';
-    expBtn.textContent = '⬇ CSV';
-    expBtn.title     = '';
-  }
-}
-async function linkCSV(){
-  if(!window.showOpenFilePicker){
-    showToast('⚠ Navigateur non compatible – utilisez Chrome ou Edge');
-    return;
-  }
-  try {
-    var handles = await window.showOpenFilePicker({
-      types: [{ description: 'Fichier CSV', accept: {'text/csv': ['.csv'], 'text/plain': ['.csv']} }],
-      multiple: false
-    });
-    var handle = handles[0];
-    var perm = await handle.requestPermission({ mode: 'readwrite' });
-    if(perm !== 'granted'){ showToast('⚠ Permission refusée'); return; }
-    _csvFileHandle = handle;
-    _saveHandle(handle);
-    updateLinkBtn();
-    showToast('✓ CSV lié : ' + handle.name + ' — prêt pour l\'écriture directe');
-  } catch(e){
-    if(e.name !== 'AbortError') showToast('⚠ ' + (e.message || 'Erreur lors de la liaison'));
-  }
-}
-async function checkStoredHandle(){
-  _loadHandle(async function(handle){
-    if(!handle) return;
-    try {
-      var perm = await handle.queryPermission({ mode: 'readwrite' });
-      _csvFileHandle = handle;
-      updateLinkBtn();
-      if(perm === 'granted'){
-        showToast('🔗 CSV lié : ' + handle.name);
-      } else {
-        // Permission expirée : le handle est conservé, sera redemandée à l'export
-        showToast('🔗 CSV lié : ' + handle.name + ' (cliquez 💾 pour confirmer l\'accès)');
-      }
-    } catch(e){ _clearHandle(); }
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  EXPORT CSV
-// ══════════════════════════════════════════════════════════
-function buildCSVContent(){
-  var cols=['département','commune','code_postal','type_lieu','nom','adresse','latitude','longitude','description','contacts','classements','source','zone_tournee','statut'];
-  var lines=[cols.join(';')];
-  POIS.forEach(function(p){
-    var row=[p.departement,p.commune,p.code_postal,p.type_lieu,p.nom,p.adresse,p.lat,p.lon,p.description||'',p.contacts,p.classements||'',p.source,p.zone_tournee,p.statut||'']
-      .map(function(v){ v=(v||'').toString(); if(v.includes(';')||v.includes('"')||v.includes('\n'))v='"'+v.replace(/"/g,'""')+'"'; return v; });
-    lines.push(row.join(';'));
-  });
-  return '﻿'+lines.join('\r\n');
-}
-function fallbackDownload(csvContent){
-  var blob=new Blob([csvContent],{type:'text/csv;charset=utf-8'});
-  var url=URL.createObjectURL(blob); var a=document.createElement('a');
-  a.href=url; a.download='poi_touristiques_30km_vallon.csv'; a.click(); URL.revokeObjectURL(url);
-  showToast('✓ CSV téléchargé — '+POIS.length+' lieux');
-}
-// Écriture silencieuse dans le CSV lié (appelée après chaque modification)
-async function autoSaveCSV(){
-  if(!_csvFileHandle) return; // pas de fichier lié → rien à faire
-  try {
-    var perm = await _csvFileHandle.queryPermission({ mode: 'readwrite' });
-    if(perm !== 'granted') perm = await _csvFileHandle.requestPermission({ mode: 'readwrite' });
-    if(perm !== 'granted') return;
-    var writable = await _csvFileHandle.createWritable();
-    await writable.write(buildCSVContent());
-    await writable.close();
-    var ind = document.getElementById('save-indicator');
-    if(ind){ var d=new Date(); ind.textContent='💾 '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+' (CSV ✓)'; ind.className='saved'; }
-  } catch(e){ console.warn('autoSaveCSV error', e); }
-}
-
-async function exportCSV(){
-  var csvContent = buildCSVContent();
-  if(_csvFileHandle){
-    try {
-      var perm = await _csvFileHandle.requestPermission({ mode: 'readwrite' });
-      if(perm !== 'granted'){ showToast('⚠ Permission refusée – téléchargement à la place'); fallbackDownload(csvContent); return; }
-      var writable = await _csvFileHandle.createWritable();
-      await writable.write(csvContent);
-      await writable.close();
-      showToast('✓ CSV sauvegardé directement — '+POIS.length+' lieux');
-    } catch(e){
-      console.warn('exportCSV write error', e);
-      showToast('⚠ Erreur écriture – téléchargement à la place');
-      fallbackDownload(csvContent);
-    }
-  } else {
-    fallbackDownload(csvContent);
-  }
-}
-
-// ══════════════════════════════════════════════════════════
-//  EXPORT ZONES → Supabase
-// ══════════════════════════════════════════════════════════
-function exportZonesJSON(){
-  // Filtre uniquement les lieux qui ont une zone assignée
-  var withZone = POIS.filter(function(p){ return p.zone_tournee && p.zone_tournee.trim(); });
-  if(!withZone.length){
-    showToast('⚠ Aucun lieu avec une zone assignée');
-    return;
-  }
-  var data = withZone.map(function(p){
-    return { nom: p.nom, commune: p.commune||p.ville||'', zone_tournee: p.zone_tournee.trim() };
-  });
-  var json = JSON.stringify(data, null, 2);
-  var blob = new Blob([json], {type:'application/json'});
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement('a');
-  a.href   = url;
-  a.download = 'zones_export.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✓ ' + data.length + ' zones exportées → zones_export.json');
-}
-
-// ══════════════════════════════════════════════════════════
-//  UTILS
-// ══════════════════════════════════════════════════════════
-function filterZone(key){
-  var sel=document.getElementById('filter-zone');
-  if(sel.value===key){sel.value='';document.querySelectorAll('.leg-item').forEach(function(e){e.classList.remove('active-filter');});}
-  else{sel.value=key;document.querySelectorAll('.leg-item').forEach(function(e){e.classList.remove('active-filter');});var l=document.getElementById('leg-'+key);if(l)l.classList.add('active-filter');}
-  applyFilters();
-}
-function haversine(la1,lo1,la2,lo2){
-  var R=6371,d=Math.PI/180,dLa=(la2-la1)*d,dLo=(lo2-lo1)*d;
-  var a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLo/2)*Math.sin(dLo/2);
-  return R*2*Math.asin(Math.sqrt(a));
-}
-function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-var toastT=null;
-function showToast(m){var e=document.getElementById('toast');e.textContent=m;e.style.display='block';if(toastT)clearTimeout(toastT);toastT=setTimeout(function(){e.style.display='none';},2800);}
-
-// ══════════════════════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════════════════════
-rebuildZoneSelects();
-// ══════════════════════════════════════════════════════════
-//  HISTORIQUE (UNDO)
-// ══════════════════════════════════════════════════════════
-var _history = [];
-var HISTORY_MAX = 20;
-
-function pushHistory(){
-  _history.push({
-    pois: JSON.parse(JSON.stringify(POIS)),
-    zones: JSON.parse(JSON.stringify(ZONES))
-  });
-  if(_history.length > HISTORY_MAX) _history.shift();
-  var btn = document.getElementById('btn-undo');
-  if(btn) btn.disabled = false;
-}
-
-function undoState(){
-  if(_history.length === 0) return;
-  var snap = _history.pop();
-  POIS.length = 0;
-  snap.pois.forEach(function(p){ POIS.push(p); });
-  ZONES.length = 0;
-  snap.zones.forEach(function(z){ ZONES.push(z); });
-  var maxId = 0;
-  POIS.forEach(function(p){ if(p.id > maxId) maxId = p.id; });
-  nextId = maxId + 1;
-  // Reconstruire les marqueurs
-  Object.keys(markers).forEach(function(id){ map.removeLayer(markers[id]); });
-  markers = {};
-  buildMarkers();
-  rebuildZoneSelects();
-  applyFilters();
-  renderRouteList();
-  // Si un POI était sélectionné, vérifier qu'il existe encore
-  if(selectedId && !POIS.find(function(p){ return p.id===selectedId; })){
-    selectedId = null;
-    document.getElementById('edit-panel').classList.add('hidden');
-  }
-  saveState();
-  showToast('↩ Modification annulée');
-  var btn = document.getElementById('btn-undo');
-  if(btn) btn.disabled = (_history.length === 0);
-}
-
-//  PERSISTANCE LOCALE (localStorage)
-// ══════════════════════════════════════════════════════════
-var POIS_STORE_KEY = 'nougaterie_pois_v1';
-var _pendingSave   = null;
-var _savedData     = null; // snapshot avant restauration éventuelle
-
-function saveState(){
-  clearTimeout(_pendingSave);
-  _pendingSave = setTimeout(function(){
-    try {
-      var payload = {
-        pois: POIS,
-        zones: ZONES,
-        ts: new Date().toISOString(),
-        count: POIS.length
-      };
-      localStorage.setItem(POIS_STORE_KEY, JSON.stringify(payload));
-      var ind = document.getElementById('save-indicator');
-      if(ind){
-        var d = new Date();
-        var hm = ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-        ind.textContent = '💾 ' + hm;
-        ind.className = 'saved';
-      }
-    } catch(e){ console.warn('saveState error', e); }
-  }, 600); // debounce 600ms
-}
-
-function markUnsaved(){
-  var ind = document.getElementById('save-indicator');
-  if(ind){ ind.textContent = '💾 non sauvegardé'; ind.className = 'unsaved'; }
-}
-
-function restoreState(){
-  try {
-    var raw = localStorage.getItem(POIS_STORE_KEY);
-    if(!raw) return false;
-    var data = JSON.parse(raw);
-    if(!data || !data.pois || data.pois.length === 0) return false;
-    _savedData = data;
-    var d = new Date(data.ts);
-    var dateStr = d.toLocaleDateString('fr-FR') + ' à ' + ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
-    document.getElementById('restore-msg').textContent =
-      '📂 ' + data.count + ' lieux sauvegardés le ' + dateStr + ' – voulez-vous restaurer vos modifications ?';
-    document.getElementById('restore-banner').classList.remove('hidden');
-    return true;
-  } catch(e){ return false; }
-}
-
-function applyRestore(){
-  if(!_savedData) return;
-  POIS.length = 0;
-  _savedData.pois.forEach(function(p){ POIS.push(p); });
-  if(_savedData.zones && _savedData.zones.length > 0){
-    ZONES.length = 0;
-    _savedData.zones.forEach(function(z){ ZONES.push(z); });
-  }
-  var maxId = 0;
-  POIS.forEach(function(p){ if(p.id > maxId) maxId = p.id; });
-  nextId = maxId + 1;
-  document.getElementById('restore-banner').classList.add('hidden');
-  Object.keys(markers).forEach(function(id){ map.removeLayer(markers[id]); });
-  markers = {};
-  buildMarkers();
-  rebuildZoneSelects();
-  applyFilters();
-  var ind = document.getElementById('save-indicator');
-  if(ind){ ind.textContent = '💾 restauré'; ind.className = 'saved'; }
-  showToast('✓ ' + POIS.length + ' lieux restaurés depuis la dernière session');
-}
-
-function dismissRestore(){
-  _savedData = null;
-  document.getElementById('restore-banner').classList.add('hidden');
-  localStorage.removeItem(POIS_STORE_KEY);
-  var ind = document.getElementById('save-indicator');
-  if(ind){ ind.textContent = '💾 non sauvegardé'; ind.className = 'unsaved'; }
-}
 
 function resetToOriginal(){
   if(!confirm('Effacer toutes les modifications locales et revenir aux données du fichier CSV d\'origine ?')) return;
@@ -2026,4 +1472,4 @@ checkStoredHandle();
 })();
 </script>
 </body>
-</html>                                                                                                                                                                  
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
