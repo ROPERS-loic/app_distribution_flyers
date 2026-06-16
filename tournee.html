@@ -348,9 +348,14 @@ if ('serviceWorker' in navigator) {
 //  SUPABASE
 // ════════════════════════════════════════════
 const SUPA_URL = 'https://krbzipnoeroaofojccri.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
-const { createClient } = supabase;
-const sb = createClient(SUPA_URL, SUPA_KEY);
+const SUPA_KEY = 'sb_publishable_00DghQOW-_toZkmmA2uEkA_8yd9xNSP';
+
+function getStoredSession(){try{const r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
+function getToken(){const s=getStoredSession();return s?.access_token||SUPA_KEY;}
+async function sbGet(path){const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken()}});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbPost(table,data){const r=await fetch(`${SUPA_URL}/rest/v1/${table}`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbPatch(table,filter,data){const r=await fetch(`${SUPA_URL}/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbAuthPost(endpoint,body,token){const h={'apikey':SUPA_KEY,'Content-Type':'application/json'};if(token)h['Authorization']='Bearer '+token;const r=await fetch(`${SUPA_URL}/auth/v1/${endpoint}`,{method:'POST',headers:h,body:JSON.stringify(body)});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error_description||'HTTP '+r.status);}return r.json();}
 
 // ════════════════════════════════════════════
 //  STATE
@@ -376,8 +381,8 @@ const ST = {
 document.addEventListener('DOMContentLoaded', async () => {
   tryGeo();
   document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) await onLoggedIn(session.user);
+  const stored = getStoredSession();
+  if (stored?.user) await onLoggedIn(stored.user);
 });
 
 // ════════════════════════════════════════════
@@ -413,17 +418,20 @@ async function doLogin() {
   err.classList.remove('show');
   if (!email || !pwd) { err.textContent = 'Remplissez tous les champs.'; err.classList.add('show'); return; }
   btn.disabled = true; btn.textContent = 'Connexion…';
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
-  if (error) {
+  try {
+    const data = await sbAuthPost('token?grant_type=password', {email, password: pwd});
+    localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token', JSON.stringify(data));
+    await onLoggedIn(data.user);
+  } catch(e) {
     err.textContent = 'Email ou mot de passe incorrect.'; err.classList.add('show');
-    btn.disabled = false; btn.textContent = 'Se connecter'; return;
+    btn.disabled = false; btn.textContent = 'Se connecter';
   }
-  await onLoggedIn(data.user);
 }
 
 async function onLoggedIn(user) {
   ST.user = user;
-  const { data: prof } = await sb.from('utilisateurs').select('*').eq('id', user.id).single();
+  const profArr = await sbGet(`utilisateurs?select=*&id=eq.${user.id}&limit=1`).catch(()=>[]);
+  const prof = profArr[0] || null;
   ST.profile = prof;
   document.getElementById('app-body').classList.remove('no-nav');
   document.getElementById('bottom-nav').classList.remove('hidden');
@@ -432,9 +440,9 @@ async function onLoggedIn(user) {
 }
 
 async function doLogout() {
-  await sb.auth.signOut();
-  ST.user = null; ST.profile = null; ST.tournees = []; ST.activeTournee = null; ST.activePoints = [];
-  if (ST.rtChannel) { sb.removeChannel(ST.rtChannel); ST.rtChannel = null; }
+  try { await sbAuthPost('logout', {}, getToken()); } catch(e){}
+  localStorage.removeItem('sb-krbzipnoeroaofojccri-auth-token');
+  ST.user = null; ST.profile = null; ST.tournees = []; ST.activeTournee = null; ST.activePoints = []; ST.rtChannel = null;
   document.getElementById('app-body').classList.add('no-nav');
   document.getElementById('bottom-nav').classList.add('hidden');
   navTo('login');
@@ -444,34 +452,23 @@ async function doLogout() {
 //  DATA
 // ════════════════════════════════════════════
 async function loadTournees() {
-  const { data } = await sb.from('tournees').select('*')
-    .eq('distributeur_id', ST.user.id)
-    .order('date', { ascending: false });
-  ST.tournees = data || [];
+  const data = await sbGet(`tournees?select=*&distributeur_id=eq.${ST.user.id}&order=date.desc`).catch(()=>[]);
+  ST.tournees = data;
 }
 
 async function loadPoints(tourneeId) {
-  const { data } = await sb.from('points_tournee')
-    .select('*, lieux(*)')
-    .eq('tournee_id', tourneeId)
-    .order('ordre_passage');
-  ST.activePoints = data || [];
+  const data = await sbGet(`points_tournee?select=*,lieux(*)&tournee_id=eq.${tourneeId}&order=ordre_passage.asc`).catch(()=>[]);
+  ST.activePoints = data;
 }
 
 async function loadAllLieux() {
-  const { data } = await sb.from('lieux').select('*').eq('actif', true).order('nom');
-  ST.allLieux = data || [];
+  const data = await sbGet('lieux?select=*&actif=eq.true&order=nom').catch(()=>[]);
+  ST.allLieux = data;
 }
 
 async function loadHistorique(lieuId) {
   const yr = new Date().getFullYear();
-  const { data } = await sb.from('points_tournee')
-    .select('id, statut, quantite_flyers, heure_validation, commentaire_distributeur, photo_preuve, tournees(id, nom, date, distributeur:utilisateurs(nom))')
-    .eq('lieu_id', lieuId)
-    .neq('statut', 'a_faire')
-    .not('heure_validation', 'is', null)
-    .order('heure_validation', { ascending: false });
-  const all = data || [];
+  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${lieuId}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
   const annee = all.filter(p => p.heure_validation && p.heure_validation.startsWith(yr));
   return { all, annee };
 }
@@ -480,17 +477,7 @@ async function loadHistorique(lieuId) {
 //  REALTIME
 // ════════════════════════════════════════════
 function subscribeRealtime(tourneeId) {
-  if (ST.rtChannel) sb.removeChannel(ST.rtChannel);
-  ST.rtChannel = sb.channel(`t-${tourneeId}`)
-    .on('postgres_changes', {
-      event: 'UPDATE', schema: 'public', table: 'points_tournee',
-      filter: `tournee_id=eq.${tourneeId}`
-    }, async payload => {
-      const idx = ST.activePoints.findIndex(p => p.id === payload.new.id);
-      if (idx >= 0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...payload.new };
-      if (ST.screen === 'tournee') renderTourneeDetail();
-    })
-    .subscribe();
+  // Realtime désactivé — utilise la clé publishable incompatible avec WebSocket Supabase
 }
 
 // ════════════════════════════════════════════
@@ -568,7 +555,7 @@ function renderAccueil() {
 async function computeHeroStats() {
   const ids = ST.tournees.map(t => t.id);
   if (!ids.length) return;
-  const { data } = await sb.from('points_tournee').select('statut, quantite_flyers, tournee_id').in('tournee_id', ids).neq('statut','a_faire');
+  const data = await sbGet(`points_tournee?select=statut,quantite_flyers,tournee_id&tournee_id=in.(${ids.join(',')})&statut=neq.a_faire`).catch(()=>null);
   if (!data) return;
   const mo = new Date().toISOString().slice(0,7);
   const moIds = ST.tournees.filter(t => t.date?.startsWith(mo)).map(t => t.id);
@@ -804,11 +791,10 @@ async function submitValidation() {
     try {
       const ext = ST.form.photoFile.name.split('.').pop()||'jpg';
       const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.${ext}`;
-      const { error: upErr } = await sb.storage.from('photos-distribution').upload(path, ST.form.photoFile, { upsert:true });
-      if (!upErr) {
-        const { data: ud } = sb.storage.from('photos-distribution').getPublicUrl(path);
-        photoUrl = ud?.publicUrl || photoUrl;
-      }
+      const upR = await fetch(`${SUPA_URL}/storage/v1/object/photos-distribution/${path}`, {
+        method:'POST', headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':ST.form.photoFile.type||'image/jpeg','x-upsert':'true'}, body:ST.form.photoFile
+      });
+      if (upR.ok) photoUrl = `${SUPA_URL}/storage/v1/object/public/photos-distribution/${path}`;
     } catch(e) {}
   }
 
@@ -822,22 +808,22 @@ async function submitValidation() {
     photo_preuve: photoUrl
   };
 
-  const { error } = await sb.from('points_tournee').update(upd).eq('id', ST.form.pointId);
-  if (error) { toast('Erreur lors de la validation ✗'); btn.disabled=false; btn.textContent='Valider'; return; }
+  try { await sbPatch('points_tournee','id=eq.'+ST.form.pointId,upd); }
+  catch(e) { toast('Erreur lors de la validation ✗'); btn.disabled=false; btn.textContent='Valider'; return; }
 
   const idx = ST.activePoints.findIndex(x=>x.id===ST.form.pointId);
   if (idx>=0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...upd };
 
   const allDone = ST.activePoints.every(p => p.statut!=='a_faire');
   if (allDone && ST.activeTournee.statut!=='terminee') {
-    await sb.from('tournees').update({ statut:'terminee' }).eq('id', ST.activeTournee.id);
+    await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'terminee'}).catch(()=>{});
     ST.activeTournee.statut = 'terminee';
     const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
     if (ti>=0) ST.tournees[ti].statut = 'terminee';
     toast('🎉 Tournée terminée !', 3000);
   } else {
     if (ST.activeTournee.statut==='planifiee') {
-      await sb.from('tournees').update({ statut:'en_cours' }).eq('id', ST.activeTournee.id);
+      await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'en_cours'}).catch(()=>{});
       ST.activeTournee.statut = 'en_cours';
       const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
       if (ti>=0) ST.tournees[ti].statut = 'en_cours';

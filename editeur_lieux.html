@@ -464,8 +464,14 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 //  SUPABASE
 // ══════════════════════════════════════════════════════════
 const SB_URL = 'https://krbzipnoeroaofojccri.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const SB_KEY = 'sb_publishable_00DghQOW-_toZkmmA2uEkA_8yd9xNSP';
+
+function getStoredSession(){try{var r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
+function getToken(){var s=getStoredSession();return(s&&s.access_token)||SB_KEY;}
+async function sbGet(path){var r=await fetch(SB_URL+'/rest/v1/'+path,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken()}});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbPost(table,data){var r=await fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbPatch(table,filter,data){var r=await fetch(SB_URL+'/rest/v1/'+table+'?'+filter,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbAuthPost(endpoint,body,token){var h={'apikey':SB_KEY,'Content-Type':'application/json'};if(token)h['Authorization']='Bearer '+token;var r=await fetch(SB_URL+'/auth/v1/'+endpoint,{method:'POST',headers:h,body:JSON.stringify(body)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||e.error_description||'HTTP '+r.status);}return r.json();}
 
 function setSbStatus(msg, connected){
   var el = document.getElementById('sb-status');
@@ -476,13 +482,9 @@ function setSbStatus(msg, connected){
 
 // Vérifie la session au chargement
 window.addEventListener('load', async function(){
-  var { data: { session } } = await sb.auth.getSession();
-  if(session){ setSbStatus('☁️ ' + session.user.email, true); autoSyncSupabase(); }
+  var stored = getStoredSession();
+  if(stored && stored.user){ setSbStatus('☁️ ' + stored.user.email, true); autoSyncSupabase(); }
   else { setSbStatus('☁️ Non connecté', false); showSbLogin(); }
-  sb.auth.onAuthStateChange(function(event, session){
-    if(session){ setSbStatus('☁️ ' + session.user.email, true); }
-    else { setSbStatus('☁️ Non connecté', false); }
-  });
 });
 
 function showSbLogin(){ document.getElementById('sb-login-overlay').classList.remove('hidden'); }
@@ -493,9 +495,12 @@ async function sbLogin(){
   var pwd   = document.getElementById('sb-pwd').value;
   var err   = document.getElementById('sb-login-err');
   err.style.display = 'none';
-  var { error } = await sb.auth.signInWithPassword({ email, password: pwd });
-  if(error){ err.textContent = error.message; err.style.display = 'block'; return; }
-  hideSbLogin();
+  try {
+    var data = await sbAuthPost('token?grant_type=password', {email: email, password: pwd});
+    localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token', JSON.stringify(data));
+    setSbStatus('☁️ ' + (data.user && data.user.email), true);
+    hideSbLogin(); autoSyncSupabase();
+  } catch(e){ err.textContent = e.message; err.style.display = 'block'; }
 }
 
 // Enregistre : CSV + Supabase
@@ -510,12 +515,11 @@ async function enregistrer(){
 }
 
 async function syncSupabase(){
-  var { data: { session } } = await sb.auth.getSession();
-  if(!session){ showSbLogin(); showToast('⚠ Connecte-toi d\'abord pour synchroniser Supabase'); return; }
+  var stored = getStoredSession();
+  if(!stored || !stored.user){ showSbLogin(); showToast('⚠ Connecte-toi d\'abord pour synchroniser Supabase'); return; }
 
   showToast('☁️ Sync Supabase…');
-  // Récupère les IDs existants par nom
-  var { data: existing } = await sb.from('lieux').select('id, nom');
+  var existing = await sbGet('lieux?select=id,nom').catch(function(){return[];});
   var byNom = {};
   (existing||[]).forEach(function(l){ byNom[(l.nom||'').toLowerCase().trim()] = l; });
 
@@ -542,13 +546,13 @@ async function syncSupabase(){
   var errors = 0;
   // Insertions par lots
   for(var i=0; i<toInsert.length; i+=50){
-    var { error } = await sb.from('lieux').insert(toInsert.slice(i, i+50));
-    if(error){ errors++; console.error('insert', error.message); }
+    try { await sbPost('lieux', toInsert.slice(i, i+50)); }
+    catch(e){ errors++; console.error('insert', e.message); }
   }
-  // Mises à jour par lots de 1 (pas d'update en masse sans unique constraint)
+  // Mises à jour par lots de 1
   for(var j=0; j<toUpdate.length; j++){
-    var { error } = await sb.from('lieux').update(toUpdate[j].data).eq('id', toUpdate[j].id);
-    if(error){ errors++; console.error('update', toUpdate[j].data.nom, error.message); }
+    try { await sbPatch('lieux', 'id=eq.'+toUpdate[j].id, toUpdate[j].data); }
+    catch(e){ errors++; console.error('update', toUpdate[j].data.nom, e.message); }
   }
 
   if(errors){ showToast('⚠ Sync terminée avec ' + errors + ' erreur(s)'); }
@@ -1157,15 +1161,15 @@ function deleteSaved(i){
 // ══════════════════════════════════════════════════════════
 async function syncDepuisSupabase() {
   var btn = document.getElementById('btn-sync-supa');
-  var sess = await sb.auth.getSession();
-  if (!sess.data.session) { showToast('⚠ Non connecté à Supabase'); return; }
+  if (!getStoredSession()) { showToast('⚠ Non connecté à Supabase'); return; }
 
   if (!confirm('Charger toutes les données depuis Supabase ?\nCela remplacera les données locales par les données enregistrées dans Supabase.')) return;
 
   btn.textContent = '⏳ Chargement…'; btn.disabled = true;
 
-  var { data, error } = await sb.from('lieux').select('*').eq('actif', true).order('nom');
-  if (error) { showToast('❌ Erreur : ' + error.message); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
+  var data;
+  try { data = await sbGet('lieux?select=*&actif=eq.true&order=nom'); }
+  catch(e) { showToast('❌ Erreur : ' + e.message); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
   if (!data || !data.length) { showToast('⚠ Aucun lieu dans Supabase'); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
 
   var updated = 0, added = 0;
@@ -1220,10 +1224,10 @@ async function syncDepuisSupabase() {
 //  AUTO-SYNC SUPABASE AU DÉMARRAGE (silencieux)
 // ══════════════════════════════════════════════════════════
 async function autoSyncSupabase() {
-  var { data: { session } } = await sb.auth.getSession();
-  if (!session) return;
-  var { data, error } = await sb.from('lieux').select('*').eq('actif', true).order('nom');
-  if (error || !data || !data.length) return;
+  if (!getStoredSession()) return;
+  var data;
+  try { data = await sbGet('lieux?select=*&actif=eq.true&order=nom'); } catch(e){ return; }
+  if (!data || !data.length) return;
   POIS.length = 0;
   var maxId = 0;
   data.forEach(function(l) {
@@ -1252,8 +1256,7 @@ async function autoSyncSupabase() {
 //  SAUVEGARDE INDIVIDUELLE VERS SUPABASE
 // ══════════════════════════════════════════════════════════
 async function savePOIToSupabase(p) {
-  var { data: { session } } = await sb.auth.getSession();
-  if (!session) return;
+  if (!getStoredSession()) return;
   var payload = {
     nom: p.nom || '', categorie: p.type_lieu || '',
     adresse: p.adresse || '', code_postal: p.code_postal || '',
@@ -1263,13 +1266,20 @@ async function savePOIToSupabase(p) {
     telephone: p.contacts || '', zone_tournee: p.zone_tournee || '',
     actif: true
   };
-  if (p.supabase_id) {
-    await sb.from('lieux').update(payload).eq('id', p.supabase_id);
-  } else {
-    var { data: existing } = await sb.from('lieux').select('id').eq('nom', p.nom).maybeSingle();
-    if (existing) { p.supabase_id = existing.id; await sb.from('lieux').update(payload).eq('id', existing.id); }
-    else { var { data: ins } = await sb.from('lieux').insert(payload).select('id').single(); if(ins) p.supabase_id = ins.id; }
-  }
+  try {
+    if (p.supabase_id) {
+      await sbPatch('lieux', 'id=eq.'+p.supabase_id, payload);
+    } else {
+      var existing = await sbGet('lieux?select=id&nom=eq.'+encodeURIComponent(p.nom)+'&limit=1').catch(function(){return[];});
+      if (existing && existing[0]) {
+        p.supabase_id = existing[0].id;
+        await sbPatch('lieux', 'id=eq.'+existing[0].id, payload);
+      } else {
+        var ins = await sbPost('lieux', payload).catch(function(){return null;});
+        if (ins && ins[0]) p.supabase_id = ins[0].id;
+      }
+    }
+  } catch(e){ console.error('savePOIToSupabase', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1284,20 +1294,15 @@ async function loadHistPanelForPoi(nomPoi) {
   countEl.textContent = '';
 
   try {
-    var sess = await sb.auth.getSession();
-    if(!sess.data.session){ content.innerHTML = '<div style="font-size:11px;color:#aaa">Non connecté à Supabase</div>'; return; }
+    if(!getStoredSession()){ content.innerHTML = '<div style="font-size:11px;color:#aaa">Non connecté à Supabase</div>'; return; }
 
     // Chercher le lieu dans Supabase par nom
-    var { data: lieuxData } = await sb.from('lieux').select('id').eq('nom', nomPoi).limit(1);
+    var lieuxData = await sbGet('lieux?select=id&nom=eq.'+encodeURIComponent(nomPoi)+'&limit=1').catch(function(){return[];});
     if(!lieuxData || !lieuxData.length){ content.innerHTML = '<div style="font-size:11px;color:#aaa;font-style:italic">Lieu non synchronisé dans Supabase</div>'; return; }
     var lieuId = lieuxData[0].id;
 
     var yr = new Date().getFullYear();
-    var { data } = await sb.from('points_tournee')
-      .select('id, statut, quantite_flyers, heure_validation, commentaire_distributeur, photo_preuve, tournees(nom, date, distributeur:utilisateurs(nom))')
-      .eq('lieu_id', lieuId).neq('statut','a_faire').not('heure_validation','is',null)
-      .gte('heure_validation', yr+'-01-01').lte('heure_validation', yr+'-12-31')
-      .order('heure_validation',{ascending:false});
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+lieuId+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc').catch(function(){return[];});
 
     var list = data || [];
     var flyTotal = list.filter(function(p){return p.statut==='distribue';}).reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
@@ -1352,11 +1357,9 @@ async function loadHistPanelForPoi(nomPoi) {
 // ══════════════════════════════════════════════════════════
 
 async function loadTourneeDistributeurs(){
-  if(!sb) return;
+  if(!getStoredSession()) return;
   try {
-    var sess = await sb.auth.getSession();
-    if(!sess.data.session) return;
-    var { data } = await sb.from('utilisateurs').select('id, nom').order('nom');
+    var data = await sbGet('utilisateurs?select=id,nom&order=nom.asc');
     tourneeDistributeurs = data || [];
     var sel = document.getElementById('tf-distributeur');
     sel.innerHTML = '<option value="">— Choisir —</option>';
@@ -1515,8 +1518,7 @@ async function saveTourneeSupabase(){
   if(!nom || !date){ showToast('⚠ Nom et date obligatoires'); return; }
   if(tourneeStops.length === 0){ showToast('⚠ Ajoutez au moins 1 lieu'); return; }
 
-  var session = await sb.auth.getSession();
-  if(!session.data.session){ showToast('⚠ Non connecté à Supabase'); return; }
+  if(!getStoredSession()){ showToast('⚠ Non connecté à Supabase'); return; }
 
   var distId = document.getElementById('tf-distributeur').value || null;
   var qty = parseInt(document.getElementById('tf-qty').value) || 10;
@@ -1530,29 +1532,29 @@ async function saveTourneeSupabase(){
     var p = POIS.find(function(p){ return p.id===id; }); return p ? p.nom : null;
   }).filter(Boolean);
 
-  var { data: lieuxSupa, error: lErr } = await sb.from('lieux').select('id, nom').in('nom', nomsList);
-  if(lErr){ showToast('❌ Erreur lieux : '+lErr.message); return; }
+  var lieuxSupa;
+  try { lieuxSupa = await sbGet('lieux?select=id,nom&nom=in.('+nomsList.map(function(n){return encodeURIComponent(n);}).join(',')+'&limit=500'); }
+  catch(e){ showToast('❌ Erreur lieux : '+e.message); return; }
 
   // Créer la tournée
-  var { data: tData, error: tErr } = await sb.from('tournees').insert({
-    nom: nom, date: date, distributeur_id: distId,
-    secteur: secteur || null, commentaire: comment || null, statut: 'planifiee'
-  }).select().single();
-  if(tErr){ showToast('❌ Erreur création : '+tErr.message); return; }
+  var tArr;
+  try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
+  catch(e){ showToast('❌ Erreur création : '+e.message); return; }
+  var tData = Array.isArray(tArr) ? tArr[0] : tArr;
 
   // Créer les points dans l'ordre
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
-    var l = lieuxSupa.find(function(l){ return l.nom===p.nom; }); if(!l) return;
+    var l = (lieuxSupa||[]).find(function(l){ return l.nom===p.nom; }); if(!l) return;
     points.push({ tournee_id: tData.id, lieu_id: l.id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
 
   var noMatch = tourneeStops.length - points.length;
 
   if(points.length > 0){
-    var { error: pErr } = await sb.from('points_tournee').insert(points);
-    if(pErr){ showToast('❌ Erreur points : '+pErr.message); return; }
+    try { await sbPost('points_tournee', points); }
+    catch(e){ showToast('❌ Erreur points : '+e.message); return; }
   }
 
   var msg = '✅ Tournée "'+nom+'" créée — '+points.length+' arrêts';
