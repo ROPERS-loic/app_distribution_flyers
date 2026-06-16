@@ -654,7 +654,9 @@ function makeIcon(color,selected,routeNum,badge){
   var sz=selected?30:22;
   var brd=selected?'3px solid #fff':'2px solid rgba(255,255,255,0.6)';
   var sh=selected?'0 0 0 3px '+color+',0 2px 6px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.3)';
-  var inner='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+(sz>24?'11':'9')+'px">'+(routeNum?String(routeNum):(badge||''))+'</div>';
+  var fs=sz>24?'11':'9';
+  var label=routeNum?String(routeNum):badge?badge:'';
+  var inner='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px">'+label+'</div>';
   return L.divIcon({html:inner,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-sz/2],className:''});
 }
 function refreshMarkerIcon(id){
