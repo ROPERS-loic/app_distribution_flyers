@@ -239,6 +239,34 @@ textarea.form-input{resize:vertical;min-height:60px}
 .photo-area:hover{border-color:var(--gold)}
 .photo-area input{display:none}
 .photo-preview{width:100%;max-height:200px;border-radius:var(--radius-sm);object-fit:cover;margin-top:10px;display:block}
+
+.btn-nougat-val{width:100%;padding:11px;background:#f5f5f5;border:2px solid #ddd;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#888;cursor:pointer;margin-bottom:12px;transition:.15s}
+.btn-nougat-val.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+.vf-row{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 4px;scrollbar-width:none}
+.vf-row::-webkit-scrollbar{display:none}
+.vchip{padding:6px 14px;border-radius:16px;border:1px solid #ddd;background:#f5f5f5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Montserrat',sans-serif}
+.vchip.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.vf-date-range{display:none;padding:0 16px 8px;gap:8px;align-items:center}
+.vf-date-range.show{display:flex}
+.vf-date-range input{flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;font-size:12px}
+.btn-export-pdf{display:none;margin:4px 16px 8px;padding:11px;background:#1565C0;color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:calc(100% - 32px)}
+.btn-export-pdf.show{display:block}
+#screen-pointage-libre{padding:0}
+.pl-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:.15s}
+.pl-item.selected{background:#EDE7F6}
+.pl-check{width:24px;height:24px;border-radius:50%;border:2px solid #ccc;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:13px;transition:.15s}
+.pl-item.selected .pl-check{background:var(--purple);border-color:var(--purple);color:#fff}
+.pl-main{flex:1;min-width:0}
+.pl-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700}
+.pl-sub{font-size:11px;color:var(--grey);margin-top:2px}
+.pl-form{background:#F3E5F6;border-radius:8px;padding:10px;margin-top:8px}
+.pl-form select,.pl-form input,.pl-form textarea{width:100%;padding:7px;border:1px solid #CE93D8;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:6px;font-family:inherit}
+.pl-form textarea{resize:none;height:44px}
+.pl-nougat{width:100%;padding:7px;background:#f5f5f5;border:2px solid #ddd;border-radius:6px;font-size:12px;font-weight:700;color:#888;cursor:pointer;margin-bottom:6px}
+.pl-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+#pl-bar{position:sticky;bottom:var(--nav-h);background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+#pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700}
+#pl-date-row input{flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px}
 </style>
 </head>
 <body>
@@ -309,7 +337,35 @@ textarea.form-input{resize:vertical;min-height:60px}
       <div class="search-box">
         <input type="search" id="lieux-search" placeholder="Rechercher un lieu…" oninput="filterLieux()" autocomplete="off">
       </div>
+      <div class="vf-row">
+        <button class="vchip active" onclick="setVisiteFilter('tous')">Tous</button>
+        <button class="vchip" onclick="setVisiteFilter('jour')">Aujourd hui</button>
+        <button class="vchip" onclick="setVisiteFilter('semaine')">Cette semaine</button>
+        <button class="vchip" onclick="setVisiteFilter('mois')">Ce mois</button>
+        <button class="vchip" onclick="setVisiteFilter('perso')">Personnalise</button>
+      </div>
+      <div class="vf-date-range" id="vf-range">
+        <input type="date" id="vf-from">
+        <span style="font-size:11px;color:#888">au</span>
+        <input type="date" id="vf-to">
+      </div>
+      <button class="btn-export-pdf" id="btn-export-pdf" onclick="exportListePDF()">Exporter PDF</button>
       <div id="lieux-list" style="padding:0 16px 16px"></div>
+    </div>
+
+    <!-- POINTAGE LIBRE -->
+    <div id="screen-pointage-libre" class="screen">
+      <div class="search-box">
+        <input type="search" id="pl-search" placeholder="Rechercher un lieu…" oninput="filterPL()" autocomplete="off">
+      </div>
+      <div id="pl-list"></div>
+      <div id="pl-bar">
+        <div id="pl-date-row">
+          <span>Date</span>
+          <input type="date" id="pl-date">
+        </div>
+        <button class="btn-primary" onclick="submitPointageLibre()">Valider la selection</button>
+      </div>
     </div>
 
     <!-- PROFIL -->
@@ -325,6 +381,9 @@ textarea.form-input{resize:vertical;min-height:60px}
     </button>
     <button class="nav-item" onclick="navTo('lieux')" id="nav-lieux">
       <span class="nav-icon">📍</span><span class="nav-label">Lieux</span>
+    </button>
+    <button class="nav-item" onclick="navTo('pointage-libre')" id="nav-pointage-libre">
+      <span class="nav-icon">✅</span><span class="nav-label">Pointage</span>
     </button>
     <button class="nav-item" onclick="navTo('profil')" id="nav-profil">
       <span class="nav-icon">👤</span><span class="nav-label">Profil</span>
@@ -372,7 +431,7 @@ const ST = {
   ficheFrom: 'lieux',
   geoPos: null,
   rtChannel: null,
-  form: { pointId:null, statut:null, flyers:0, commentaire:'', photoB64:null, photoFile:null }
+  form: { pointId:null, statut:null, flyers:0, commentaire:'', photoB64:null, photoFile:null, nougat:false }
 };
 
 // ════════════════════════════════════════════
@@ -511,6 +570,7 @@ function navTo(screen) {
   if (screen === 'validation') renderValidation();
   if (screen === 'fiche')      renderFiche();
   if (screen === 'lieux')      renderLieux();
+  if (screen === 'pointage-libre') renderPointageLibre();
   if (screen === 'profil')     renderProfil();
 }
 
@@ -750,6 +810,7 @@ function renderValidation() {
       </div>
 
       <div class="form-group">
+        <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">Nougat degustation offert</button>
         <label class="form-label">Commentaire (optionnel)</label>
         <textarea class="form-input" id="comment-input" rows="3"
           placeholder="Commentaire libre…" oninput="ST.form.commentaire=this.value">${esc(f.commentaire)}</textarea>
@@ -798,10 +859,11 @@ async function submitValidation() {
     } catch(e) {}
   }
 
+  const commentFinal = [ST.form.nougat?'[Nougat offert]':'', ST.form.commentaire||''].filter(Boolean).join(' ')||null;
   const upd = {
     statut: ST.form.statut,
     quantite_flyers: ST.form.statut==='distribue' ? (ST.form.flyers||0) : 0,
-    commentaire_distributeur: ST.form.commentaire || null,
+    commentaire_distributeur: commentFinal,
     heure_validation: new Date().toISOString(),
     latitude_validation: geo?.lat || null,
     longitude_validation: geo?.lon || null,
@@ -1001,6 +1063,173 @@ function openPhotoLb(url, caption) {
 // ════════════════════════════════════════════
 //  LIEUX
 // ════════════════════════════════════════════
+
+// ════════════════════════════════════════════
+//  VISITE FILTER (lieux)
+// ════════════════════════════════════════════
+let visiteFilter = { mode:'tous', from:'', to:'' };
+let _lieuxVisites = null; // set of lieu_id strings visited in current filter
+
+function setVisiteFilter(mode) {
+  visiteFilter.mode = mode;
+  document.querySelectorAll('.vchip').forEach((b,i) => {
+    b.classList.toggle('active', ['tous','jour','semaine','mois','perso'][i]===mode);
+  });
+  const range = document.getElementById('vf-range');
+  if (range) range.classList.toggle('show', mode==='perso');
+  const pdf = document.getElementById('btn-export-pdf');
+  if (pdf) pdf.classList.toggle('show', mode!=='tous');
+  if (mode==='tous') { _lieuxVisites=null; filterLieux(); return; }
+  loadVisitesFiltered();
+}
+
+async function loadVisitesFiltered() {
+  const now = new Date();
+  let from, to = now.toISOString();
+  const m = visiteFilter.mode;
+  if (m==='jour') { const d=new Date(); d.setHours(0,0,0,0); from=d.toISOString(); }
+  else if (m==='semaine') { const d=new Date(); d.setDate(d.getDate()-d.getDay()); d.setHours(0,0,0,0); from=d.toISOString(); }
+  else if (m==='mois') { from=new Date(now.getFullYear(),now.getMonth(),1).toISOString(); }
+  else if (m==='perso') {
+    from = document.getElementById('vf-from')?.value ? new Date(document.getElementById('vf-from').value).toISOString() : null;
+    const toVal = document.getElementById('vf-to')?.value;
+    to = toVal ? new Date(toVal+'T23:59:59').toISOString() : to;
+  }
+  let q = 'points_tournee?select=lieu_id&statut=neq.a_faire&heure_validation=not.is.null';
+  if (from) q += '&heure_validation=gte.'+encodeURIComponent(from);
+  if (to)   q += '&heure_validation=lte.'+encodeURIComponent(to);
+  const data = await sbGet(q).catch(()=>[]);
+  _lieuxVisites = new Set(data.map(r => String(r.lieu_id)));
+  filterLieux();
+}
+
+function filterLieux() {
+  const q = (document.getElementById('lieux-search')?.value||'').toLowerCase().trim();
+  let items = q
+    ? ST.allLieux.filter(l => l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q))
+    : ST.allLieux.slice(0,200);
+  if (_lieuxVisites) items = items.filter(l => _lieuxVisites.has(String(l.id)));
+  const el = document.getElementById('lieux-list'); if (!el) return;
+  if (!items.length) { el.innerHTML=`<div class="empty-sc"><div class="ei">🔍</div><div class="et">Aucun résultat</div></div>`; return; }
+  el.innerHTML = items.map(l => `
+    <div class="lieu-item" onclick="openFicheFromLieux(${l.id})">
+      <div class="lieu-icon-box">${catIcon(l.categorie)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.nom||'—')}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
+      </div>
+      <span style="color:var(--grey-lt);font-size:16px">›</span>
+    </div>`).join('');
+}
+
+async function exportListePDF() {
+  const m = visiteFilter.mode;
+  let items = ST.allLieux;
+  if (_lieuxVisites) items = items.filter(l => _lieuxVisites.has(String(l.id)));
+  const labels = {tous:'Tous',jour:"Aujourd'hui",semaine:'Cette semaine',mois:'Ce mois',perso:'Personnalise'};
+  const rows = items.map(l => `<tr><td>${esc(l.nom||'')}</td><td>${esc(l.categorie||'')}</td><td>${esc(l.ville||'')}</td></tr>`).join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lieux visites</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px}h2{color:#8E24AA}
+  table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#8E24AA;color:#fff;padding:8px;text-align:left}
+  td{padding:7px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}
+  @media print{button{display:none}}</style></head><body>
+  <h2>Lieux visites — ${labels[m]||m}</h2>
+  <p>Extrait le ${new Date().toLocaleDateString('fr-FR')} — ${items.length} lieu(x)</p>
+  <button onclick="window.print()" style="background:#8E24AA;color:#fff;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;margin-bottom:12px">Imprimer / PDF</button>
+  <table><thead><tr><th>Lieu</th><th>Categorie</th><th>Commune</th></tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`;
+  const w = window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+// ════════════════════════════════════════════
+//  POINTAGE LIBRE
+// ════════════════════════════════════════════
+let plSelected = {};
+let plAllLieux = [];
+
+function renderPointageLibre() {
+  const today = new Date().toISOString().slice(0,10);
+  const dateEl = document.getElementById('pl-date');
+  if (dateEl && !dateEl.value) dateEl.value = today;
+  plSelected = {};
+  plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
+  renderPLList(plAllLieux);
+}
+
+function filterPL() {
+  const q = (document.getElementById('pl-search')?.value||'').toLowerCase();
+  const items = q ? plAllLieux.filter(l=>l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)) : plAllLieux;
+  renderPLList(items);
+}
+
+function renderPLList(items) {
+  const el = document.getElementById('pl-list'); if (!el) return;
+  if (!items.length) { el.innerHTML='<div style="padding:24px;text-align:center;color:var(--grey)">Aucun lieu disponible</div>'; return; }
+  el.innerHTML = items.map(l => {
+    const k = String(l.id);
+    return `<div class="pl-item${plSelected[k]?' selected':''}" id="pli-${k}" onclick="togglePL('${k}')">
+      <div class="pl-check" id="plc-${k}">${plSelected[k]?'✓':''}</div>
+      <div class="pl-main">
+        <div class="pl-name">${esc(l.nom||'—')}</div>
+        <div class="pl-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
+        <div class="pl-form" id="plf-${k}" style="display:${plSelected[k]?'block':'none'}" onclick="event.stopPropagation()">
+          <select id="pls-${k}">
+            <option value="distribue">Distribue</option>
+            <option value="ferme">Ferme</option>
+            <option value="refus">Refus</option>
+            <option value="absent">Absent</option>
+          </select>
+          <input id="plq-${k}" type="number" min="0" value="10" placeholder="Nb flyers">
+          <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">Nougat degustation offert</button>
+          <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePL(k) {
+  if (plSelected[k]) { delete plSelected[k]; }
+  else { plSelected[k] = true; }
+  const item = document.getElementById('pli-'+k);
+  const check = document.getElementById('plc-'+k);
+  const form = document.getElementById('plf-'+k);
+  if (item) item.classList.toggle('selected', !!plSelected[k]);
+  if (check) check.textContent = plSelected[k] ? '✓' : '';
+  if (form) form.style.display = plSelected[k] ? 'block' : 'none';
+}
+
+async function submitPointageLibre() {
+  const keys = Object.keys(plSelected);
+  if (!keys.length) { toast('Selectionnez au moins un lieu'); return; }
+  const dateVal = document.getElementById('pl-date')?.value || new Date().toISOString().slice(0,10);
+  const heure = new Date(dateVal+'T12:00:00').toISOString();
+  toast('Enregistrement...');
+  try {
+    const nomT = 'Visite_rapide_'+dateVal;
+    const existing = await sbGet('tournees?nom=eq.'+encodeURIComponent(nomT)+'&select=id').catch(()=>[]);
+    let tId = existing.length ? existing[0].id : null;
+    if (!tId) {
+      const res = await sbPost('tournees', {nom:nomT, date:dateVal, statut:'planifiee', distributeur_id: ST.user?.id||null});
+      tId = (Array.isArray(res)?res[0]:res).id;
+    }
+    const points = keys.map((k,i) => {
+      const statut = document.getElementById('pls-'+k)?.value||'distribue';
+      const qty = parseInt(document.getElementById('plq-'+k)?.value)||0;
+      const nougat = document.getElementById('pln-'+k)?.classList.contains('active');
+      const note = document.getElementById('plnote-'+k)?.value.trim()||'';
+      const comment = [nougat?'[Nougat offert]':'', note].filter(Boolean).join(' ')||null;
+      return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
+               quantite_flyers:qty, statut:statut,
+               heure_validation:heure, commentaire_distributeur:comment };
+    });
+    await sbPost('points_tournee', points);
+    toast(keys.length+' visite(s) enregistree(s) ✓');
+    plSelected = {};
+    navTo('lieux');
+  } catch(e) { toast('Erreur : '+e.message); }
+}
+
 function renderLieux() { filterLieux(); }
 function filterLieux() {
   const q = (document.getElementById('lieux-search')?.value||'').toLowerCase().trim();
