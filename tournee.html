@@ -348,19 +348,11 @@ textarea.form-input{resize:vertical;min-height:60px}
 
     <!-- POINTAGE LIBRE -->
     <div id="screen-pointage-libre" class="screen">
-      <div class="search-box">
-        <input type="search" id="pl-search" placeholder="Ajouter un lieu…" oninput="filterPL()" autocomplete="off">
-      </div>
-      <div id="pl-browse" style="overflow-y:auto;max-height:35vh;border-bottom:1px solid #eee"></div>
+      <div id="pl-browse" style="overflow-y:auto;max-height:50vh;border-bottom:1px solid #eee"></div>
       <div id="pl-selected-section" style="overflow-y:auto;flex:1">
-        <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
         <div id="pl-sel-list"></div>
       </div>
       <div id="pl-bar">
-        <div id="pl-date-row">
-          <span>Date de visite</span>
-          <input type="date" id="pl-date">
-        </div>
         <button class="btn-primary" onclick="submitPointageLibre()">Valider tout</button>
       </div>
     </div>
@@ -1145,9 +1137,6 @@ let plSelected = {}; // id -> {statut,qty,nougat,note}
 let plAllLieux = [];
 
 function renderPointageLibre() {
-  const today = new Date().toISOString().slice(0,10);
-  const dateEl = document.getElementById('pl-date');
-  if (dateEl && !dateEl.value) dateEl.value = today;
   plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   renderPLBrowse(plAllLieux);
@@ -1195,9 +1184,7 @@ function removePL(k) {
 
 function renderPLSelected() {
   const keys = Object.keys(plSelected);
-  const title = document.getElementById('pl-sel-title');
   const el = document.getElementById('pl-sel-list'); if (!el) return;
-  if (title) title.textContent = keys.length ? keys.length+' lieu(x) selectionne(s)' : 'Aucun lieu selectionne';
   if (!keys.length) { el.innerHTML=''; return; }
   el.innerHTML = keys.map(k => {
     const l = plAllLieux.find(x=>String(x.id)===k)||{};
