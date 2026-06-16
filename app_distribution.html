@@ -83,6 +83,14 @@ input,textarea,select{font-family:'Inter',sans-serif}
   font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;
   cursor:pointer;transition:.15s;
 }
+.btn-nougat-app{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:12px;background:#f5f5f5;color:#888;
+  border:2px solid #ddd;border-radius:var(--radius-sm);
+  font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:.15s;margin-bottom:12px;
+}
+.btn-nougat-app.active{background:#FFF3DC;color:#C07800;border-color:#E8A020;}
 .btn-primary:hover{background:var(--gold-dk)}
 .btn-secondary{
   display:flex;align-items:center;justify-content:center;gap:8px;
@@ -1231,6 +1239,7 @@ function openFiche(key){
           '<span class="hist-date">'+vi.date+'</span>' +
           '<span class="hist-flyers">'+(vi.flyers?vi.flyers+' flyers':'—')+'<br><span style="font-size:10px;color:var(--grey)">'+esc(vi.emplacement||'')+'</span></span>' +
           '<span class="hist-statut">'+statusEmoji(vi.statut)+'</span>' +
+          (vi.nougat?'<span style="font-size:10px;background:#FFF3DC;color:#C07800;border:1px solid #E8A020;border-radius:8px;padding:1px 6px;margin-left:4px">Nougat offert</span>':'')+
           (vi.photoB64?'<img src="'+vi.photoB64+'" class="hist-photo">':'')+
         '</div>';
       }).join('');
@@ -1291,6 +1300,7 @@ function openVisiteFromFiche(){
       '<label class="form-label">Notes</label>'+
       '<textarea class="form-input" id="vf-notes" rows="2" placeholder="Commentaire…"></textarea>'+
     '</div>'+
+    '<button class="btn-nougat-app" id="vf-nougat" onclick="toggleVFNougat()">Nougat degustation offert</button>'+
     '<div class="form-group">'+
       '<label class="form-label">📷 Photo (optionnel)</label>'+
       '<div class="photo-area" onclick="document.getElementById(\'vf-photo-input\').click()">'+
@@ -1316,6 +1326,12 @@ function pickVFStatut(val){
   });
 }
 var vfPhoto=null;
+var vfNougat=false;
+function toggleVFNougat(){
+  vfNougat=!vfNougat;
+  var btn=document.getElementById('vf-nougat');
+  if(btn) btn.classList.toggle('active',vfNougat);
+}
 function handleVFPhoto(input){
   var file=input.files[0]; if(!file) return;
   var reader=new FileReader();
@@ -1346,6 +1362,7 @@ function submitVisiteForm(key){
     statut: vfStatut,
     emplacement: (document.getElementById('vf-emp').value||'').trim(),
     notes: (document.getElementById('vf-notes').value||'').trim(),
+    nougat: vfNougat,
     photoB64: vfPhoto,
     ts: new Date().toISOString(),
     validated: true
@@ -1365,7 +1382,7 @@ function submitVisiteForm(key){
 
 function closeVisiteModal(){
   document.getElementById('modal-visite').classList.remove('open');
-  vfStatut=''; vfPhoto=null;
+  vfStatut=''; vfPhoto=null; vfNougat=false;
 }
 
 // ══════════════════════════════════════════════════════════
