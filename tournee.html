@@ -343,19 +343,6 @@ textarea.form-input{resize:vertical;min-height:60px}
       <div class="search-box">
         <input type="search" id="lieux-search" placeholder="Rechercher un lieu…" oninput="filterLieux()" autocomplete="off">
       </div>
-      <div class="vf-row">
-        <button class="vchip active" onclick="setVisiteFilter('tous')">Tous</button>
-        <button class="vchip" onclick="setVisiteFilter('jour')">Aujourd hui</button>
-        <button class="vchip" onclick="setVisiteFilter('semaine')">Cette semaine</button>
-        <button class="vchip" onclick="setVisiteFilter('mois')">Ce mois</button>
-        <button class="vchip" onclick="setVisiteFilter('perso')">Personnalise</button>
-      </div>
-      <div class="vf-date-range" id="vf-range">
-        <input type="date" id="vf-from">
-        <span style="font-size:11px;color:#888">au</span>
-        <input type="date" id="vf-to">
-      </div>
-      <button class="btn-export-pdf" id="btn-export-pdf" onclick="exportListePDF()">Exporter PDF</button>
       <div id="lieux-list" style="padding:0 16px 16px"></div>
     </div>
 
@@ -366,12 +353,27 @@ textarea.form-input{resize:vertical;min-height:60px}
       </div>
       <div id="pl-browse" style="overflow-y:auto;max-height:35vh;border-bottom:1px solid #eee"></div>
       <div id="pl-selected-section" style="overflow-y:auto;flex:1">
-        <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px">
+          <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
+          <button class="btn-export-pdf" id="btn-export-pdf" onclick="exportListePDF()" style="margin:0;width:auto;padding:6px 12px;font-size:11px">Exporter PDF</button>
+        </div>
+        <div class="vf-row" style="padding:0 0 8px">
+          <button class="vchip active" onclick="setVisiteFilter('tous')">Tous</button>
+          <button class="vchip" onclick="setVisiteFilter('jour')">Aujourd hui</button>
+          <button class="vchip" onclick="setVisiteFilter('semaine')">Cette semaine</button>
+          <button class="vchip" onclick="setVisiteFilter('mois')">Ce mois</button>
+          <button class="vchip" onclick="setVisiteFilter('perso')">Personnalise</button>
+        </div>
+        <div class="vf-date-range" id="vf-range">
+          <input type="date" id="vf-from" onchange="loadVisitesFiltered()">
+          <span style="font-size:11px;color:#888">au</span>
+          <input type="date" id="vf-to" onchange="loadVisitesFiltered()">
+        </div>
         <div id="pl-sel-list"></div>
       </div>
       <div id="pl-bar">
         <div id="pl-date-row">
-          <span>Date</span>
+          <span>Date de visite</span>
           <input type="date" id="pl-date">
         </div>
         <button class="btn-primary" onclick="submitPointageLibre()">Valider tout</button>
@@ -1088,7 +1090,7 @@ function setVisiteFilter(mode) {
   const range = document.getElementById('vf-range');
   if (range) range.classList.toggle('show', mode==='perso');
   const pdf = document.getElementById('btn-export-pdf');
-  if (pdf) pdf.classList.toggle('show', mode!=='tous');
+  if (pdf) pdf.classList.toggle('show', true);
   if (mode==='tous') { _lieuxVisites=null; filterLieux(); return; }
   loadVisitesFiltered();
 }
