@@ -52,6 +52,10 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .poi-item:hover{background:#fff8ea}
 .poi-item.selected{background:#fff3dc;border-left:3px solid #E8A020}
 .poi-item.route-selected{background:#E3F2FD;border-left:3px solid #1E88E5}
+.tournee-mode .poi-item{background:#F0FBF4;border-left:3px solid #27AE60}
+.tournee-mode .poi-item:hover{background:#D5F2E3}
+.poi-item.tournee-added{background:#27AE60!important;color:#fff;border-left:3px solid #1a7a45}
+.poi-item.tournee-added .poi-nom,.poi-item.tournee-added .poi-sub{color:#fff}
 .poi-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .poi-info{flex:1;min-width:0}
 .poi-nom{font-size:11px;font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -192,7 +196,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .statut-closed-temp{background:#F3E5F5;color:#8E24AA;border:1px solid #8E24AA}
 .poi-item.statut-dim{opacity:0.55}
 /* TOURNÉE PANEL */
-#tournee-panel{position:absolute;bottom:0;left:310px;width:320px;background:#fff;border-top:2px solid #27AE60;border-right:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:480px}
+#tournee-panel{position:absolute;bottom:0;right:0;width:320px;background:#fff;border-top:2px solid #27AE60;border-left:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:480px}
 #tournee-panel.open{display:flex}
 #tournee-header{background:#27AE60;color:#fff;padding:7px 10px;display:flex;align-items:center;justify-content:space-between}
 #tournee-header h3{font-size:12px;font-weight:bold}
@@ -632,9 +636,10 @@ function renderList(){
       p.statut==='closed_perm'?'<span class="statut-badge statut-closed-perm">🔒 fermé</span>':
       p.statut==='closed_temp'?'<span class="statut-badge statut-closed-temp">⏳ fermé</span>':'';
     var div=document.createElement('div');
-    div.className='poi-item'+(selectedId===p.id?' selected':'')+(rn>=0?' route-selected':'')+statCls;
+    var inTournee=tourneeMode&&tourneeStops.indexOf(p.id)>=0;
+    div.className='poi-item'+(inTournee?' tournee-added':selectedId===p.id?' selected':'')+(rn>=0?' route-selected':'')+statCls;
     div.id='li-'+p.id;
-    div.innerHTML=(rn>=0?'<div class="route-num">'+(rn+1)+'</div>':'')
+    div.innerHTML=(rn>=0?'<div class="route-num">'+(rn+1)+'</div>':tourneeMode?'<div style="font-size:11px;margin-right:2px">'+(inTournee?'✓':'＋')+'</div>':'')
       +'<div class="poi-dot" style="background:'+color+'"></div>'
       +'<div class="poi-info"><div class="poi-nom">'+escHtml(p.nom)+statBadge+'</div><div class="poi-sub">'+escHtml(p.type_lieu)+' · '+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>';
     div.onclick=function(){ tourneeMode?toggleTourneeStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
@@ -1143,12 +1148,14 @@ function toggleTourneeMode(){
   btn.textContent = tourneeMode ? '✕ Annuler tournée' : '🗺️ Créer tournée';
   btn.classList.toggle('active', tourneeMode);
   document.getElementById('tournee-panel').classList.toggle('open', tourneeMode);
+  document.getElementById('panel').classList.toggle('tournee-mode', tourneeMode);
   if(tourneeMode){
-    // Pré-remplir la date avec aujourd'hui
     document.getElementById('tf-date').value = new Date().toISOString().split('T')[0];
     loadTourneeDistributeurs();
+    renderList();
   } else {
     clearTourneeLayer();
+    renderList();
   }
 }
 
@@ -1307,7 +1314,7 @@ async function saveTourneeSupabase(){
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
-    points.push({ tournee_id: tData.id, lieu_id: p.id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
+    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
 
   var noMatch = tourneeStops.length - points.length;
