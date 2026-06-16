@@ -1297,27 +1297,17 @@ async function saveTourneeSupabase(){
 
   showToast('⏳ Création en cours…');
 
-  // Récupérer les IDs Supabase des lieux par nom
-  var nomsList = tourneeStops.map(function(id){
-    var p = POIS.find(function(p){ return p.id===id; }); return p ? p.nom : null;
-  }).filter(Boolean);
-
-  var lieuxSupa;
-  try { lieuxSupa = await sbGet('lieux?select=id,nom&nom=in.('+nomsList.map(function(n){return encodeURIComponent(n);}).join(',')+'&limit=500'); }
-  catch(e){ showToast('❌ Erreur lieux : '+e.message); return; }
-
   // Créer la tournée
   var tArr;
   try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
   catch(e){ showToast('❌ Erreur création : '+e.message); return; }
   var tData = Array.isArray(tArr) ? tArr[0] : tArr;
 
-  // Créer les points dans l'ordre
+  // Créer les points dans l'ordre (les POIS sont déjà chargés depuis Supabase, p.id = UUID Supabase)
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
-    var l = (lieuxSupa||[]).find(function(l){ return l.nom===p.nom; }); if(!l) return;
-    points.push({ tournee_id: tData.id, lieu_id: l.id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
+    points.push({ tournee_id: tData.id, lieu_id: p.id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
 
   var noMatch = tourneeStops.length - points.length;
