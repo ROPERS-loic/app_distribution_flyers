@@ -1298,19 +1298,18 @@ async function saveTourneeSupabase(){
 
   showToast('⏳ Création en cours…');
 
-  // Créer la tournée
+  // Creer la tournee
   var tArr;
   try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
   catch(e){ showToast('❌ Erreur création : '+e.message); return; }
   var tData = Array.isArray(tArr) ? tArr[0] : tArr;
 
-  // Créer les points (p.supabase_id = UUID Supabase, p.id = ID local 90000+x)
+  // Points (p.supabase_id = UUID Supabase)
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
     points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
-
   var noMatch = tourneeStops.length - points.length;
 
   if(points.length > 0){
@@ -1463,4 +1462,10 @@ restoreState();
 checkStoredHandle();
 (function(){
   var ind = document.getElementById('save-indicator');
-  if(ind && !localSt
+  if(ind && !localStorage.getItem(POIS_STORE_KEY)){
+    ind.textContent = '💾 non sauvegardé'; ind.className = '';
+  }
+})();
+</script>
+</body>
+</html>
