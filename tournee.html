@@ -251,20 +251,26 @@ textarea.form-input{resize:vertical;min-height:60px}
 .vf-date-range input{flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;font-size:12px}
 .btn-export-pdf{display:none;margin:4px 16px 8px;padding:11px;background:#1565C0;color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:calc(100% - 32px)}
 .btn-export-pdf.show{display:block}
-#screen-pointage-libre{padding:0}
-.pl-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:.15s}
-.pl-item.selected{background:#EDE7F6}
-.pl-check{width:24px;height:24px;border-radius:50%;border:2px solid #ccc;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:13px;transition:.15s}
-.pl-item.selected .pl-check{background:var(--purple);border-color:var(--purple);color:#fff}
-.pl-main{flex:1;min-width:0}
-.pl-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700}
-.pl-sub{font-size:11px;color:var(--grey);margin-top:2px}
-.pl-form{background:#F3E5F6;border-radius:8px;padding:10px;margin-top:8px}
-.pl-form select,.pl-form input,.pl-form textarea{width:100%;padding:7px;border:1px solid #CE93D8;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:6px;font-family:inherit}
-.pl-form textarea{resize:none;height:44px}
+#screen-pointage-libre{padding:0;display:flex;flex-direction:column;height:100%}
+/* Browsable list */
+.pl-browse-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid #f0f0f0}
+.pl-browse-name{flex:1;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-browse-sub{font-size:10px;color:var(--grey)}
+.btn-pl-add{padding:5px 12px;background:var(--purple);color:#fff;border:none;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+.btn-pl-add.added{background:#eee;color:#aaa}
+/* Selected list */
+#pl-selected-section{border-top:2px solid var(--purple);background:#fafafa;padding:0 16px 8px}
+.pl-sel-title{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--purple);padding:10px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+.pl-sel-item{background:#fff;border:1px solid #CE93D8;border-radius:10px;padding:12px;margin-bottom:10px}
+.pl-sel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pl-sel-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#4A148C}
+.btn-pl-remove{background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0 4px}
+.pl-sel-item select,.pl-sel-item input,.pl-sel-item textarea{width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:6px;font-family:inherit}
+.pl-sel-item textarea{resize:none;height:44px}
 .pl-nougat{width:100%;padding:7px;background:#f5f5f5;border:2px solid #ddd;border-radius:6px;font-size:12px;font-weight:700;color:#888;cursor:pointer;margin-bottom:6px}
 .pl-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
-#pl-bar{position:sticky;bottom:var(--nav-h);background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+/* Bottom bar */
+#pl-bar{position:sticky;bottom:var(--nav-h);background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08);flex-shrink:0}
 #pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700}
 #pl-date-row input{flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px}
 </style>
@@ -356,15 +362,19 @@ textarea.form-input{resize:vertical;min-height:60px}
     <!-- POINTAGE LIBRE -->
     <div id="screen-pointage-libre" class="screen">
       <div class="search-box">
-        <input type="search" id="pl-search" placeholder="Rechercher un lieu…" oninput="filterPL()" autocomplete="off">
+        <input type="search" id="pl-search" placeholder="Ajouter un lieu…" oninput="filterPL()" autocomplete="off">
       </div>
-      <div id="pl-list"></div>
+      <div id="pl-browse" style="overflow-y:auto;max-height:35vh;border-bottom:1px solid #eee"></div>
+      <div id="pl-selected-section" style="overflow-y:auto;flex:1">
+        <div class="pl-sel-title" id="pl-sel-title">Aucun lieu selectionne</div>
+        <div id="pl-sel-list"></div>
+      </div>
       <div id="pl-bar">
         <div id="pl-date-row">
           <span>Date</span>
           <input type="date" id="pl-date">
         </div>
-        <button class="btn-primary" onclick="submitPointageLibre()">Valider la selection</button>
+        <button class="btn-primary" onclick="submitPointageLibre()">Valider tout</button>
       </div>
     </div>
 
@@ -1144,7 +1154,7 @@ async function exportListePDF() {
 // ════════════════════════════════════════════
 //  POINTAGE LIBRE
 // ════════════════════════════════════════════
-let plSelected = {};
+let plSelected = {}; // id -> {statut,qty,nougat,note}
 let plAllLieux = [];
 
 function renderPointageLibre() {
@@ -1153,50 +1163,73 @@ function renderPointageLibre() {
   if (dateEl && !dateEl.value) dateEl.value = today;
   plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
-  renderPLList(plAllLieux);
+  renderPLBrowse(plAllLieux);
+  renderPLSelected();
 }
 
 function filterPL() {
   const q = (document.getElementById('pl-search')?.value||'').toLowerCase();
   const items = q ? plAllLieux.filter(l=>l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)) : plAllLieux;
-  renderPLList(items);
+  renderPLBrowse(items);
 }
 
-function renderPLList(items) {
-  const el = document.getElementById('pl-list'); if (!el) return;
-  if (!items.length) { el.innerHTML='<div style="padding:24px;text-align:center;color:var(--grey)">Aucun lieu disponible</div>'; return; }
+function renderPLBrowse(items) {
+  const el = document.getElementById('pl-browse'); if (!el) return;
+  if (!items.length) { el.innerHTML='<div style="padding:16px;text-align:center;color:var(--grey);font-size:12px">Aucun lieu</div>'; return; }
   el.innerHTML = items.map(l => {
     const k = String(l.id);
-    return `<div class="pl-item${plSelected[k]?' selected':''}" id="pli-${k}" onclick="togglePL('${k}')">
-      <div class="pl-check" id="plc-${k}">${plSelected[k]?'✓':''}</div>
-      <div class="pl-main">
-        <div class="pl-name">${esc(l.nom||'—')}</div>
-        <div class="pl-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
-        <div class="pl-form" id="plf-${k}" style="display:${plSelected[k]?'block':'none'}" onclick="event.stopPropagation()">
-          <select id="pls-${k}">
-            <option value="distribue">Distribue</option>
-            <option value="ferme">Ferme</option>
-            <option value="refus">Refus</option>
-            <option value="absent">Absent</option>
-          </select>
-          <input id="plq-${k}" type="number" min="0" value="10" placeholder="Nb flyers">
-          <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">Nougat degustation offert</button>
-          <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
-        </div>
+    const added = !!plSelected[k];
+    return `<div class="pl-browse-item">
+      <div style="flex:1;min-width:0">
+        <div class="pl-browse-name">${esc(l.nom||'—')}</div>
+        <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
       </div>
+      <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="addPL('${k}')" ${added?'disabled':''}>
+        ${added?'Ajoute':'+'}
+      </button>
     </div>`;
   }).join('');
 }
 
-function togglePL(k) {
-  if (plSelected[k]) { delete plSelected[k]; }
-  else { plSelected[k] = true; }
-  const item = document.getElementById('pli-'+k);
-  const check = document.getElementById('plc-'+k);
-  const form = document.getElementById('plf-'+k);
-  if (item) item.classList.toggle('selected', !!plSelected[k]);
-  if (check) check.textContent = plSelected[k] ? '✓' : '';
-  if (form) form.style.display = plSelected[k] ? 'block' : 'none';
+function addPL(k) {
+  if (plSelected[k]) return;
+  plSelected[k] = true;
+  const btn = document.getElementById('pladd-'+k);
+  if (btn) { btn.textContent='Ajoute'; btn.classList.add('added'); btn.disabled=true; }
+  renderPLSelected();
+}
+
+function removePL(k) {
+  delete plSelected[k];
+  const btn = document.getElementById('pladd-'+k);
+  if (btn) { btn.textContent='+'; btn.classList.remove('added'); btn.disabled=false; }
+  renderPLSelected();
+}
+
+function renderPLSelected() {
+  const keys = Object.keys(plSelected);
+  const title = document.getElementById('pl-sel-title');
+  const el = document.getElementById('pl-sel-list'); if (!el) return;
+  if (title) title.textContent = keys.length ? keys.length+' lieu(x) selectionne(s)' : 'Aucun lieu selectionne';
+  if (!keys.length) { el.innerHTML=''; return; }
+  el.innerHTML = keys.map(k => {
+    const l = plAllLieux.find(x=>String(x.id)===k)||{};
+    return `<div class="pl-sel-item">
+      <div class="pl-sel-header">
+        <div class="pl-sel-name">${esc(l.nom||'—')}</div>
+        <button class="btn-pl-remove" onclick="removePL('${k}')">×</button>
+      </div>
+      <select id="pls-${k}">
+        <option value="distribue">Distribue</option>
+        <option value="ferme">Ferme</option>
+        <option value="refus">Refus</option>
+        <option value="absent">Absent</option>
+      </select>
+      <input id="plq-${k}" type="number" min="0" value="10" placeholder="Nb flyers">
+      <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">Nougat degustation offert</button>
+      <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
+    </div>`;
+  }).join('');
 }
 
 async function submitPointageLibre() {
