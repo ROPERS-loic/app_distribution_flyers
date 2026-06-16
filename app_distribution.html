@@ -369,6 +369,35 @@ textarea.form-input{resize:vertical;min-height:60px}
 .empty-title{font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;margin-bottom:8px}
 .empty-sub{font-size:13px;color:var(--grey);line-height:1.6}
 .empty-hint{background:var(--white);border-radius:var(--radius-sm);padding:14px;margin-top:16px;font-size:12px;text-align:left;color:var(--grey);line-height:1.6;box-shadow:var(--shadow)}
+
+/* Pointage libre */
+#screen-pointage-libre{padding:16px}
+.pointage-libre-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:#f9f9f9;border:2px solid transparent;margin-bottom:8px;cursor:pointer;transition:.15s}
+.pointage-libre-item.selected{background:#EDE7F6;border-color:#8E24AA}
+.pli-check{width:22px;height:22px;border-radius:50%;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px}
+.pointage-libre-item.selected .pli-check{background:#8E24AA;border-color:#8E24AA;color:#fff}
+.pli-main{flex:1}
+.pli-name{font-weight:700;font-size:13px}
+.pli-sub{font-size:11px;color:var(--grey)}
+.pli-form{background:#fff;border-radius:8px;padding:10px;margin-top:8px;border:1px solid #CE93D8}
+.pli-form select,.pli-form input,.pli-form textarea{width:100%;padding:6px;border:1px solid #ddd;border-radius:5px;font-size:12px;box-sizing:border-box;margin-bottom:6px}
+.pli-form textarea{resize:none;height:40px}
+.pli-nougat{width:100%;padding:6px;background:#f5f5f5;border:2px solid #ddd;border-radius:5px;cursor:pointer;font-size:12px;font-weight:bold;color:#888;margin-bottom:6px}
+.pli-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+#pl-footer{position:sticky;bottom:70px;background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,0.08)}
+#pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+#pl-date-row label{font-size:12px;font-weight:bold;color:#555;white-space:nowrap}
+#pl-date-row input{flex:1;padding:6px;border:1px solid #ddd;border-radius:5px;font-size:12px}
+/* Lieux visite filter */
+.visite-filter-row{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.visite-filter-row::-webkit-scrollbar{display:none}
+.vchip{padding:5px 12px;border-radius:16px;border:1px solid #ddd;background:#f5f5f5;font-size:11px;cursor:pointer;white-space:nowrap;font-weight:600}
+.vchip.active{background:#8E24AA;color:#fff;border-color:#8E24AA}
+.visite-date-range{display:none;gap:6px;margin-bottom:8px;align-items:center}
+.visite-date-range.show{display:flex}
+.visite-date-range input{flex:1;padding:5px;border:1px solid #ddd;border-radius:5px;font-size:11px}
+#btn-export-pdf{width:100%;padding:10px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;display:none}
+#btn-export-pdf.show{display:block}
 </style>
 </head>
 <body>
@@ -464,6 +493,19 @@ textarea.form-input{resize:vertical;min-height:60px}
           <input type="search" id="lieux-search" placeholder="Rechercher un lieu…" oninput="filterLieux()" autocomplete="off">
         </div>
         <div class="filter-chips" id="filter-chips"></div>
+        <div class="visite-filter-row">
+          <button class="vchip active" onclick="setVisiteFilter('tous')">Tous</button>
+          <button class="vchip" onclick="setVisiteFilter('jour')">Aujourd hui</button>
+          <button class="vchip" onclick="setVisiteFilter('semaine')">Cette semaine</button>
+          <button class="vchip" onclick="setVisiteFilter('mois')">Ce mois</button>
+          <button class="vchip" onclick="setVisiteFilter('perso')">Personnalise</button>
+        </div>
+        <div class="visite-date-range" id="visite-range">
+          <input type="date" id="visite-from">
+          <span style="font-size:11px;color:#888">au</span>
+          <input type="date" id="visite-to">
+        </div>
+        <button id="btn-export-pdf" onclick="exportListePDF()">Exporter PDF</button>
         <div id="lieux-list"></div>
       </div>
     </div>
@@ -535,6 +577,14 @@ textarea.form-input{resize:vertical;min-height:60px}
 
         <div class="section-title">Actions</div>
         <div class="menu-list">
+          <div class="menu-item" onclick="navTo('pointage-libre')">
+            <span class="menu-icon">✅</span>
+            <div style="flex:1">
+              <div class="menu-text">Pointage libre</div>
+              <div style="font-size:11px;color:var(--grey);margin-top:2px">Notez plusieurs visites sans itineraire</div>
+            </div>
+            <span class="menu-arrow">›</span>
+          </div>
           <div class="menu-item" onclick="exportRapport()">
             <span class="menu-icon">📋</span><span class="menu-text">Exporter le rapport</span><span class="menu-arrow">›</span>
           </div>
@@ -552,7 +602,22 @@ textarea.form-input{resize:vertical;min-height:60px}
       </div>
     </div>
 
-  </div><!-- /app-body -->
+  
+    <!-- POINTAGE LIBRE -->
+    <div id="screen-pointage-libre" class="screen">
+      <div class="pad">
+        <div style="font-size:12px;color:var(--grey);margin-bottom:12px">Selectionnez les lieux visites et validez.</div>
+        <div id="pl-list"></div>
+      </div>
+      <div id="pl-footer">
+        <div id="pl-date-row">
+          <label>Date</label>
+          <input type="date" id="pl-date">
+        </div>
+        <button class="btn-primary" onclick="submitPointageLibre()">Valider la selection</button>
+      </div>
+    </div>
+</div><!-- /app-body -->
 
   <!-- BOTTOM NAV -->
   <nav id="bottom-nav">
@@ -688,7 +753,7 @@ function renderAll(){
   if(ni) ni.classList.add('active');
 
   // Header title
-  var titles = {accueil:'La Nougaterie du Pont d\'Arc',tournee:'Tournée',lieux:'Lieux',stats:'Statistiques',plus:'Plus'};
+  var titles = {accueil:'La Nougaterie du Pont d\'Arc',tournee:'Tournée',lieux:'Lieux',stats:'Statistiques',plus:'Plus','pointage-libre':'Pointage libre'};
   document.getElementById('hdr-title').textContent = titles[ST.screen] || '';
 
   // Render active screen
@@ -697,6 +762,7 @@ function renderAll(){
   if(ST.screen==='lieux')    renderLieux();
   if(ST.screen==='stats')    renderStats();
   if(ST.screen==='plus')     renderPlus();
+  if(ST.screen==='pointage-libre') renderPointageLibre();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1148,7 +1214,7 @@ function closeChunksModal(){
 // ══════════════════════════════════════════════════════════
 //  LIEUX SCREEN
 // ══════════════════════════════════════════════════════════
-var lieuxFilter={q:'',type:'Tous'};
+var lieuxFilter={q:'',type:'Tous',visite:'tous',visiteFrom:'',visiteTo:''};
 
 function renderLieux(){
   var allStops = ST.activeIdx!==null
@@ -1183,10 +1249,33 @@ function filterLieux(allStops){
   }
   var q=(document.getElementById('lieux-search')||{}).value||'';
   lieuxFilter.q=q.toLowerCase();
+  var now=new Date(); now.setHours(23,59,59,999);
+  var vf=lieuxFilter.visite;
+  var startOfDay=new Date(); startOfDay.setHours(0,0,0,0);
+  var startOfWeek=new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate()-startOfDay.getDay());
+  var startOfMonth=new Date(now.getFullYear(),now.getMonth(),1);
   var filtered=allStops.filter(function(s){
     var matchQ=!lieuxFilter.q||(s.nom||'').toLowerCase().includes(lieuxFilter.q)||(s.commune||'').toLowerCase().includes(lieuxFilter.q);
     var matchT=lieuxFilter.type==='Tous'||(s.type||'Autre')===lieuxFilter.type;
-    return matchQ && matchT;
+    var matchV=true;
+    if(vf!=='tous'){
+      var v=ST.visites[stopKey(s)]||[];
+      var visited=v.some(function(vi){
+        var t=new Date(vi.ts);
+        if(vf==='jour') return t>=startOfDay&&t<=now;
+        if(vf==='semaine') return t>=startOfWeek&&t<=now;
+        if(vf==='mois') return t>=startOfMonth&&t<=now;
+        if(vf==='perso'){
+          var f=lieuxFilter.visiteFrom?new Date(lieuxFilter.visiteFrom):null;
+          var to=lieuxFilter.visiteTo?new Date(lieuxFilter.visiteTo):null;
+          if(to) to.setHours(23,59,59,999);
+          return (!f||t>=f)&&(!to||t<=to);
+        }
+        return true;
+      });
+      matchV=visited;
+    }
+    return matchQ&&matchT&&matchV;
   });
 
   var el=document.getElementById('lieux-list');
@@ -1592,6 +1681,160 @@ function showToast(msg){
   var t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
   setTimeout(function(){t.classList.remove('show');},2200);
+}
+
+
+// ================================================================
+//  VISITE FILTER (lieux tab)
+// ================================================================
+function setVisiteFilter(v){
+  lieuxFilter.visite=v;
+  document.querySelectorAll('.vchip').forEach(function(b){b.classList.remove('active');});
+  var map={'tous':0,'jour':1,'semaine':2,'mois':3,'perso':4};
+  var chips=document.querySelectorAll('.vchip');
+  if(chips[map[v]]) chips[map[v]].classList.add('active');
+  var range=document.getElementById('visite-range');
+  if(range) range.classList.toggle('show', v==='perso');
+  filterLieux();
+  var btn=document.getElementById('btn-export-pdf');
+  if(btn) btn.classList.toggle('show', v!=='tous');
+}
+function exportListePDF(){
+  var allStops=ST.activeIdx!==null
+    ?ST.itins[ST.activeIdx].stops
+    :ST.itins.reduce(function(acc,it){return acc.concat(it.stops);},[]);
+  var q=(document.getElementById('lieux-search')||{}).value||'';
+  lieuxFilter.q=q.toLowerCase();
+  lieuxFilter.visiteFrom=(document.getElementById('visite-from')||{}).value||'';
+  lieuxFilter.visiteTo=(document.getElementById('visite-to')||{}).value||'';
+  var now=new Date(); now.setHours(23,59,59,999);
+  var vf=lieuxFilter.visite;
+  var startOfDay=new Date(); startOfDay.setHours(0,0,0,0);
+  var startOfWeek=new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate()-startOfDay.getDay());
+  var startOfMonth=new Date(now.getFullYear(),now.getMonth(),1);
+  var filtered=allStops.filter(function(s){
+    var matchQ=!lieuxFilter.q||(s.nom||'').toLowerCase().includes(lieuxFilter.q)||(s.commune||'').toLowerCase().includes(lieuxFilter.q);
+    var matchT=lieuxFilter.type==='Tous'||(s.type||'Autre')===lieuxFilter.type;
+    var matchV=true;
+    if(vf!=='tous'){
+      var v=ST.visites[stopKey(s)]||[];
+      var visited=v.some(function(vi){
+        var t=new Date(vi.ts);
+        if(vf==='jour') return t>=startOfDay&&t<=now;
+        if(vf==='semaine') return t>=startOfWeek&&t<=now;
+        if(vf==='mois') return t>=startOfMonth&&t<=now;
+        if(vf==='perso'){
+          var f=lieuxFilter.visiteFrom?new Date(lieuxFilter.visiteFrom):null;
+          var to2=lieuxFilter.visiteTo?new Date(lieuxFilter.visiteTo):null;
+          if(to2) to2.setHours(23,59,59,999);
+          return (!f||t>=f)&&(!to2||t<=to2);
+        }
+        return true;
+      });
+      matchV=visited;
+    }
+    return matchQ&&matchT&&matchV;
+  });
+  var rows=filtered.map(function(s){
+    var v=ST.visites[stopKey(s)]||[];
+    var last=v.filter(function(vi){return vi.validated;}).pop();
+    var lastDate=last?fmtDate(last.ts):'—';
+    var lastStatut=last?last.statut:'—';
+    var lastFlyers=last&&last.flyers?last.flyers:'—';
+    var nougat=last&&last.nougat?'Oui':'Non';
+    return '<tr><td>'+esc(s.nom)+'</td><td>'+esc(s.commune||'')+'</td><td>'+lastDate+'</td><td>'+lastStatut+'</td><td>'+lastFlyers+'</td><td>'+nougat+'</td></tr>';
+  }).join('');
+  var periodLabels={'tous':'Tous','jour':'Aujourd hui','semaine':'Cette semaine','mois':'Ce mois','perso':'Personnalise'};
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Liste lieux</title>'
+    +'<style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px}'
+    +'h2{color:#8E24AA}table{width:100%;border-collapse:collapse;margin-top:16px}'
+    +'th{background:#8E24AA;color:#fff;padding:8px;text-align:left}'
+    +'td{padding:7px 8px;border-bottom:1px solid #eee}'
+    +'tr:nth-child(even){background:#f9f9f9}'
+    +'@media print{button{display:none}}</style></head><body>'
+    +'<h2>Liste des lieux visites &mdash; '+periodLabels[vf]+'</h2>'
+    +'<p>Extraite le '+new Date().toLocaleDateString('fr-FR')+' &mdash; '+filtered.length+' lieu(x)</p>'
+    +'<button onclick="window.print()" style="background:#8E24AA;color:#fff;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;margin-bottom:12px">Imprimer / PDF</button>'
+    +'<table><thead><tr><th>Lieu</th><th>Commune</th><th>Derniere visite</th><th>Statut</th><th>Flyers</th><th>Nougat</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'</body></html>';
+  var w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+// ================================================================
+//  POINTAGE LIBRE
+// ================================================================
+var plSelected={};  // key -> {statut, qty, nougat, notes}
+function renderPointageLibre(){
+  var today=new Date().toISOString().slice(0,10);
+  var dateEl=document.getElementById('pl-date');
+  if(dateEl) dateEl.value=today;
+  plSelected={};
+  var allStops=ST.itins.reduce(function(acc,it){return acc.concat(it.stops);},[]);
+  // deduplicate by key
+  var seen={};
+  allStops=allStops.filter(function(s){var k=stopKey(s);if(seen[k])return false;seen[k]=true;return true;});
+  allStops.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});
+  var el=document.getElementById('pl-list');
+  if(!allStops.length){
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--grey)">Aucun lieu disponible. Importez des itineraires d abord.</div>';
+    return;
+  }
+  el.innerHTML=allStops.map(function(s){
+    var k=stopKey(s);
+    return '<div class="pointage-libre-item" id="pli-'+k+'" onclick="togglePL(''+k+'')">'
+      +'<div class="pli-check" id="pli-check-'+k+'"></div>'
+      +'<div class="pli-main">'
+        +'<div class="pli-name">'+esc(s.nom)+'</div>'
+        +'<div class="pli-sub">'+esc(s.commune||s.adresse||'')+'</div>'
+        +'<div id="pli-form-'+k+'" class="pli-form" style="display:none" onclick="event.stopPropagation()">'
+          +'<select id="pls-'+k+'">'
+            +'<option value="ouvert">Ouvert / Distribue</option>'
+            +'<option value="ferme">Ferme</option>'
+            +'<option value="refus">Refus</option>'
+            +'<option value="ferme-def">Ferme definitif</option>'
+          +'</select>'
+          +'<input id="plq-'+k+'" type="number" min="0" placeholder="Nb flyers" value="10">'
+          +'<button class="pli-nougat" id="pln-'+k+'" onclick="this.classList.toggle('active')">Nougat degustation offert</button>'
+          +'<textarea id="plnote-'+k+'" placeholder="Notes..."></textarea>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+function togglePL(key){
+  var item=document.getElementById('pli-'+key);
+  var check=document.getElementById('pli-check-'+key);
+  var form=document.getElementById('pli-form-'+key);
+  if(!item) return;
+  var isSelected=item.classList.contains('selected');
+  item.classList.toggle('selected',!isSelected);
+  if(check) check.textContent=isSelected?'':'✓';
+  if(form) form.style.display=isSelected?'none':'block';
+  if(isSelected){ delete plSelected[key]; }
+  else { plSelected[key]=true; }
+}
+function submitPointageLibre(){
+  var keys=Object.keys(plSelected);
+  if(!keys.length){showToast('Selectionnez au moins un lieu');return;}
+  var dateVal=document.getElementById('pl-date').value||new Date().toLocaleDateString('fr-FR');
+  var ts=dateVal?new Date(dateVal+'T12:00:00').toISOString():new Date().toISOString();
+  var count=0;
+  keys.forEach(function(k){
+    var statut=(document.getElementById('pls-'+k)||{}).value||'ouvert';
+    var flyers=((document.getElementById('plq-'+k)||{}).value||'').trim();
+    var nougat=document.getElementById('pln-'+k)&&document.getElementById('pln-'+k).classList.contains('active');
+    var notes=((document.getElementById('plnote-'+k)||{}).value||'').trim();
+    var visite={date:dateVal,flyers:flyers,statut:statut,nougat:nougat,notes:notes,ts:ts,validated:true};
+    if(!ST.visites[k]) ST.visites[k]=[];
+    ST.visites[k].push(visite);
+    var f=parseInt(flyers)||0;
+    if(f>0){ST.stock=Math.max(0,ST.stock-f);ls_set(K_STOCK,ST.stock);}
+    count++;
+  });
+  ls_set(K_VISITES,ST.visites);
+  showToast(count+' visite(s) enregistree(s)');
+  plSelected={};
+  navTo('lieux');
 }
 
 // localStorage helpers
