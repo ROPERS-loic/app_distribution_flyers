@@ -1097,24 +1097,6 @@ async function loadVisitesFiltered() {
   filterLieux();
 }
 
-function filterLieux() {
-  const q = (document.getElementById('lieux-search')?.value||'').toLowerCase().trim();
-  let items = q
-    ? ST.allLieux.filter(l => l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q))
-    : ST.allLieux.slice(0,200);
-  if (_lieuxVisites) items = items.filter(l => _lieuxVisites.has(String(l.id)));
-  const el = document.getElementById('lieux-list'); if (!el) return;
-  if (!items.length) { el.innerHTML=`<div class="empty-sc"><div class="ei">🔍</div><div class="et">Aucun résultat</div></div>`; return; }
-  el.innerHTML = items.map(l => `
-    <div class="lieu-item" onclick="openFicheFromLieux(${l.id})">
-      <div class="lieu-icon-box">${catIcon(l.categorie)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.nom||'—')}</div>
-        <div style="font-size:11px;color:var(--grey);margin-top:2px">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
-      </div>
-      <span style="color:var(--grey-lt);font-size:16px">›</span>
-    </div>`).join('');
-}
 
 async function exportListePDF() {
   const m = visiteFilter.mode;
@@ -1141,9 +1123,10 @@ async function exportListePDF() {
 let plSelected = {}; // id -> {statut,qty,nougat,note}
 let plAllLieux = [];
 
-function renderPointageLibre() {
+async function renderPointageLibre() {
   const dateEl = document.getElementById('pl-date');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
+  if (!ST.allLieux.length) await loadAllLieux();
   plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   renderPLBrowse(plAllLieux);
@@ -1244,19 +1227,26 @@ async function submitPointageLibre() {
   } catch(e) { toast('Erreur : '+e.message); }
 }
 
-function renderLieux() { filterLieux(); }
+async function renderLieux() {
+  if (!ST.allLieux.length) {
+    const el = document.getElementById('lieux-list');
+    if (el) el.innerHTML = `<div class="empty-sc"><div class="ei">⏳</div><div class="et">Chargement…</div></div>`;
+    await loadAllLieux();
+  }
+  filterLieux();
+}
 function filterLieux() {
   const q = (document.getElementById('lieux-search')?.value||'').toLowerCase().trim();
   const items = q
     ? ST.allLieux.filter(l => l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q))
-    : ST.allLieux.slice(0,50);
+    : ST.allLieux.slice(0,200);
   const el = document.getElementById('lieux-list'); if (!el) return;
   if (!items.length) { el.innerHTML=`<div class="empty-sc"><div class="ei">🔍</div><div class="et">Aucun résultat</div></div>`; return; }
   el.innerHTML = items.map(l => `
     <div class="lieu-item" onclick="openFicheFromLieux(${l.id})">
       <div class="lieu-icon-box">${catIcon(l.categorie)}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.nom)}</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.nom||'—')}</div>
         <div style="font-size:11px;color:var(--grey);margin-top:2px">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
       </div>
       <span style="color:var(--grey-lt);font-size:16px">›</span>
