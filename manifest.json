@@ -11,10 +11,16 @@
   "lang": "fr",
   "icons": [
     {
-      "src": "logo_nougaterie_du_pont_arc.png",
-      "sizes": "any",
+      "src": "icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["productivity", "utilities"]
