@@ -1,0 +1,2 @@
+- me demander mon accord avant de réaliser un changement
+- m'indiquer quand est-ce que je doit commit et push avec github deskot, et m'indiquer le nom du commit a écrire

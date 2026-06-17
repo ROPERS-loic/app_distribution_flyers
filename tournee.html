@@ -349,6 +349,10 @@ textarea.form-input{resize:vertical;min-height:60px}
 
     <!-- POINTAGE LIBRE -->
     <div id="screen-pointage-libre" class="screen">
+      <div style="padding:10px 12px 6px;flex-shrink:0">
+        <input id="pl-search" type="search" placeholder="🔍 Rechercher un lieu..." oninput="filterPL()"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
+      </div>
       <div id="pl-browse" style="overflow-y:auto;max-height:40vh;border-bottom:1px solid #eee;flex-shrink:0"></div>
       <div id="pl-selected-section" style="overflow-y:auto;flex:1;min-height:0">
         <div id="pl-sel-list"></div>
