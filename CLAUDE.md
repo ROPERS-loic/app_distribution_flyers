@@ -1,3 +1,3 @@
 - me demander mon accord avant de réaliser un changement
 - m'indiquer quand est-ce que je doit commit et push avec github deskot, 
-- m'indiquer le nom du commit a écrire avec la touche copier directement
+- m'indiquer le nom du commit a écrire avec la touche copier 

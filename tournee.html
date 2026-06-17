@@ -798,9 +798,13 @@ function renderValidation() {
       </div>
 
       <div class="form-group" id="flyers-group" style="display:${f.statut==='distribue'?'block':'none'}">
-        <label class="form-label">Nombre de flyers distribués</label>
-        <input class="form-input" type="number" id="flyers-input" min="0" max="9999" value="${f.flyers}"
-          oninput="ST.form.flyers=parseInt(this.value)||0">
+        <label class="form-label">Paquets de flyers déposés</label>
+        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseInt(this.value)||1">
+          <option value="1" ${f.flyers<=1?'selected':''}>1 paquet</option>
+          <option value="2" ${f.flyers===2?'selected':''}>2 paquets</option>
+          <option value="3" ${f.flyers===3?'selected':''}>3 paquets</option>
+          <option value="4" ${f.flyers>=4?'selected':''}>4 paquets</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -1201,7 +1205,12 @@ function renderPLSelected() {
         <option value="refus">Refus</option>
         <option value="absent">Absent</option>
       </select>
-      <input id="plq-${k}" type="number" min="0" value="10" placeholder="Nb flyers">
+      <select id="plq-${k}">
+        <option value="1">1 paquet</option>
+        <option value="2" selected>2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
       <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">Nougat degustation offert</button>
       <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
     </div>`;
