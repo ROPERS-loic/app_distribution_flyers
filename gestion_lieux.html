@@ -745,7 +745,7 @@ async function loadLieux(){
     renderLieuxTable(); updateMapMarkers(); updateCatFilter();
   } catch(e) {
     showToast('❌ Lieux : '+e.message, 6000);
-    document.getElementById('lieux-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ ${e.message}</td></tr>`;
+    const tb=document.getElementById('lieux-tbody'); if(tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ ${e.message}</td></tr>`;
   }
 }
 
@@ -821,7 +821,8 @@ function renderDashboard(){
 // ══════════════════════════════════════════════════════════
 function renderLieuxTable(){
   const tbody=document.getElementById('lieux-tbody'), data=ST.lieuxFiltered;
-  document.getElementById('lieux-count').textContent=data.length+' lieux';
+  if(!tbody) return;
+  const cnt=document.getElementById('lieux-count'); if(cnt) cnt.textContent=data.length+' lieux';
   if(!data.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--grey)">Aucun lieu</td></tr>'; return; }
   tbody.innerHTML = data.map(l=>`
     <tr style="cursor:pointer" onclick="openFicheLieu(${l.id})">
@@ -838,7 +839,8 @@ function renderLieuxTable(){
 }
 
 function filterLieuxTable(){
-  const q=document.getElementById('lieux-search').value.toLowerCase();
+  const qs=document.getElementById('lieux-search'); if(!qs) return;
+  const q=qs.value.toLowerCase();
   const cat=document.getElementById('lieux-cat-filter').value;
   const zone=document.getElementById('lieux-zone-filter').value;
   ST.lieuxFiltered=ST.lieux.filter(l=>
