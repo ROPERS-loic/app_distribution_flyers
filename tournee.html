@@ -101,10 +101,11 @@ textarea.form-input{resize:vertical;min-height:60px}
 #toast.show{opacity:1}
 
 /* LOGIN */
-.login-hero{background:var(--black);padding:48px 24px 36px;text-align:center;color:var(--white);flex-shrink:0}
-.login-logo{font-size:52px;margin-bottom:12px}
-.login-brand{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--gold);line-height:1.25}
-.login-sub{font-size:13px;color:var(--grey-lt);margin-top:8px}
+.login-hero{background:#F7F6F2;padding:48px 24px 36px;text-align:center;color:var(--black);flex-shrink:0}
+.login-logo{margin-bottom:12px}
+.login-logo img{max-width:220px;width:80%;height:auto}
+.login-brand{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--black);line-height:1.25}
+.login-sub{font-size:13px;color:var(--grey);margin-top:8px}
 .login-form{padding:24px 20px 40px;display:flex;flex-direction:column;gap:14px;flex:1}
 .login-error{background:var(--red-lt);color:var(--red);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;display:none}
 .login-error.show{display:block}
@@ -290,9 +291,7 @@ textarea.form-input{resize:vertical;min-height:60px}
     <!-- LOGIN -->
     <div id="screen-login" class="screen active">
       <div class="login-hero">
-        <div class="login-logo">🍯</div>
-        <div class="login-brand">La Nougaterie<br>du Pont d'Arc</div>
-        <div class="login-sub">Interface distributeur terrain</div>
+        <div class="login-logo"><img src="logo_transparent.png" alt="Nougaterie du Pont d'Arc"></div>
       </div>
       <div class="login-form">
         <div class="login-error" id="login-error"></div>
