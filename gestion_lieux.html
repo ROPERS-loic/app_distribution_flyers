@@ -851,9 +851,11 @@ function filterLieuxTable(){
 
 function updateCatFilter(){
   const cats=[...new Set(ST.lieux.map(l=>l.categorie).filter(Boolean))].sort();
-  document.getElementById('lieux-cat-filter').innerHTML='<option value="">Toutes catégories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const catEl=document.getElementById('lieux-cat-filter');
+  if(catEl) catEl.innerHTML='<option value="">Toutes catégories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   const zones=[...new Set(ST.lieux.map(l=>l.zone_tournee).filter(Boolean))].sort();
-  document.getElementById('lieux-zone-filter').innerHTML='<option value="">Toutes zones</option>'+zones.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('');
+  const zoneEl=document.getElementById('lieux-zone-filter');
+  if(zoneEl) zoneEl.innerHTML='<option value="">Toutes zones</option>'+zones.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('');
 }
 
 var editingLieuId = null;
