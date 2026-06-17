@@ -253,7 +253,7 @@ textarea.form-input{resize:vertical;min-height:70px}
     <div class="hdr-logo"><span class="bee">🐝</span> Nougaterie</div>
     <div class="hdr-tabs">
       <button class="hdr-tab active" onclick="showSection('dashboard')" id="tab-dashboard">🏠 Dashboard</button>
-      <button class="hdr-tab" onclick="showSection('lieux')" id="tab-lieux">📍 Lieux</button>
+      <button class="hdr-tab" onclick="showSection('stats')" id="tab-stats">📊 Statistiques</button>
       <button class="hdr-tab" onclick="showSection('tournees')" id="tab-tournees">🗺️ Tournées</button>
       <button class="hdr-tab" onclick="showSection('carte')" id="tab-carte">🗺 Carte</button>
       <button class="hdr-tab" onclick="showSection('editeur')" id="tab-editeur">✏️ Éditeur lieux</button>
@@ -300,27 +300,45 @@ textarea.form-input{resize:vertical;min-height:70px}
       </div>
     </div>
 
-    <!-- LIEUX -->
-    <div class="section" id="section-lieux">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
-        <div>
-          <div class="page-title">Gestion des lieux</div>
-          <div class="page-sub">Points de distribution de flyers</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="openLieuModal()">+ Nouveau lieu</button>
-        </div>
+    <!-- STATISTIQUES -->
+    <div class="section" id="section-stats">
+      <div class="page-title">Statistiques des visites</div>
+      <div class="page-sub">Historique complet des points de distribution</div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="stat-card"><div class="val" id="gs-total">—</div><div class="lbl">Visites totales</div></div>
+        <div class="stat-card"><div class="val" id="gs-paquets">—</div><div class="lbl">Paquets distribués</div></div>
+        <div class="stat-card"><div class="val" id="gs-taux">—</div><div class="lbl">Taux distribution</div></div>
+        <div class="stat-card"><div class="val" id="gs-nougat">—</div><div class="lbl">Nougats offerts</div></div>
       </div>
-      <div class="search-row">
-        <input class="search-input" type="search" id="lieux-search" placeholder="🔍 Rechercher…" oninput="filterLieuxTable()">
-        <select class="filter-select" id="lieux-cat-filter" onchange="filterLieuxTable()"><option value="">Toutes catégories</option></select>
-        <select class="filter-select" id="lieux-zone-filter" onchange="filterLieuxTable()"><option value="">Toutes zones</option></select>
-        <span style="font-size:12px;color:var(--grey)" id="lieux-count"></span>
+      <div class="search-row" style="margin-bottom:16px">
+        <select class="filter-select" id="gs-periode" onchange="applyGStats()">
+          <option value="all">Toutes périodes</option>
+          <option value="month">Ce mois</option>
+          <option value="year">Cette année</option>
+        </select>
+        <select class="filter-select" id="gs-statut" onchange="applyGStats()">
+          <option value="">Tous statuts</option>
+          <option value="distribue">Distribué</option>
+          <option value="ferme">Fermé</option>
+          <option value="refus">Refus</option>
+          <option value="absent">Absent</option>
+        </select>
+        <select class="filter-select" id="gs-nougat" onchange="applyGStats()">
+          <option value="">Tous</option>
+          <option value="1">🍯 Avec nougat</option>
+          <option value="0">Sans nougat</option>
+        </select>
+        <select class="filter-select" id="gs-sort" onchange="applyGStats()">
+          <option value="date_desc">Date ↓</option>
+          <option value="date_asc">Date ↑</option>
+          <option value="lieu_az">Lieu A→Z</option>
+          <option value="qty_desc">Paquets ↓</option>
+        </select>
       </div>
       <div class="card">
         <table class="data-table">
-          <thead><tr><th>Nom</th><th>Catégorie</th><th>Ville</th><th>Zone</th><th>Statut</th><th>Actions</th></tr></thead>
-          <tbody id="lieux-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
+          <thead><tr><th>Lieu</th><th>Ville</th><th>Statut</th><th>Paquets</th><th>🍯</th><th>Date</th><th>Distributeur</th><th>Commentaire</th></tr></thead>
+          <tbody id="gs-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -748,6 +766,7 @@ function showSection(name){
   if(name==='suivi') renderSuivi();
   if(name==='editeur') loadEditeur();
   if(name==='distributeurs') renderDistributeursTable();
+  if(name==='stats') loadGStats();
 }
 
 function loadEditeur(){
@@ -1366,6 +1385,89 @@ async function deleteDistributeur(id, nom){
     showToast('🗑 '+nom+' supprimé');
     await loadDistributeurs(); renderDistributeursTable();
   } catch(e){ showToast('❌ '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  STATISTIQUES
+// ══════════════════════════════════════════════════════════
+let _gsData = [];
+
+async function loadGStats(){
+  document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>';
+  try {
+    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
+    _gsData = data || [];
+    applyGStats();
+  } catch(e){
+    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:red">Erreur : '+e.message+'</td></tr>';
+  }
+}
+
+function applyGStats(){
+  const periode = document.getElementById('gs-periode').value;
+  const statut  = document.getElementById('gs-statut').value;
+  const nougat  = document.getElementById('gs-nougat').value;
+  const sort    = document.getElementById('gs-sort').value;
+  const now = new Date();
+
+  let filtered = _gsData.filter(p => {
+    if(statut && p.statut !== statut) return false;
+    if(nougat === '1' && !(p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(nougat === '0' && (p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(periode !== 'all' && p.heure_validation){
+      const d = new Date(p.heure_validation);
+      if(periode === 'month' && (d.getMonth()!==now.getMonth()||d.getFullYear()!==now.getFullYear())) return false;
+      if(periode === 'year' && d.getFullYear()!==now.getFullYear()) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a,b) => {
+    if(sort==='date_desc') return new Date(b.heure_validation||0)-new Date(a.heure_validation||0);
+    if(sort==='date_asc')  return new Date(a.heure_validation||0)-new Date(b.heure_validation||0);
+    if(sort==='lieu_az')   return ((a.lieux?.nom)||'').localeCompare((b.lieux?.nom)||'');
+    if(sort==='qty_desc')  return (b.quantite_flyers||0)-(a.quantite_flyers||0);
+    return 0;
+  });
+
+  const dist    = filtered.filter(p=>p.statut==='distribue');
+  const paquets = dist.reduce((s,p)=>s+(p.quantite_flyers||0),0);
+  const taux    = filtered.length ? Math.round(dist.length/filtered.length*100)+'%' : '—';
+  const nougats = filtered.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]')).length;
+  document.getElementById('gs-total').textContent   = filtered.length;
+  document.getElementById('gs-paquets').textContent = paquets;
+  document.getElementById('gs-taux').textContent    = taux;
+  document.getElementById('gs-nougat').textContent  = nougats;
+
+  const colors = {distribue:'#27AE60',ferme:'#E53935',refus:'#E8A020',absent:'#8E24AA'};
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+
+  if(!filtered.length){
+    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Aucun résultat</td></tr>';
+    return;
+  }
+
+  document.getElementById('gs-tbody').innerHTML = filtered.map(p => {
+    const l = p.lieux||{};
+    const t = p.tournees||{};
+    const d = p.heure_validation ? new Date(p.heure_validation) : null;
+    const dateStr = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+    const col = colors[p.statut]||'#999';
+    const lbl = labels[p.statut]||p.statut;
+    const qty = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '—';
+    return `<tr>
+      <td style="font-weight:600">${l.nom||'—'}</td>
+      <td style="color:var(--grey);font-size:11px">${l.ville||'—'}</td>
+      <td><span style="color:${col};font-weight:bold;font-size:11px">${lbl}</span></td>
+      <td style="font-weight:600">${qty}</td>
+      <td style="text-align:center">${isNougat?'🍯':''}</td>
+      <td style="font-size:11px;color:var(--grey)">${dateStr}</td>
+      <td style="font-size:11px">${t.distributeur?.nom||'—'}</td>
+      <td style="font-size:11px;color:var(--grey);font-style:italic">${comment}</td>
+    </tr>`;
+  }).join('');
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
