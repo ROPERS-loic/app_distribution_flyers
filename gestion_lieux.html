@@ -309,7 +309,7 @@ textarea.form-input{resize:vertical;min-height:70px}
         <div class="stat-card"><div class="val" id="gs-total">—</div><div class="lbl">Visites totales</div></div>
         <div class="stat-card"><div class="val" id="gs-paquets">—</div><div class="lbl">Paquets distribués</div></div>
         <div class="stat-card"><div class="val" id="gs-taux">—</div><div class="lbl">Taux distribution</div></div>
-        <div class="stat-card"><div class="val" id="gs-nougat">—</div><div class="lbl">Nougats offerts</div></div>
+        <div class="stat-card"><div class="val" id="gs-nougat-count">—</div><div class="lbl">Nougats offerts</div></div>
       </div>
       <div style="margin-bottom:12px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -1483,7 +1483,7 @@ function applyGStats(){
   document.getElementById('gs-total').textContent   = filtered.length;
   document.getElementById('gs-paquets').textContent = paquets;
   document.getElementById('gs-taux').textContent    = taux;
-  document.getElementById('gs-nougat').textContent  = nougats;
+  document.getElementById('gs-nougat-count').textContent = nougats;
 
   const colors = {distribue:'#27AE60',ferme:'#E53935',refus:'#E8A020',absent:'#8E24AA'};
   const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
