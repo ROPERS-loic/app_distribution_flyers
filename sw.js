@@ -1,6 +1,6 @@
 const CACHE = 'nougaterie-v1';
 const OFFLINE_ASSETS = [
-  '/tournee.html',
+  './tournee.html',
   'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
