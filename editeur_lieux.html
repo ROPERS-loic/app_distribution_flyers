@@ -262,6 +262,35 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 
 /* TOAST */
 #toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#2B2B2B;color:#fff;padding:8px 15px;border-radius:7px;font-size:12px;z-index:9999;display:none;border-left:4px solid #E8A020;white-space:nowrap}
+/* STATS MODAL */
+#stats-modal{display:none;position:fixed;inset:0;background:#f5f5f5;z-index:3000;flex-direction:column}
+#stats-modal.open{display:flex}
+#stats-header{background:#2B2B2B;color:#fff;padding:0 14px;display:flex;align-items:center;gap:10px;height:48px;flex-shrink:0}
+#stats-header h2{font-size:13px;font-weight:bold;flex:1}
+#stats-header button{padding:5px 10px;border:none;border-radius:5px;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;cursor:pointer;font-weight:bold}
+#stats-header button:hover{background:rgba(255,255,255,0.25)}
+#stats-summary{display:flex;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+.stat-card{flex:1;min-width:90px;background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;text-align:center}
+.stat-card .sc-val{font-size:22px;font-weight:bold;color:#2B2B2B}
+.stat-card .sc-lbl{font-size:10px;color:#888;margin-top:2px}
+#stats-filters{display:flex;gap:7px;padding:8px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+#stats-filters select{padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;outline:none;cursor:pointer}
+#stats-filters select:focus{border-color:#E8A020}
+#stats-list{flex:1;overflow-y:auto;padding:10px 14px}
+.sv-row{background:#fff;border:1px solid #e8e8e8;border-radius:7px;padding:9px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;font-size:11px}
+.sv-lieu{flex:1;min-width:0}
+.sv-nom{font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-sub{font-size:10px;color:#888;margin-top:1px}
+.sv-badge{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.sv-b-distribue{background:#E8F5E9;color:#27AE60}
+.sv-b-ferme{background:#FFEBEE;color:#E53935}
+.sv-b-refus{background:#FFF3E0;color:#E8A020}
+.sv-b-absent{background:#EDE7F6;color:#8E24AA}
+.sv-b-other{background:#f0f0f0;color:#666}
+.sv-qty{font-weight:bold;color:#2B2B2B;white-space:nowrap;flex-shrink:0}
+.sv-nougat{font-size:14px;flex-shrink:0}
+.sv-date{font-size:10px;color:#999;white-space:nowrap;flex-shrink:0}
+#stats-empty{text-align:center;padding:40px;color:#aaa;font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -279,6 +308,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
   <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
   <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
+  <button class="hbtn" id="btn-stats" onclick="openStats()" style="background:#0277BD;color:#fff">📊 Stats</button>
   <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
 </div>
@@ -500,6 +530,46 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     </div>
     <button id="btn-save-pointage" onclick="savePointageSupabase()">Valider tout</button>
   </div>
+</div>
+
+<!-- STATS MODAL -->
+<div id="stats-modal">
+  <div id="stats-header">
+    <h2>📊 Statistiques des visites</h2>
+    <button onclick="closeStats()">✕ Fermer</button>
+  </div>
+  <div id="stats-summary">
+    <div class="stat-card"><div class="sc-val" id="sc-total">—</div><div class="sc-lbl">Visites totales</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-paquets">—</div><div class="sc-lbl">Paquets distribués</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-taux">—</div><div class="sc-lbl">Taux distribution</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-nougat">—</div><div class="sc-lbl">Nougats offerts</div></div>
+  </div>
+  <div id="stats-filters">
+    <select id="sf-periode" onchange="applyStatsFilters()">
+      <option value="all">Toutes périodes</option>
+      <option value="month">Ce mois</option>
+      <option value="year">Cette année</option>
+    </select>
+    <select id="sf-statut" onchange="applyStatsFilters()">
+      <option value="">Tous statuts</option>
+      <option value="distribue">Distribué</option>
+      <option value="ferme">Fermé</option>
+      <option value="refus">Refus</option>
+      <option value="absent">Absent</option>
+    </select>
+    <select id="sf-nougat" onchange="applyStatsFilters()">
+      <option value="">Tous</option>
+      <option value="1">🍯 Avec nougat</option>
+      <option value="0">Sans nougat</option>
+    </select>
+    <select id="sf-sort" onchange="applyStatsFilters()">
+      <option value="date_desc">Date ↓</option>
+      <option value="date_asc">Date ↑</option>
+      <option value="lieu_az">Lieu A→Z</option>
+      <option value="qty_desc">Paquets ↓</option>
+    </select>
+  </div>
+  <div id="stats-list"><div id="stats-empty">Chargement…</div></div>
 </div>
 
 <div id="toast"></div>
@@ -1675,6 +1745,96 @@ async function exportRoutePDF(i){
 
 var toastT=null;
 function showToast(m){var e=document.getElementById('toast');e.textContent=m;e.style.display='block';if(toastT)clearTimeout(toastT);toastT=setTimeout(function(){e.style.display='none';},2800);}
+
+// ══════════════════════════════════════════════════════════
+//  STATISTIQUES
+// ══════════════════════════════════════════════════════════
+var _statsData = [];
+
+async function openStats(){
+  document.getElementById('stats-modal').classList.add('open');
+  document.getElementById('stats-empty').textContent = 'Chargement…';
+  document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Chargement…</div>';
+  try {
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
+    _statsData = data || [];
+    applyStatsFilters();
+  } catch(e) {
+    document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Erreur de chargement : '+e.message+'</div>';
+  }
+}
+
+function closeStats(){
+  document.getElementById('stats-modal').classList.remove('open');
+}
+
+function applyStatsFilters(){
+  var periode = document.getElementById('sf-periode').value;
+  var statut  = document.getElementById('sf-statut').value;
+  var nougat  = document.getElementById('sf-nougat').value;
+  var sort    = document.getElementById('sf-sort').value;
+
+  var now = new Date();
+  var filtered = _statsData.filter(function(p){
+    if(statut && p.statut !== statut) return false;
+    if(nougat === '1' && !(p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(nougat === '0' && (p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(periode !== 'all' && p.heure_validation){
+      var d = new Date(p.heure_validation);
+      if(periode === 'month' && (d.getMonth()!==now.getMonth()||d.getFullYear()!==now.getFullYear())) return false;
+      if(periode === 'year' && d.getFullYear()!==now.getFullYear()) return false;
+    }
+    return true;
+  });
+
+  filtered.sort(function(a,b){
+    if(sort==='date_desc') return new Date(b.heure_validation||0)-new Date(a.heure_validation||0);
+    if(sort==='date_asc')  return new Date(a.heure_validation||0)-new Date(b.heure_validation||0);
+    if(sort==='lieu_az')   return ((a.lieux&&a.lieux.nom)||'').localeCompare((b.lieux&&b.lieux.nom)||'');
+    if(sort==='qty_desc')  return (b.quantite_flyers||0)-(a.quantite_flyers||0);
+    return 0;
+  });
+
+  // Résumé
+  var total   = filtered.length;
+  var dist    = filtered.filter(function(p){return p.statut==='distribue';});
+  var paquets = dist.reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
+  var taux    = total ? Math.round(dist.length/total*100)+'%' : '—';
+  var nougats = filtered.filter(function(p){return (p.commentaire_distributeur||'').includes('[Nougat offert]');}).length;
+  document.getElementById('sc-total').textContent   = total;
+  document.getElementById('sc-paquets').textContent = paquets;
+  document.getElementById('sc-taux').textContent    = taux;
+  document.getElementById('sc-nougat').textContent  = nougats;
+
+  // Liste
+  var el = document.getElementById('stats-list');
+  if(!filtered.length){ el.innerHTML='<div id="stats-empty">Aucun résultat</div>'; return; }
+
+  var badgeClass = {distribue:'sv-b-distribue',ferme:'sv-b-ferme',refus:'sv-b-refus',absent:'sv-b-absent'};
+  var badgeLabel = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  el.innerHTML = filtered.map(function(p){
+    var l = p.lieux || {};
+    var t = p.tournees || {};
+    var d = p.heure_validation ? new Date(p.heure_validation) : null;
+    var dateStr = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    var isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    var comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+    var bc = badgeClass[p.statut]||'sv-b-other';
+    var bl = badgeLabel[p.statut]||p.statut;
+    var qtyStr = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '';
+    return '<div class="sv-row">'
+      +'<div class="sv-lieu">'
+        +'<div class="sv-nom">'+(l.nom||'—')+'</div>'
+        +'<div class="sv-sub">'+(l.ville||'')+(l.categorie?' · '+l.categorie:'')+(t.distributeur?(' · '+t.distributeur.nom):'')+'</div>'
+        +(comment?'<div class="sv-sub" style="font-style:italic">'+comment+'</div>':'')
+      +'</div>'
+      +'<span class="sv-badge '+bc+'">'+bl+'</span>'
+      +(qtyStr?'<span class="sv-qty">'+qtyStr+'</span>':'')
+      +(isNougat?'<span class="sv-nougat" title="Nougat offert">🍯</span>':'')
+      +'<span class="sv-date">'+dateStr+'</span>'
+    +'</div>';
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════════════
 //  INIT
