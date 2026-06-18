@@ -305,11 +305,15 @@ textarea.form-input{resize:vertical;min-height:70px}
     <div class="section" id="section-stats">
       <div class="page-title">Statistiques des visites</div>
       <div class="page-sub">Historique complet des points de distribution</div>
-      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
         <div class="stat-card"><div class="val" id="gs-total">—</div><div class="lbl">Visites totales</div></div>
-        <div class="stat-card"><div class="val" id="gs-paquets">—</div><div class="lbl">Paquets distribués</div></div>
         <div class="stat-card"><div class="val" id="gs-taux">—</div><div class="lbl">Taux distribution</div></div>
-        <div class="stat-card"><div class="val" id="gs-nougat-count">—</div><div class="lbl">Nougats offerts</div></div>
+        <div class="stat-card"><div class="val" id="gs-nougat-count">—</div><div class="lbl">🍯 Nougats offerts</div></div>
+        <div class="stat-card"><div class="val" id="gs-entrees-count">—</div><div class="lbl">🏰 Entrées offertes</div></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="stat-card"><div class="val" id="gs-paquets">—</div><div class="lbl">🍯 Paquets Nougaterie</div></div>
+        <div class="stat-card"><div class="val" id="gs-paquets-chateau">—</div><div class="lbl">🏰 Paquets Château</div></div>
       </div>
       <div style="margin-bottom:12px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -348,8 +352,8 @@ textarea.form-input{resize:vertical;min-height:70px}
       </div>
       <div class="card">
         <table class="data-table">
-          <thead><tr><th>Lieu</th><th>Ville</th><th>Statut</th><th>Paquets</th><th>🍯</th><th>Date</th><th>Distributeur</th><th>Commentaire</th></tr></thead>
-          <tbody id="gs-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
+          <thead><tr><th>Lieu</th><th>Ville</th><th>Statut</th><th>🍯 Pkts</th><th>🏰 Pkts</th><th>🍯</th><th>🏰</th><th>Date</th><th>Distributeur</th><th>Commentaire</th></tr></thead>
+          <tbody id="gs-tbody"><tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1408,13 +1412,13 @@ async function deleteDistributeur(id, nom){
 let _gsData = [];
 
 async function loadGStats(){
-  document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>';
+  document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>';
   try {
-    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
+    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,entree_gratuite,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
     _gsData = data || [];
     applyGStats();
   } catch(e){
-    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:red">Erreur : '+e.message+'</td></tr>';
+    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:red">Erreur : '+e.message+'</td></tr>';
   }
 }
 
@@ -1478,18 +1482,22 @@ function applyGStats(){
 
   const dist    = filtered.filter(p=>p.statut==='distribue');
   const paquets = dist.reduce((s,p)=>s+(p.quantite_flyers||0),0);
+  const paquetsChateau = dist.reduce((s,p)=>s+(p.quantite_flyers_chateau||0),0);
   const taux    = filtered.length ? Math.round(dist.length/filtered.length*100)+'%' : '—';
   const nougats = filtered.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]')).length;
+  const entrees = filtered.filter(p=>p.entree_gratuite).length;
   document.getElementById('gs-total').textContent   = filtered.length;
   document.getElementById('gs-paquets').textContent = paquets;
+  document.getElementById('gs-paquets-chateau').textContent = paquetsChateau;
   document.getElementById('gs-taux').textContent    = taux;
   document.getElementById('gs-nougat-count').textContent = nougats;
+  document.getElementById('gs-entrees-count').textContent = entrees;
 
   const colors = {distribue:'#27AE60',ferme:'#E53935',refus:'#E8A020',absent:'#8E24AA'};
   const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
 
   if(!filtered.length){
-    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Aucun résultat</td></tr>';
+    document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Aucun résultat</td></tr>';
     return;
   }
 
@@ -1503,12 +1511,15 @@ function applyGStats(){
     const col = colors[p.statut]||'#999';
     const lbl = labels[p.statut]||p.statut;
     const qty = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '—';
+    const qtyCh = p.statut==='distribue' ? (p.quantite_flyers_chateau||0)+' pqt' : '—';
     return `<tr>
       <td style="font-weight:600">${l.nom||'—'}</td>
       <td style="color:var(--grey);font-size:11px">${l.ville||'—'}</td>
       <td><span style="color:${col};font-weight:bold;font-size:11px">${lbl}</span></td>
       <td style="font-weight:600">${qty}</td>
+      <td style="font-weight:600">${qtyCh}</td>
       <td style="text-align:center">${isNougat?'🍯':''}</td>
+      <td style="text-align:center">${p.entree_gratuite?'🏰':''}</td>
       <td style="font-size:11px;color:var(--grey)">${dateStr}</td>
       <td style="font-size:11px">${t.distributeur?.nom||'—'}</td>
       <td style="font-size:11px;color:var(--grey);font-style:italic">${comment}</td>
