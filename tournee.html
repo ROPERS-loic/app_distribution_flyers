@@ -1342,10 +1342,11 @@ async function renderPointageLibre() {
 }
 
 let plBrowseLimit = 5;
+let plLastQuery = '';
 
 function filterPL() {
-  plBrowseLimit = 5;
   const q = norm(document.getElementById('pl-search')?.value||'');
+  if (q !== plLastQuery) { plBrowseLimit = 5; plLastQuery = q; }
   if (!q) { renderPLBrowse([]); return; }
   const items = plAllLieux.filter(l=>norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q));
   renderPLBrowse(items);
