@@ -429,8 +429,8 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       <div style="display:flex;gap:6px">
         <div style="flex:1"><div class="tf-label">Date *</div><input class="tf-input" id="tf-date" type="date"></div>
         <div style="flex:1"><div class="tf-label">Paquets/lieu</div><select class="tf-input" id="tf-qty">
-          <option value="1">1 paquet</option>
-          <option value="2" selected>2 paquets</option>
+          <option value="1" selected>1 paquet</option>
+          <option value="2">2 paquets</option>
           <option value="3">3 paquets</option>
           <option value="4">4 paquets</option>
         </select></div>
@@ -498,16 +498,15 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     </div>
     <div class="visite-row"><label>🍯 Paquets Nougaterie</label>
       <select id="visite-qty">
-        <option value="1">1 paquet</option>
-        <option value="2" selected>2 paquets</option>
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
       </select>
     </div>
     <div class="visite-row"><label>🏰 Paquets Château des Roure</label>
       <select id="visite-qty-chateau">
-        <option value="0" selected>Aucun</option>
-        <option value="1">1 paquet</option>
+        <option value="1" selected>1 paquet</option>
         <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
@@ -1319,9 +1318,11 @@ function openVisiteRapide(){
   _visitePoiId=p.id;
   document.getElementById('visite-nom').textContent=p.nom;
   document.getElementById('visite-statut').value='distribue';
-  document.getElementById('visite-qty').value='10';
+  document.getElementById('visite-qty').value='1';
+  document.getElementById('visite-qty-chateau').value='1';
   document.getElementById('visite-comment').value='';
   document.getElementById('visite-nougat').classList.remove('active');
+  document.getElementById('visite-entree').classList.remove('active');
   document.getElementById('visite-modal').classList.add('open');
 }
 function closeVisiteModal(){
@@ -1406,15 +1407,14 @@ function renderPointageList(){
       +'</select>'
       +'<div style="font-size:10px;font-weight:bold;color:#888;margin:4px 0 2px">🍯 Nougaterie</div>'
       +'<select id="ps-qty-'+id+'">'
-      +'<option value="1">1 paquet</option>'
-      +'<option value="2" selected>2 paquets</option>'
+      +'<option value="1" selected>1 paquet</option>'
+      +'<option value="2">2 paquets</option>'
       +'<option value="3">3 paquets</option>'
       +'<option value="4">4 paquets</option>'
       +'</select>'
       +'<div style="font-size:10px;font-weight:bold;color:#888;margin:6px 0 2px">🏰 Château des Roure</div>'
       +'<select id="ps-qtyc-'+id+'">'
-      +'<option value="0" selected>Aucun</option>'
-      +'<option value="1">1 paquet</option>'
+      +'<option value="1" selected>1 paquet</option>'
       +'<option value="2">2 paquets</option>'
       +'<option value="3">3 paquets</option>'
       +'<option value="4">4 paquets</option>'

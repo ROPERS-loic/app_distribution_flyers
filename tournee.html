@@ -432,7 +432,7 @@ const ST = {
   ficheFrom: 'lieux',
   geoPos: null,
   rtChannel: null,
-  form: { pointId:null, statut:null, flyers:0, flyersChateau:0, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false }
+  form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false }
 };
 
 // ════════════════════════════════════════════
@@ -1219,15 +1219,14 @@ function renderPLSelected() {
       </select>
       <div style="font-size:10px;font-weight:700;color:#888;margin:4px 0 2px">🍯 Nougaterie</div>
       <select id="plq-${k}">
-        <option value="1">1 paquet</option>
-        <option value="2" selected>2 paquets</option>
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
       </select>
       <div style="font-size:10px;font-weight:700;color:#888;margin:6px 0 2px">🏰 Château des Roure</div>
       <select id="plqc-${k}">
-        <option value="0" selected>Aucun</option>
-        <option value="1">1 paquet</option>
+        <option value="1" selected>1 paquet</option>
         <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
