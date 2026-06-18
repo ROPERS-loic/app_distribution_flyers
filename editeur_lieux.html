@@ -700,6 +700,7 @@ var routeLayer = null;
 var tourneeRouteLayer = null;
 var selectedId = null;
 function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
+function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 var addMode    = false;
 var routeMode  = false;
 var tourneeMode = false;
@@ -780,14 +781,14 @@ function buildMarkers(){
 // ══════════════════════════════════════════════════════════
 var filteredPois=POIS.slice();
 function applyFilters(){
-  var q=document.getElementById('search-input').value.toLowerCase().trim();
+  var q=norm(document.getElementById('search-input').value).trim();
   var zf=document.getElementById('filter-zone').value;
   var tf=document.getElementById('filter-type').value;
   var sf=document.getElementById('filter-statut')?document.getElementById('filter-statut').value:'';
   filteredPois=POIS.filter(function(p){
     var statOk=!sf||(sf==='active'?(!p.statut||p.statut===''):
       p.statut===sf);
-    return (!q||(p.nom+' '+p.commune).toLowerCase().includes(q))
+    return (!q||norm(p.nom+' '+p.commune).includes(q))
       &&(!zf||zoneKey(p.zone_tournee)===zf)
       &&(!tf||p.type_lieu===tf)
       &&statOk;

@@ -1244,9 +1244,9 @@ let plBrowseLimit = 5;
 
 function filterPL() {
   plBrowseLimit = 5;
-  const q = (document.getElementById('pl-search')?.value||'').toLowerCase().trim();
+  const q = norm(document.getElementById('pl-search')?.value||'');
   if (!q) { renderPLBrowse([]); return; }
-  const items = plAllLieux.filter(l=>l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q));
+  const items = plAllLieux.filter(l=>norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q));
   renderPLBrowse(items);
 }
 
@@ -1383,9 +1383,9 @@ async function renderLieux() {
   filterLieux();
 }
 function filterLieux() {
-  const q = (document.getElementById('lieux-search')?.value||'').toLowerCase().trim();
+  const q = norm(document.getElementById('lieux-search')?.value||'').trim();
   const items = q
-    ? ST.allLieux.filter(l => l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q))
+    ? ST.allLieux.filter(l => norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q))
     : ST.allLieux.slice(0,200);
   const el = document.getElementById('lieux-list'); if (!el) return;
   if (!items.length) { el.innerHTML=`<div class="empty-sc"><div class="ei">🔍</div><div class="et">Aucun résultat</div></div>`; return; }
@@ -1602,6 +1602,10 @@ async function genPDF() {
 // ════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════
+function norm(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

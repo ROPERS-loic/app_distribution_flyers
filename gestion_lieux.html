@@ -860,11 +860,11 @@ function renderLieuxTable(){
 
 function filterLieuxTable(){
   const qs=document.getElementById('lieux-search'); if(!qs) return;
-  const q=qs.value.toLowerCase();
+  const q=norm(qs.value);
   const cat=document.getElementById('lieux-cat-filter').value;
   const zone=document.getElementById('lieux-zone-filter').value;
   ST.lieuxFiltered=ST.lieux.filter(l=>
-    (!q||(l.nom||'').toLowerCase().includes(q)||(l.ville||'').toLowerCase().includes(q))&&
+    (!q||norm(l.nom).includes(q)||norm(l.ville).includes(q))&&
     (!cat||l.categorie===cat)&&(!zone||l.zone_tournee===zone));
   renderLieuxTable();
 }
@@ -941,9 +941,9 @@ function renderTourneesTable(){
 }
 
 function filterTourneesTable(){
-  const q=document.getElementById('tournees-search').value.toLowerCase();
+  const q=norm(document.getElementById('tournees-search').value);
   const s=document.getElementById('tournees-statut-filter').value;
-  ST.tourneesFiltered=ST.tournees.filter(t=>(!q||(t.nom||'').toLowerCase().includes(q))&&(!s||t.statut===s));
+  ST.tourneesFiltered=ST.tournees.filter(t=>(!q||norm(t.nom).includes(q))&&(!s||t.statut===s));
   renderTourneesTable();
 }
 
@@ -965,7 +965,7 @@ function openTourneeModal(){
 
 function renderLieuxPicker(){
   const q=(document.getElementById('lieux-picker-search')||{}).value||'';
-  const filtered=ST.lieux.filter(l=>!q||(l.nom||'').toLowerCase().includes(q.toLowerCase())||(l.ville||'').toLowerCase().includes(q.toLowerCase()));
+  const filtered=ST.lieux.filter(l=>!q||norm(l.nom).includes(norm(q))||norm(l.ville).includes(norm(q)));
   document.getElementById('lieux-picker').innerHTML=filtered.map(l=>`
     <div class="lieu-pick-item ${ST.pickerSelected.has(l.id)?'selected':''}" onclick="togglePicker(${l.id})">
       <div class="lpi-check">${ST.pickerSelected.has(l.id)?'✓':''}</div>
@@ -1061,7 +1061,7 @@ function openAddStopModal(){ ST.addStopsSelected=new Set(); renderAddStops(); op
 function renderAddStops(){
   const q=(document.getElementById('add-stops-search')||{}).value||'';
   const existingIds=new Set(ST.currentTourneeStops.map(s=>s.lieu_id));
-  const filtered=ST.lieux.filter(l=>!existingIds.has(l.id)&&(!q||(l.nom||'').toLowerCase().includes(q.toLowerCase())));
+  const filtered=ST.lieux.filter(l=>!existingIds.has(l.id)&&(!q||norm(l.nom).includes(norm(q))));
   document.getElementById('add-stops-picker').innerHTML=filtered.map(l=>`
     <div class="lieu-pick-item ${ST.addStopsSelected.has(l.id)?'selected':''}" onclick="toggleAddStop(${l.id})">
       <div class="lpi-check">${ST.addStopsSelected.has(l.id)?'✓':''}</div>
@@ -1188,6 +1188,7 @@ function showToast(msg, dur=2400){
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){ return d; } }
 function statutLabel(s){ return {planifiee:'Planifiée',en_cours:'En cours',terminee:'Terminée',annulee:'Annulée',a_faire:'À faire',distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'}[s]||s||''; }
 function statutEmoji(s){ return {planifiee:'📋',en_cours:'🏃',terminee:'✅',annulee:'❌'}[s]||'📋'; }
