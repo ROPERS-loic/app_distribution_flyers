@@ -262,7 +262,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .btn-pl-add{width:34px;height:34px;background:var(--purple);color:#fff;border:none;border-radius:50%;font-size:20px;font-weight:300;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1}
 .btn-pl-add.added{background:#27AE60;font-size:15px}
 /* Bottom sheet */
-#pl-sheet-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:50;flex-direction:column;justify-content:flex-end}
+#pl-sheet-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:200;flex-direction:column;justify-content:flex-end}
 #pl-sheet-overlay.open{display:flex}
 #pl-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 #pl-sheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
@@ -1294,11 +1294,13 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-comment').value = prev.comment||'';
   setPLStatut(prev.statut||'distribue');
   document.getElementById('pl-sheet-overlay').classList.add('open');
+  document.getElementById('app-body').style.overflow = 'hidden';
 }
 
 function closePLSheet() {
   plSheetK = null;
   document.getElementById('pl-sheet-overlay').classList.remove('open');
+  document.getElementById('app-body').style.overflow = '';
 }
 
 function setPLStatut(s) {
