@@ -1502,7 +1502,7 @@ async function submitPointageLibre() {
   } catch(e) {
     if (!navigator.onLine || e instanceof TypeError) {
       addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData:{...plSelected} });
-      toast('📤 Sauvegardé hors-ligne — sync au retour du réseau', 3000);
+      toast('📤 Sauvegardé hors-ligne — photos non incluses', 4000);
       plSelected = {};
       navTo('lieux');
     } else { toast('Erreur : '+e.message); }
