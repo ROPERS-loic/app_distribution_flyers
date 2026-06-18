@@ -168,8 +168,19 @@ textarea.form-input{resize:vertical;min-height:70px}
 .stop-addr{font-size:10px;color:var(--grey);margin-top:1px}
 
 /* Carte */
-#map-container{flex:1;position:relative}
+#map-container{flex:1;position:relative;min-height:0}
 #map{width:100%;height:100%}
+#map-toolbar2{padding:8px 14px;background:#fafafa;border-bottom:1px solid var(--grey-lt);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+#map-toolbar2 input[type=number]{width:52px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:12px;text-align:center}
+.map-legend{display:flex;gap:10px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.map-leg-dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:2px solid rgba(0,0,0,.15);flex-shrink:0;vertical-align:middle;margin-right:3px}
+#map-alertes{flex-shrink:0;max-height:220px;overflow-y:auto;border-top:2px solid #f0f0f0;background:#fff}
+#map-alertes-hdr{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#FFF3E0;border-top:2px solid #E8A020;font-size:12px;font-weight:700;color:#B36000}
+#map-alertes-hdr.ok{background:#E8F5E9;border-color:#27AE60;color:#1B5E20}
+#map-alertes-body{display:none;padding:6px 14px 10px}
+#map-alertes-body.open{display:block}
+.map-alerte-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:12px}
+.map-alerte-item:last-child{border-bottom:none}
 
 /* Éditeur iframe */
 #editeur-iframe{width:100%;flex:1;border:none;display:block}
@@ -424,13 +435,33 @@ textarea.form-input{resize:vertical;min-height:70px}
 
     <!-- CARTE -->
     <div class="section" id="section-carte">
-      <div style="padding:10px 14px;background:var(--white);border-bottom:1px solid var(--grey-lt);display:flex;gap:8px;align-items:center">
+      <div style="padding:10px 14px;background:var(--white);border-bottom:1px solid var(--grey-lt);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700">Carte des lieux</span>
         <select class="filter-select" id="map-tournee-filter" onchange="filterMap()" style="margin-left:auto"><option value="">Tous les lieux</option></select>
         <button class="btn btn-secondary btn-sm" onclick="centerMap()">📍 Recentrer</button>
         <button class="btn btn-secondary btn-sm" onclick="showSection('editeur')">✏️ Ouvrir l'éditeur →</button>
       </div>
+      <div id="map-toolbar2">
+        <span style="font-weight:700">Alerte non visité depuis</span>
+        <input type="number" id="map-seuil" value="4" min="1" max="52" oninput="applyMapSeuil()">
+        <span>semaines</span>
+        <div class="map-legend">
+          <span><span class="map-leg-dot" style="background:#27AE60"></span>Récent</span>
+          <span><span class="map-leg-dot" style="background:#E8A020"></span>Ancien</span>
+          <span><span class="map-leg-dot" style="background:#E53935"></span>Jamais/Refus</span>
+          <span><span class="map-leg-dot" style="background:#9E9E9E"></span>Jamais visité</span>
+        </div>
+      </div>
       <div id="map-container"><div id="map"></div></div>
+      <div id="map-alertes">
+        <div id="map-alertes-hdr" onclick="toggleAlertes()">
+          <span id="map-alertes-title">⚠️ Calcul en cours…</span>
+          <span id="map-alertes-chev">▾</span>
+        </div>
+        <div id="map-alertes-body">
+          <div id="map-alertes-list"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ÉDITEUR LIEUX (iframe) -->
@@ -685,7 +716,7 @@ var ST = {
   distributeurs: [],
   currentTourneeId: null, currentTourneeStops: [],
   pickerSelected: new Set(), addStopsSelected: new Set(),
-  map: null, mapMarkers: [],
+  map: null, mapMarkers: [], lastVisits: {},
   realtimeSub: null,
   editeurLoaded: false
 };
@@ -1087,24 +1118,115 @@ async function saveAddStops(){
 // ══════════════════════════════════════════════════════════
 //  CARTE
 // ══════════════════════════════════════════════════════════
+async function loadLastVisits(){
+  // Charge la dernière visite (statut, date) pour chaque lieu
+  try {
+    const rows = await sbGet(
+      'points_tournee?select=lieu_id,statut,heure_validation' +
+      '&statut=neq.a_faire&heure_validation=not.is.null' +
+      '&order=lieu_id.asc,heure_validation.desc'
+    );
+    const map = {};
+    rows.forEach(r => {
+      if (!map[r.lieu_id]) map[r.lieu_id] = { statut: r.statut, date: r.heure_validation };
+    });
+    ST.lastVisits = map;
+  } catch(e) { ST.lastVisits = {}; }
+}
+
+function markerColor(lieuId, seuilMs) {
+  const v = ST.lastVisits[lieuId];
+  if (!v) return '#9E9E9E'; // jamais visité
+  const age = Date.now() - new Date(v.date).getTime();
+  if (v.statut === 'distribue' && age <= seuilMs) return '#27AE60'; // vert récent
+  if (age > seuilMs) return '#E8A020'; // orange ancien
+  return '#E53935'; // rouge : refus/fermé/absent récent
+}
+
+function getSeuilMs() {
+  const weeks = parseInt(document.getElementById('map-seuil')?.value) || 4;
+  return weeks * 7 * 24 * 3600 * 1000;
+}
+
 function initMap(){
   if(ST.map) return;
   ST.map=L.map('map').setView([44.4073,4.3980],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(ST.map);
-  updateMapMarkers();
+  loadLastVisits().then(()=>{ updateMapMarkers(); renderMapAlertes(); });
 }
 
 function updateMapMarkers(){
   if(!ST.map) return;
   ST.mapMarkers.forEach(m=>m.remove()); ST.mapMarkers=[];
-  const catColors={'Hôtel':'#1E88E5','Camping':'#43A047','Office de tourisme':'#E53935','Restaurant':'#FB8C00','Site touristique':'#8E24AA','Gîte':'#00ACC1',default:'#F5C21A'};
+  const seuilMs = getSeuilMs();
   ST.lieux.forEach(l=>{
     if(!l.latitude||!l.longitude) return;
-    const color=catColors[l.categorie]||catColors.default;
-    const icon=L.divIcon({html:`<div style="width:12px;height:12px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,iconSize:[12,12],iconAnchor:[6,6],className:''});
-    const m=L.marker([l.latitude,l.longitude],{icon}).bindPopup(`<strong>${l.nom}</strong><br>${l.categorie||''}<br>${l.adresse||''}${l.ville?' – '+l.ville:''}`).addTo(ST.map);
+    const color = markerColor(l.id, seuilMs);
+    const v = ST.lastVisits[l.id];
+    const lastStr = v
+      ? new Date(v.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) + ' — ' +
+        ({distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'}[v.statut]||v.statut)
+      : '⚫ Jamais visité';
+    const icon=L.divIcon({
+      html:`<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.4)"></div>`,
+      iconSize:[14,14],iconAnchor:[7,7],className:''
+    });
+    const m=L.marker([l.latitude,l.longitude],{icon})
+      .bindPopup(`<strong>${l.nom}</strong><br><span style="color:#666;font-size:11px">${l.categorie||''}${l.ville?' · '+l.ville:''}</span><br><span style="font-size:11px">${lastStr}</span>`)
+      .addTo(ST.map);
     ST.mapMarkers.push(m);
   });
+}
+
+function renderMapAlertes(){
+  const seuilMs = getSeuilMs();
+  const weeks = parseInt(document.getElementById('map-seuil')?.value) || 4;
+  const alertes = ST.lieux.filter(l => {
+    const v = ST.lastVisits[l.id];
+    if (!v) return true; // jamais visité
+    return (Date.now() - new Date(v.date).getTime()) > seuilMs;
+  }).sort((a,b) => {
+    const da = ST.lastVisits[a.id]?.date || '0';
+    const db = ST.lastVisits[b.id]?.date || '0';
+    return da < db ? -1 : 1; // les plus anciens en premier
+  });
+
+  const hdr = document.getElementById('map-alertes-hdr');
+  const title = document.getElementById('map-alertes-title');
+  const list = document.getElementById('map-alertes-list');
+  if (!hdr||!title||!list) return;
+
+  if (alertes.length === 0) {
+    hdr.className = 'ok';
+    title.textContent = `✅ Tous les lieux ont été visités dans les ${weeks} dernières semaines`;
+    list.innerHTML = '';
+    return;
+  }
+  hdr.className = '';
+  title.textContent = `⚠️ ${alertes.length} lieu${alertes.length>1?'x':''} non visité${alertes.length>1?'s':''} depuis ${weeks}+ semaines`;
+  list.innerHTML = alertes.map(l => {
+    const v = ST.lastVisits[l.id];
+    const dateStr = v
+      ? new Date(v.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})
+      : 'Jamais';
+    return `<div class="map-alerte-item">
+      <span style="font-weight:600">${esc(l.nom)}<span style="color:var(--grey);font-weight:400"> · ${esc(l.ville||l.categorie||'')}</span></span>
+      <span style="color:var(--grey);white-space:nowrap;margin-left:8px">${dateStr}</span>
+    </div>`;
+  }).join('');
+}
+
+function applyMapSeuil(){
+  updateMapMarkers();
+  renderMapAlertes();
+}
+
+function toggleAlertes(){
+  const body = document.getElementById('map-alertes-body');
+  const chev = document.getElementById('map-alertes-chev');
+  if (!body) return;
+  body.classList.toggle('open');
+  chev.textContent = body.classList.contains('open') ? '▴' : '▾';
 }
 
 function centerMap(){
