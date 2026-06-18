@@ -1274,7 +1274,7 @@ function renderPLBrowse(items) {
       </button>
     </div>`;
   }).join('')
-  + (rest > 0 ? `<div onclick="plBrowseLimit+=5;filterPL()" style="padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--purple);cursor:pointer;border-top:1px solid #f0f0f0">Voir ${rest} résultat${rest>1?'s':'} de plus ↓</div>` : '');
+  + (rest > 0 ? `<div onclick="plBrowseLimit+=5;filterPL()" style="padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--purple);cursor:pointer;border-top:1px solid #f0f0f0">Voir ${rest} résultat${rest>1?'s':''} de plus ↓</div>` : '');
 }
 
 let plSheetK = null;
