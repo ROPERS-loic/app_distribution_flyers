@@ -264,7 +264,9 @@ textarea.form-input{resize:vertical;min-height:60px}
 /* Bottom sheet */
 #pl-sheet-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:50;flex-direction:column;justify-content:flex-end}
 #pl-sheet-overlay.open{display:flex}
-#pl-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding-bottom:16px}
+#pl-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+#pl-sheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+#pl-sheet-footer{flex-shrink:0;padding:10px 16px 20px;background:#fff;border-top:1px solid #f0f0f0}
 .pl-sheet-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 14px}
 .pl-sheet-title{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;color:var(--black);padding:0 16px 4px}
 .pl-sheet-sub{font-size:11px;color:var(--grey);padding:0 16px 12px;border-bottom:1px solid #f0f0f0;margin-bottom:12px}
@@ -285,7 +287,7 @@ textarea.form-input{resize:vertical;min-height:60px}
 .pl-toggle-btn.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
 .pl-toggle-btn.entree.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8}
 #pl-sheet-comment{width:100%;box-sizing:border-box;margin:0 0 12px;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:none;height:56px;display:block}
-.pl-sheet-validate{margin:0 16px;width:calc(100% - 32px);padding:14px;background:var(--gold);border:none;border-radius:12px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:block}
+.pl-sheet-validate{width:100%;padding:14px;background:var(--gold);border:none;border-radius:12px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:block}
 /* Bottom bar */
 #pl-bar{background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08);flex-shrink:0}
 #pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700}
@@ -379,45 +381,49 @@ textarea.form-input{resize:vertical;min-height:60px}
       <!-- BOTTOM SHEET -->
       <div id="pl-sheet-overlay" onclick="if(event.target===this)closePLSheet()">
         <div id="pl-sheet">
-          <div class="pl-sheet-handle"></div>
-          <div class="pl-sheet-title" id="pl-sheet-title"></div>
-          <div class="pl-sheet-sub" id="pl-sheet-sub"></div>
-          <div class="pl-sheet-label">Statut</div>
-          <div class="pl-statut-row">
-            <div class="pl-statut-pill active" data-s="distribue" onclick="setPLStatut('distribue')">Distribué</div>
-            <div class="pl-statut-pill" data-s="ferme" onclick="setPLStatut('ferme')">Fermé</div>
-            <div class="pl-statut-pill" data-s="refus" onclick="setPLStatut('refus')">Refus</div>
-            <div class="pl-statut-pill" data-s="absent" onclick="setPLStatut('absent')">Absent</div>
-          </div>
-          <div class="pl-sheet-label">Paquets</div>
-          <div class="pl-qty-row">
-            <div class="pl-qty-box"><label>🍬 Nougaterie</label>
-              <select id="pl-sheet-qty">
-                <option value="1" selected>1 paquet</option>
-                <option value="2">2 paquets</option>
-                <option value="3">3 paquets</option>
-                <option value="4">4 paquets</option>
-              </select>
+          <div id="pl-sheet-body">
+            <div class="pl-sheet-handle"></div>
+            <div class="pl-sheet-title" id="pl-sheet-title"></div>
+            <div class="pl-sheet-sub" id="pl-sheet-sub"></div>
+            <div class="pl-sheet-label">Statut</div>
+            <div class="pl-statut-row">
+              <div class="pl-statut-pill active" data-s="distribue" onclick="setPLStatut('distribue')">Distribué</div>
+              <div class="pl-statut-pill" data-s="ferme" onclick="setPLStatut('ferme')">Fermé</div>
+              <div class="pl-statut-pill" data-s="refus" onclick="setPLStatut('refus')">Refus</div>
+              <div class="pl-statut-pill" data-s="absent" onclick="setPLStatut('absent')">Absent</div>
             </div>
-            <div class="pl-qty-box"><label>🎟️ Château</label>
-              <select id="pl-sheet-qtych">
-                <option value="1" selected>1 paquet</option>
-                <option value="2">2 paquets</option>
-                <option value="3">3 paquets</option>
-                <option value="4">4 paquets</option>
-              </select>
+            <div class="pl-sheet-label">Paquets</div>
+            <div class="pl-qty-row">
+              <div class="pl-qty-box"><label>🍬 Nougaterie</label>
+                <select id="pl-sheet-qty">
+                  <option value="1" selected>1 paquet</option>
+                  <option value="2">2 paquets</option>
+                  <option value="3">3 paquets</option>
+                  <option value="4">4 paquets</option>
+                </select>
+              </div>
+              <div class="pl-qty-box"><label>🎟️ Château</label>
+                <select id="pl-sheet-qtych">
+                  <option value="1" selected>1 paquet</option>
+                  <option value="2">2 paquets</option>
+                  <option value="3">3 paquets</option>
+                  <option value="4">4 paquets</option>
+                </select>
+              </div>
+            </div>
+            <div class="pl-sheet-label">Offres</div>
+            <div class="pl-toggle-row">
+              <button class="pl-toggle-btn" id="pl-sheet-nougat" onclick="this.classList.toggle('active')">🍬 Nougat offert</button>
+              <button class="pl-toggle-btn entree" id="pl-sheet-entree" onclick="this.classList.toggle('active')">🎟️ Entrée offerte</button>
+            </div>
+            <div class="pl-sheet-label">Commentaire</div>
+            <div style="padding:0 16px">
+              <textarea id="pl-sheet-comment" placeholder="Optionnel..."></textarea>
             </div>
           </div>
-          <div class="pl-sheet-label">Offres</div>
-          <div class="pl-toggle-row">
-            <button class="pl-toggle-btn" id="pl-sheet-nougat" onclick="this.classList.toggle('active')">🍬 Nougat offert</button>
-            <button class="pl-toggle-btn entree" id="pl-sheet-entree" onclick="this.classList.toggle('active')">🎟️ Entrée offerte</button>
+          <div id="pl-sheet-footer">
+            <button class="pl-sheet-validate" onclick="validatePLSheet()">Valider la visite</button>
           </div>
-          <div class="pl-sheet-label">Commentaire</div>
-          <div style="padding:0 16px;margin-bottom:14px">
-            <textarea id="pl-sheet-comment" placeholder="Optionnel..."></textarea>
-          </div>
-          <button class="pl-sheet-validate" onclick="validatePLSheet()">Valider la visite</button>
         </div>
       </div>
     </div>
@@ -1228,20 +1234,34 @@ async function renderPointageLibre() {
   if (!ST.allLieux.length) await loadAllLieux();
   plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
-  renderPLBrowse(plAllLieux);
-  renderPLSelected();
+  const searchEl = document.getElementById('pl-search');
+  if (searchEl) searchEl.value = '';
+  renderPLBrowse([]);
+  updatePLSendBar();
 }
 
+let plBrowseLimit = 5;
+
 function filterPL() {
-  const q = (document.getElementById('pl-search')?.value||'').toLowerCase();
-  const items = q ? plAllLieux.filter(l=>l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)) : plAllLieux;
+  plBrowseLimit = 5;
+  const q = (document.getElementById('pl-search')?.value||'').toLowerCase().trim();
+  if (!q) { renderPLBrowse([]); return; }
+  const items = plAllLieux.filter(l=>l.nom?.toLowerCase().includes(q)||l.ville?.toLowerCase().includes(q)||l.categorie?.toLowerCase().includes(q));
   renderPLBrowse(items);
 }
 
 function renderPLBrowse(items) {
   const el = document.getElementById('pl-browse'); if (!el) return;
-  if (!items.length) { el.innerHTML='<div style="padding:16px;text-align:center;color:var(--grey);font-size:12px">Aucun lieu</div>'; return; }
-  el.innerHTML = items.map(l => {
+  if (!items.length) {
+    const q = (document.getElementById('pl-search')?.value||'').trim();
+    el.innerHTML = q
+      ? '<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun résultat</div>'
+      : '<div style="padding:32px 16px;text-align:center;color:var(--grey);font-size:13px">🔍 Recherche un lieu pour commencer</div>';
+    return;
+  }
+  const visible = items.slice(0, plBrowseLimit);
+  const rest = items.length - plBrowseLimit;
+  el.innerHTML = visible.map(l => {
     const k = String(l.id);
     const added = !!plSelected[k];
     return `<div class="pl-browse-item">
@@ -1253,7 +1273,8 @@ function renderPLBrowse(items) {
         ${added?'✓':'+'}
       </button>
     </div>`;
-  }).join('');
+  }).join('')
+  + (rest > 0 ? `<div onclick="plBrowseLimit+=5;filterPL()" style="padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--purple);cursor:pointer;border-top:1px solid #f0f0f0">Voir ${rest} résultat${rest>1?'s':'} de plus ↓</div>` : '');
 }
 
 let plSheetK = null;
