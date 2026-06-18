@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tournée 🍯">
+<meta name="apple-mobile-web-app-title" content="Tournée 🍬">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-512.png">
 <title>Tournée – La Nougaterie du Pont d'Arc</title>
@@ -815,14 +815,14 @@ function renderValidation() {
       </div>
 
       <div class="form-group" id="flyers-group" style="display:${f.statut==='distribue'?'block':'none'}">
-        <label class="form-label">🍯 Paquets Nougaterie</label>
+        <label class="form-label">🍬 Paquets Nougaterie</label>
         <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseInt(this.value)||1">
           <option value="1" ${f.flyers<=1?'selected':''}>1 paquet</option>
           <option value="2" ${f.flyers===2?'selected':''}>2 paquets</option>
           <option value="3" ${f.flyers===3?'selected':''}>3 paquets</option>
           <option value="4" ${f.flyers>=4?'selected':''}>4 paquets</option>
         </select>
-        <label class="form-label" style="margin-top:10px">🏰 Paquets Château des Roure</label>
+        <label class="form-label" style="margin-top:10px">🎟️ Paquets Château des Roure</label>
         <select class="form-input" id="flyers-chateau-input" onchange="ST.form.flyersChateau=parseInt(this.value)||0">
           <option value="0" ${!f.flyersChateau?'selected':''}>Aucun</option>
           <option value="1" ${f.flyersChateau===1?'selected':''}>1 paquet</option>
@@ -845,8 +845,8 @@ function renderValidation() {
       </div>
 
       <div class="form-group">
-        <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍯 Nougat dégustation offert</button>
-        <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🏰 Entrée gratuite Château offerte</button>
+        <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍬 Nougat dégustation offert</button>
+        <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>
         <label class="form-label">Commentaire (optionnel)</label>
         <textarea class="form-input" id="comment-input" rows="3"
           placeholder="Commentaire libre…" oninput="ST.form.commentaire=this.value">${esc(f.commentaire)}</textarea>
@@ -1233,22 +1233,22 @@ function renderPLSelected() {
         <option value="refus">Refus</option>
         <option value="absent">Absent</option>
       </select>
-      <div style="font-size:10px;font-weight:700;color:#888;margin:4px 0 2px">🍯 Nougaterie</div>
+      <div style="font-size:10px;font-weight:700;color:#888;margin:4px 0 2px">🍬 Nougaterie</div>
       <select id="plq-${k}">
         <option value="1" selected>1 paquet</option>
         <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
       </select>
-      <div style="font-size:10px;font-weight:700;color:#888;margin:6px 0 2px">🏰 Château des Roure</div>
+      <div style="font-size:10px;font-weight:700;color:#888;margin:6px 0 2px">🎟️ Château des Roure</div>
       <select id="plqc-${k}">
         <option value="1" selected>1 paquet</option>
         <option value="2">2 paquets</option>
         <option value="3">3 paquets</option>
         <option value="4">4 paquets</option>
       </select>
-      <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">🍯 Nougat dégustation offert</button>
-      <button class="pl-nougat pl-entree" id="ple-${k}" onclick="this.classList.toggle('active')">🏰 Entrée gratuite Château offerte</button>
+      <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">🍬 Nougat dégustation offert</button>
+      <button class="pl-nougat pl-entree" id="ple-${k}" onclick="this.classList.toggle('active')">🎟️ Entrée gratuite Château offerte</button>
       <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
     </div>`;
   }).join('');
