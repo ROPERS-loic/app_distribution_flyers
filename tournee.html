@@ -256,27 +256,41 @@ textarea.form-input{resize:vertical;min-height:60px}
 #screen-pointage-libre{padding:0;flex-direction:column;height:100%;overflow:hidden}
 #screen-pointage-libre.active{display:flex}
 /* Browsable list */
-.pl-browse-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid #f0f0f0}
+.pl-browse-item{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #f0f0f0;background:#fff}
 .pl-browse-name{flex:1;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-browse-sub{font-size:10px;color:var(--grey)}
-.btn-pl-add{padding:5px 12px;background:var(--purple);color:#fff;border:none;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
-.btn-pl-add.added{background:#eee;color:#aaa}
-/* Selected list */
-#pl-selected-section{border-top:2px solid var(--purple);background:#fafafa;padding:0 16px 8px}
-.pl-sel-title{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--purple);padding:10px 0 6px;text-transform:uppercase;letter-spacing:.5px}
-.pl-sel-item{background:#fff;border:1px solid #CE93D8;border-radius:10px;padding:12px;margin-bottom:10px}
-.pl-sel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.pl-sel-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#4A148C}
-.btn-pl-remove{background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0 4px}
-.pl-sel-item select,.pl-sel-item input,.pl-sel-item textarea{width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:6px;font-family:inherit}
-.pl-sel-item textarea{resize:none;height:44px}
-.pl-nougat{width:100%;padding:7px;background:#f5f5f5;border:2px solid #ddd;border-radius:6px;font-size:12px;font-weight:700;color:#888;cursor:pointer;margin-bottom:6px}
-.pl-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
-.pl-entree.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8}
+.btn-pl-add{width:34px;height:34px;background:var(--purple);color:#fff;border:none;border-radius:50%;font-size:20px;font-weight:300;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1}
+.btn-pl-add.added{background:#27AE60;font-size:15px}
+/* Bottom sheet */
+#pl-sheet-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:50;flex-direction:column;justify-content:flex-end}
+#pl-sheet-overlay.open{display:flex}
+#pl-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding-bottom:16px}
+.pl-sheet-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 14px}
+.pl-sheet-title{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;color:var(--black);padding:0 16px 4px}
+.pl-sheet-sub{font-size:11px;color:var(--grey);padding:0 16px 12px;border-bottom:1px solid #f0f0f0;margin-bottom:12px}
+.pl-sheet-label{font-size:10px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.5px;padding:0 16px;margin-bottom:6px}
+.pl-statut-row{display:flex;gap:6px;padding:0 16px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+.pl-statut-pill{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid #ddd;cursor:pointer;white-space:nowrap;background:#f5f5f5;color:#888;flex-shrink:0}
+.pl-statut-pill.active{border-color:currentColor}
+.pl-statut-pill[data-s="distribue"].active{background:#E8F5E9;border-color:#27AE60;color:#27AE60}
+.pl-statut-pill[data-s="ferme"].active{background:#FFEBEE;border-color:#E53935;color:#E53935}
+.pl-statut-pill[data-s="refus"].active{background:#FFF3E0;border-color:#E8A020;color:#E8A020}
+.pl-statut-pill[data-s="absent"].active{background:#F3E5F5;border-color:#8E24AA;color:#8E24AA}
+.pl-qty-row{display:flex;gap:8px;padding:0 16px;margin-bottom:14px}
+.pl-qty-box{flex:1}
+.pl-qty-box label{font-size:10px;color:var(--grey);display:block;margin-bottom:4px}
+.pl-qty-box select{width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#f9f9f9}
+.pl-toggle-row{display:flex;gap:8px;padding:0 16px;margin-bottom:12px}
+.pl-toggle-btn{flex:1;padding:9px 6px;border:1.5px solid #ddd;border-radius:8px;font-size:12px;font-weight:700;background:#f5f5f5;color:#888;cursor:pointer;text-align:center}
+.pl-toggle-btn.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+.pl-toggle-btn.entree.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8}
+#pl-sheet-comment{width:100%;box-sizing:border-box;margin:0 0 12px;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:none;height:56px;display:block}
+.pl-sheet-validate{margin:0 16px;width:calc(100% - 32px);padding:14px;background:var(--gold);border:none;border-radius:12px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:block}
 /* Bottom bar */
 #pl-bar{background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08);flex-shrink:0}
 #pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700}
 #pl-date-row input{flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px}
+#pl-send-btn{display:none;width:100%;padding:13px;background:var(--purple);color:#fff;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px}
 </style>
 </head>
 <body>
@@ -349,21 +363,62 @@ textarea.form-input{resize:vertical;min-height:60px}
     </div>
 
     <!-- POINTAGE LIBRE -->
-    <div id="screen-pointage-libre" class="screen">
+    <div id="screen-pointage-libre" class="screen" style="position:relative">
       <div style="padding:10px 12px 6px;flex-shrink:0">
         <input id="pl-search" type="search" placeholder="🔍 Rechercher un lieu..." oninput="filterPL()"
           style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
       </div>
-      <div id="pl-browse" style="overflow-y:auto;max-height:40vh;border-bottom:1px solid #eee;flex-shrink:0"></div>
-      <div id="pl-selected-section" style="overflow-y:auto;flex:1;min-height:0">
-        <div id="pl-sel-list"></div>
-      </div>
+      <div id="pl-browse" style="overflow-y:auto;flex:1;min-height:0"></div>
       <div id="pl-bar">
-        <div id="pl-date-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700">
+        <div id="pl-date-row">
           <span>Date de visite</span>
-          <input type="date" id="pl-date" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+          <input type="date" id="pl-date">
         </div>
-        <button class="btn-primary" onclick="submitPointageLibre()">Valider tout</button>
+        <button id="pl-send-btn" onclick="submitPointageLibre()">Envoyer</button>
+      </div>
+      <!-- BOTTOM SHEET -->
+      <div id="pl-sheet-overlay" onclick="if(event.target===this)closePLSheet()">
+        <div id="pl-sheet">
+          <div class="pl-sheet-handle"></div>
+          <div class="pl-sheet-title" id="pl-sheet-title"></div>
+          <div class="pl-sheet-sub" id="pl-sheet-sub"></div>
+          <div class="pl-sheet-label">Statut</div>
+          <div class="pl-statut-row">
+            <div class="pl-statut-pill active" data-s="distribue" onclick="setPLStatut('distribue')">Distribué</div>
+            <div class="pl-statut-pill" data-s="ferme" onclick="setPLStatut('ferme')">Fermé</div>
+            <div class="pl-statut-pill" data-s="refus" onclick="setPLStatut('refus')">Refus</div>
+            <div class="pl-statut-pill" data-s="absent" onclick="setPLStatut('absent')">Absent</div>
+          </div>
+          <div class="pl-sheet-label">Paquets</div>
+          <div class="pl-qty-row">
+            <div class="pl-qty-box"><label>🍬 Nougaterie</label>
+              <select id="pl-sheet-qty">
+                <option value="1" selected>1 paquet</option>
+                <option value="2">2 paquets</option>
+                <option value="3">3 paquets</option>
+                <option value="4">4 paquets</option>
+              </select>
+            </div>
+            <div class="pl-qty-box"><label>🎟️ Château</label>
+              <select id="pl-sheet-qtych">
+                <option value="1" selected>1 paquet</option>
+                <option value="2">2 paquets</option>
+                <option value="3">3 paquets</option>
+                <option value="4">4 paquets</option>
+              </select>
+            </div>
+          </div>
+          <div class="pl-sheet-label">Offres</div>
+          <div class="pl-toggle-row">
+            <button class="pl-toggle-btn" id="pl-sheet-nougat" onclick="this.classList.toggle('active')">🍬 Nougat offert</button>
+            <button class="pl-toggle-btn entree" id="pl-sheet-entree" onclick="this.classList.toggle('active')">🎟️ Entrée offerte</button>
+          </div>
+          <div class="pl-sheet-label">Commentaire</div>
+          <div style="padding:0 16px;margin-bottom:14px">
+            <textarea id="pl-sheet-comment" placeholder="Optionnel..."></textarea>
+          </div>
+          <button class="pl-sheet-validate" onclick="validatePLSheet()">Valider la visite</button>
+        </div>
       </div>
     </div>
 
@@ -1194,64 +1249,71 @@ function renderPLBrowse(items) {
         <div class="pl-browse-name">${esc(l.nom||'—')}</div>
         <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
       </div>
-      <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="addPL('${k}')" ${added?'disabled':''}>
-        ${added?'Ajoute':'+'}
+      <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="${added?'removePL':'openPLSheet'}('${k}')">
+        ${added?'✓':'+'}
       </button>
     </div>`;
   }).join('');
 }
 
-function addPL(k) {
-  if (plSelected[k]) return;
-  plSelected[k] = true;
+let plSheetK = null;
+
+function openPLSheet(k) {
+  plSheetK = k;
+  const l = plAllLieux.find(x=>String(x.id)===k)||{};
+  const prev = (plSelected[k] && typeof plSelected[k]==='object') ? plSelected[k] : {};
+  document.getElementById('pl-sheet-title').textContent = l.nom||'—';
+  document.getElementById('pl-sheet-sub').textContent = (l.categorie||'')+(l.ville?' · '+l.ville:'');
+  document.getElementById('pl-sheet-qty').value = prev.qty||1;
+  document.getElementById('pl-sheet-qtych').value = prev.qtyChateau||1;
+  const nBtn = document.getElementById('pl-sheet-nougat');
+  const eBtn = document.getElementById('pl-sheet-entree');
+  prev.nougat ? nBtn.classList.add('active') : nBtn.classList.remove('active');
+  prev.entree ? eBtn.classList.add('active') : eBtn.classList.remove('active');
+  document.getElementById('pl-sheet-comment').value = prev.comment||'';
+  setPLStatut(prev.statut||'distribue');
+  document.getElementById('pl-sheet-overlay').classList.add('open');
+}
+
+function closePLSheet() {
+  plSheetK = null;
+  document.getElementById('pl-sheet-overlay').classList.remove('open');
+}
+
+function setPLStatut(s) {
+  document.querySelectorAll('.pl-statut-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.s===s);
+  });
+}
+
+function validatePLSheet() {
+  const k = plSheetK; if (!k) return;
+  const statut = document.querySelector('.pl-statut-pill.active')?.dataset.s||'distribue';
+  const qty = parseInt(document.getElementById('pl-sheet-qty').value)||1;
+  const qtyChateau = parseInt(document.getElementById('pl-sheet-qtych').value)||1;
+  const nougat = document.getElementById('pl-sheet-nougat').classList.contains('active');
+  const entree = document.getElementById('pl-sheet-entree').classList.contains('active');
+  const comment = document.getElementById('pl-sheet-comment').value.trim();
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment };
   const btn = document.getElementById('pladd-'+k);
-  if (btn) { btn.textContent='Ajoute'; btn.classList.add('added'); btn.disabled=true; }
-  renderPLSelected();
+  if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
+  closePLSheet();
+  updatePLSendBar();
 }
 
 function removePL(k) {
   delete plSelected[k];
   const btn = document.getElementById('pladd-'+k);
-  if (btn) { btn.textContent='+'; btn.classList.remove('added'); btn.disabled=false; }
-  renderPLSelected();
+  if (btn) { btn.innerHTML='+'; btn.classList.remove('added'); btn.onclick=()=>openPLSheet(k); }
+  updatePLSendBar();
 }
 
-function renderPLSelected() {
-  const keys = Object.keys(plSelected);
-  const el = document.getElementById('pl-sel-list'); if (!el) return;
-  if (!keys.length) { el.innerHTML=''; return; }
-  el.innerHTML = keys.map(k => {
-    const l = plAllLieux.find(x=>String(x.id)===k)||{};
-    return `<div class="pl-sel-item">
-      <div class="pl-sel-header">
-        <div class="pl-sel-name">${esc(l.nom||'—')}</div>
-        <button class="btn-pl-remove" onclick="removePL('${k}')">×</button>
-      </div>
-      <select id="pls-${k}">
-        <option value="distribue">Distribue</option>
-        <option value="ferme">Ferme</option>
-        <option value="refus">Refus</option>
-        <option value="absent">Absent</option>
-      </select>
-      <div style="font-size:10px;font-weight:700;color:#888;margin:4px 0 2px">🍬 Nougaterie</div>
-      <select id="plq-${k}">
-        <option value="1" selected>1 paquet</option>
-        <option value="2">2 paquets</option>
-        <option value="3">3 paquets</option>
-        <option value="4">4 paquets</option>
-      </select>
-      <div style="font-size:10px;font-weight:700;color:#888;margin:6px 0 2px">🎟️ Château des Roure</div>
-      <select id="plqc-${k}">
-        <option value="1" selected>1 paquet</option>
-        <option value="2">2 paquets</option>
-        <option value="3">3 paquets</option>
-        <option value="4">4 paquets</option>
-      </select>
-      <button class="pl-nougat" id="pln-${k}" onclick="this.classList.toggle('active')">🍬 Nougat dégustation offert</button>
-      <button class="pl-nougat pl-entree" id="ple-${k}" onclick="this.classList.toggle('active')">🎟️ Entrée gratuite Château offerte</button>
-      <textarea id="plnote-${k}" placeholder="Commentaire..."></textarea>
-    </div>`;
-  }).join('');
+function updatePLSendBar() {
+  const count = Object.keys(plSelected).length;
+  const btn = document.getElementById('pl-send-btn');
+  if (!btn) return;
+  if (count > 0) { btn.style.display='block'; btn.textContent='Envoyer '+count+' visite'+(count>1?'s':''); }
+  else btn.style.display='none';
 }
 
 async function submitPointageLibre() {
@@ -1269,13 +1331,14 @@ async function submitPointageLibre() {
       tId = (Array.isArray(res)?res[0]:res).id;
     }
     const points = keys.map((k,i) => {
-      const statut = document.getElementById('pls-'+k)?.value||'distribue';
-      const qty = parseInt(document.getElementById('plq-'+k)?.value)||0;
-      const nougat = document.getElementById('pln-'+k)?.classList.contains('active');
-      const entreeGratuite = document.getElementById('ple-'+k)?.classList.contains('active')||false;
-      const note = document.getElementById('plnote-'+k)?.value.trim()||'';
+      const d = (typeof plSelected[k]==='object') ? plSelected[k] : {};
+      const statut = d.statut||'distribue';
+      const qty = d.qty||1;
+      const qtyChateau = d.qtyChateau||1;
+      const nougat = d.nougat||false;
+      const entreeGratuite = d.entree||false;
+      const note = d.comment||'';
       const comment = [nougat?'[Nougat offert]':'', note].filter(Boolean).join(' ')||null;
-      const qtyChateau = parseInt(document.getElementById('plqc-'+k)?.value)||0;
       return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
                quantite_flyers:qty, quantite_flyers_chateau:qtyChateau,
                entree_gratuite:entreeGratuite,
