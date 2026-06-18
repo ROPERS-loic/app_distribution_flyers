@@ -298,10 +298,12 @@ textarea.form-input{resize:vertical;min-height:60px}
 <body>
 <div id="app">
 
+  <div id="offline-bar" style="display:none;background:#E53935;color:#fff;text-align:center;font-size:12px;padding:5px 10px;font-weight:600">📵 Hors-ligne — pointages sauvegardés localement</div>
   <div id="app-header">
     <button id="hdr-back" onclick="handleBack()">&#8592;</button>
     <div id="hdr-title">La Nougaterie du Pont d'Arc</div>
     <div id="hdr-pill">Terrain</div>
+    <button id="offline-badge" onclick="syncOfflineQueue()" title="Pointages en attente de sync" style="display:none;background:#E53935;color:#fff;border:none;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">📤 0</button>
   </div>
 
   <div id="app-body" class="no-nav">
@@ -513,11 +515,79 @@ const ST = {
 // ════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════
+// ════════════════════════════════════════════
+//  FILE D'ATTENTE HORS-LIGNE
+// ════════════════════════════════════════════
+const QUEUE_KEY = 'nougaterie_offline_queue';
+
+function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
+}
+function saveOfflineQueue(q) {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  updateOfflineBadge();
+}
+function addToOfflineQueue(item) {
+  item._id = Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  item._ts = new Date().toISOString();
+  const q = getOfflineQueue(); q.push(item); saveOfflineQueue(q);
+}
+function updateOfflineBadge() {
+  const q = getOfflineQueue();
+  const b = document.getElementById('offline-badge');
+  if (!b) return;
+  if (q.length) { b.textContent='📤 '+q.length; b.style.display='inline-block'; }
+  else b.style.display='none';
+}
+function updateNetworkBar() {
+  const bar = document.getElementById('offline-bar');
+  if (bar) bar.style.display = navigator.onLine ? 'none' : 'block';
+}
+async function syncOfflineQueue() {
+  const q = getOfflineQueue();
+  if (!q.length || !navigator.onLine) return;
+  toast('⏳ Sync en cours...');
+  let synced = 0; const remaining = [];
+  for (const item of q) {
+    try {
+      if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
+      else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
+      synced++;
+    } catch(e) { remaining.push(item); }
+  }
+  saveOfflineQueue(remaining);
+  if (synced > 0) toast('✅ '+synced+' pointage'+(synced>1?'s':'')+' synchronisé'+(synced>1?'s':'')+'!', 3000);
+}
+async function syncPointageLibreItem(item) {
+  const { dateVal, distributeurId, plSelectedData } = item;
+  const nomT = 'Visite_rapide_'+dateVal;
+  const existing = await sbGet('tournees?nom=eq.'+encodeURIComponent(nomT)+'&select=id').catch(()=>[]);
+  let tId = existing.length ? existing[0].id : null;
+  if (!tId) {
+    const res = await sbPost('tournees', {nom:nomT, date:dateVal, statut:'planifiee', distributeur_id: distributeurId||null});
+    tId = (Array.isArray(res)?res[0]:res).id;
+  }
+  const heure = new Date(dateVal+'T12:00:00').toISOString();
+  const points = Object.keys(plSelectedData).map((k,i) => {
+    const d = plSelectedData[k];
+    const comment = [d.nougat?'[Nougat offert]':'', d.comment||''].filter(Boolean).join(' ')||null;
+    return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
+             quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
+             entree_gratuite:d.entree||false, statut:d.statut||'distribue',
+             heure_validation:heure, commentaire_distributeur:comment };
+  });
+  await sbPost('points_tournee', points);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   tryGeo();
   document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
   const stored = getStoredSession();
   if (stored?.user) await onLoggedIn(stored.user);
+  updateNetworkBar();
+  updateOfflineBadge();
+  window.addEventListener('online', () => { updateNetworkBar(); syncOfflineQueue(); });
+  window.addEventListener('offline', updateNetworkBar);
 });
 
 // ════════════════════════════════════════════
@@ -969,8 +1039,17 @@ async function submitValidation() {
     photo_preuve: photoUrl
   };
 
+  let queued = false;
   try { await sbPatch('points_tournee','id=eq.'+ST.form.pointId,upd); }
-  catch(e) { toast('Erreur lors de la validation ✗'); btn.disabled=false; btn.textContent='Valider'; return; }
+  catch(e) {
+    if (!navigator.onLine || e instanceof TypeError) {
+      addToOfflineQueue({ type:'validation', pointId:ST.form.pointId, upd });
+      toast('📤 Sauvegardé hors-ligne', 3000);
+      queued = true;
+    } else {
+      toast('Erreur lors de la validation ✗'); btn.disabled=false; btn.textContent='Valider'; return;
+    }
+  }
 
   const idx = ST.activePoints.findIndex(x=>x.id===ST.form.pointId);
   if (idx>=0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...upd };
@@ -981,7 +1060,7 @@ async function submitValidation() {
     ST.activeTournee.statut = 'terminee';
     const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
     if (ti>=0) ST.tournees[ti].statut = 'terminee';
-    toast('🎉 Tournée terminée !', 3000);
+    if (!queued) toast('🎉 Tournée terminée !', 3000);
   } else {
     if (ST.activeTournee.statut==='planifiee') {
       await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'en_cours'}).catch(()=>{});
@@ -989,7 +1068,7 @@ async function submitValidation() {
       const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
       if (ti>=0) ST.tournees[ti].statut = 'en_cours';
     }
-    toast('Arrêt validé ✓');
+    if (!queued) toast('Arrêt validé ✓');
   }
   navTo('tournee');
 }
@@ -1371,7 +1450,14 @@ async function submitPointageLibre() {
     toast(keys.length+' visite(s) enregistree(s) ✓');
     plSelected = {};
     navTo('lieux');
-  } catch(e) { toast('Erreur : '+e.message); }
+  } catch(e) {
+    if (!navigator.onLine || e instanceof TypeError) {
+      addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData:{...plSelected} });
+      toast('📤 Sauvegardé hors-ligne — sync au retour du réseau', 3000);
+      plSelected = {};
+      navTo('lieux');
+    } else { toast('Erreur : '+e.message); }
+  }
 }
 
 async function renderLieux() {
