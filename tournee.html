@@ -1341,22 +1341,26 @@ async function renderNotes() {
         </div>`;
       }).join('');
   } catch(e) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:red;font-size:13px">Erreur : ' + e.message + '</div>';
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:red;font-size:13px">Erreur chargement : ' + e.message + '</div>';
   }
 }
 
 async function submitNote() {
   const texte = document.getElementById('note-texte').value.trim();
-  if (!texte) { showToast('Écris une note avant d\'envoyer'); return; }
+  if (!texte) { toast('Écris une note avant d\'envoyer'); return; }
   const nomDistrib = ST.profile?.nom || ST.user?.email?.split('@')[0] || null;
   const tourneeId = ST.activeTournee?.id || null;
   try {
-    await sbPost('notes_terrain', { texte, distributeur_nom: nomDistrib, tournee_id: tourneeId });
+    await sbFetch(`${SUPA_URL}/rest/v1/notes_terrain`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer '+getToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ texte, distributeur_nom: nomDistrib, tournee_id: tourneeId })
+    });
     document.getElementById('note-texte').value = '';
-    showToast('✅ Note envoyée !');
+    toast('✅ Note envoyée !');
     renderNotes();
   } catch(e) {
-    showToast('Erreur : ' + e.message);
+    toast('Erreur : ' + e.message);
   }
 }
 
