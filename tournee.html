@@ -367,6 +367,17 @@ textarea.form-input{resize:vertical;min-height:60px}
       </div>
     </div>
 
+    <!-- NOTES TERRAIN -->
+    <div id="screen-notes" class="screen" style="padding:16px">
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="section-title">📝 Nouvelle note</div>
+        <p style="font-size:12px;color:var(--grey);margin:0 0 10px">Lieu à ajouter, remarque sur un secteur, retour terrain…</p>
+        <textarea id="note-texte" placeholder="Décris le lieu : nom, adresse, type d'établissement, contact si possible..." style="width:100%;min-height:120px;border:1.5px solid #E0DDD5;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        <button onclick="submitNote()" style="margin-top:10px;width:100%;padding:13px;background:var(--gold);border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">Envoyer la note</button>
+      </div>
+      <div id="notes-sent-list"></div>
+    </div>
+
     <!-- PROFIL -->
     <div id="screen-profil" class="screen">
       <div id="profil-content"></div>
@@ -383,6 +394,9 @@ textarea.form-input{resize:vertical;min-height:60px}
     </button>
     <button class="nav-item" onclick="navTo('pointage-libre')" id="nav-pointage-libre">
       <span class="nav-icon">✅</span><span class="nav-label">Pointage</span>
+    </button>
+    <button class="nav-item" onclick="navTo('notes')" id="nav-notes">
+      <span class="nav-icon">📝</span><span class="nav-label">Notes</span>
     </button>
     <button class="nav-item" onclick="navTo('profil')" id="nav-profil">
       <span class="nav-icon">👤</span><span class="nav-label">Profil</span>
@@ -556,6 +570,7 @@ const TITLES = {
   validation: "Valider l'arrêt",
   fiche: 'Fiche lieu',
   lieux: 'Lieux',
+  notes: 'Notes terrain',
   profil: 'Mon profil'
 };
 
@@ -578,6 +593,7 @@ function navTo(screen) {
   if (screen === 'fiche')      renderFiche();
   if (screen === 'lieux')      renderLieux();
   if (screen === 'pointage-libre') renderPointageLibre();
+  if (screen === 'notes')      renderNotes();
   if (screen === 'profil')     renderProfil();
 }
 
@@ -1296,6 +1312,52 @@ function filterLieux() {
       </div>
       <span style="color:var(--grey-lt);font-size:16px">›</span>
     </div>`).join('');
+}
+
+// ════════════════════════════════════════════
+//  NOTES TERRAIN
+// ════════════════════════════════════════════
+async function renderNotes() {
+  const list = document.getElementById('notes-sent-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--grey);font-size:13px">Chargement…</div>';
+  try {
+    const notes = await sbGet('notes_terrain?order=date_creation.desc&limit=20');
+    if (!notes || !notes.length) {
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--grey);font-size:13px">Aucune note envoyée</div>';
+      return;
+    }
+    list.innerHTML = '<div class="section-title" style="margin-bottom:8px">Mes dernières notes</div>'
+      + notes.map(n => {
+        const d = new Date(n.date_creation);
+        const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+        const badge = n.statut === 'lu'
+          ? '<span style="font-size:10px;color:#27AE60;font-weight:700">✓ Lu</span>'
+          : '<span style="font-size:10px;color:var(--gold-dk);font-weight:700">● Non lu</span>';
+        return `<div class="card pad" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;color:var(--grey)">${dateStr}</span>${badge}
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.5">${n.texte}</p>
+        </div>`;
+      }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:red;font-size:13px">Erreur : ' + e.message + '</div>';
+  }
+}
+
+async function submitNote() {
+  const texte = document.getElementById('note-texte').value.trim();
+  if (!texte) { showToast('Écris une note avant d\'envoyer'); return; }
+  const nomDistrib = ST.profile?.nom || ST.user?.email?.split('@')[0] || null;
+  const tourneeId = ST.activeTournee?.id || null;
+  try {
+    await sbPost('notes_terrain', { texte, distributeur_nom: nomDistrib, tournee_id: tourneeId });
+    document.getElementById('note-texte').value = '';
+    showToast('✅ Note envoyée !');
+    renderNotes();
+  } catch(e) {
+    showToast('Erreur : ' + e.message);
+  }
 }
 
 // ════════════════════════════════════════════

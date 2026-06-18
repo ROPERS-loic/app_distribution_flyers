@@ -260,6 +260,7 @@ textarea.form-input{resize:vertical;min-height:70px}
       <button class="hdr-tab" onclick="showSection('editeur')" id="tab-editeur">✏️ Éditeur lieux</button>
       <button class="hdr-tab" onclick="showSection('distributeurs')" id="tab-distributeurs">👥 Distributeurs</button>
       <button class="hdr-tab" onclick="showSection('suivi')" id="tab-suivi">📡 Suivi live</button>
+      <button class="hdr-tab" onclick="showSection('notes')" id="tab-notes">📝 Notes <span id="notes-badge" style="display:none;background:#E53935;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">0</span></button>
     </div>
     <div class="hdr-spacer"></div>
     <div class="hdr-user">
@@ -461,6 +462,20 @@ textarea.form-input{resize:vertical;min-height:70px}
       <div id="suivi-tournees-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
         <div style="color:var(--grey);font-size:13px">Aucune tournée en cours…</div>
       </div>
+    </div>
+
+    <!-- NOTES TERRAIN -->
+    <div class="section" id="section-notes">
+      <div class="page-title">📝 Notes terrain</div>
+      <div class="page-sub">Retours des distributeurs — lieux à ajouter, remarques</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <select id="notes-filtre" class="filter-select" onchange="renderNotesList()">
+          <option value="">Toutes</option>
+          <option value="non_lu">Non lues</option>
+          <option value="lu">Lues</option>
+        </select>
+      </div>
+      <div id="notes-list"><div style="text-align:center;padding:30px;color:var(--grey)">Chargement…</div></div>
     </div>
 
   </div>
@@ -782,6 +797,7 @@ function showSection(name){
   if(name==='editeur') loadEditeur();
   if(name==='distributeurs') renderDistributeursTable();
   if(name==='stats') loadGStats();
+  if(name==='notes') loadNotes();
 }
 
 function loadEditeur(){
@@ -1525,6 +1541,69 @@ function applyGStats(){
       <td style="font-size:11px;color:var(--grey);font-style:italic">${comment}</td>
     </tr>`;
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+//  NOTES TERRAIN
+// ══════════════════════════════════════════════════════════
+let _notesData = [];
+
+async function loadNotes(){
+  document.getElementById('notes-list').innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey)">Chargement…</div>';
+  try {
+    _notesData = await sbGet('notes_terrain?order=date_creation.desc&limit=200') || [];
+    // badge non lues
+    const nonLues = _notesData.filter(n=>n.statut==='non_lu').length;
+    const badge = document.getElementById('notes-badge');
+    if(nonLues > 0){ badge.textContent = nonLues; badge.style.display='inline'; }
+    else badge.style.display='none';
+    renderNotesList();
+  } catch(e){
+    document.getElementById('notes-list').innerHTML = '<div style="text-align:center;padding:20px;color:red">Erreur : '+e.message+'</div>';
+  }
+}
+
+function renderNotesList(){
+  const filtre = document.getElementById('notes-filtre')?.value || '';
+  const data = filtre ? _notesData.filter(n=>n.statut===filtre) : _notesData;
+  if(!data.length){
+    document.getElementById('notes-list').innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey)">Aucune note</div>';
+    return;
+  }
+  document.getElementById('notes-list').innerHTML = data.map(n=>{
+    const d = new Date(n.date_creation);
+    const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})
+      + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const isLu = n.statut==='lu';
+    return `<div class="card pad" style="margin-bottom:12px;border-left:4px solid ${isLu?'#ccc':'#F5C21A'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px">
+        <div>
+          <span style="font-size:12px;font-weight:700">${n.distributeur_nom||'Distributeur'}</span>
+          <span style="font-size:11px;color:var(--grey);margin-left:8px">${dateStr}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${!isLu ? `<button onclick="marquerLu(${n.id})" style="font-size:11px;padding:3px 8px;background:#27AE60;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">✓ Marquer lu</button>` : '<span style="font-size:11px;color:#27AE60;font-weight:700">✓ Lu</span>'}
+          <button onclick="supprimerNote(${n.id})" style="font-size:11px;padding:3px 8px;background:#E53935;color:#fff;border:none;border-radius:6px;cursor:pointer">🗑</button>
+        </div>
+      </div>
+      <p style="margin:0;font-size:13px;line-height:1.6;white-space:pre-wrap">${n.texte}</p>
+    </div>`;
+  }).join('');
+}
+
+async function marquerLu(id){
+  try {
+    await sbPatch('notes_terrain','id=eq.'+id,{statut:'lu'});
+    await loadNotes();
+  } catch(e){ showToast('Erreur : '+e.message); }
+}
+
+async function supprimerNote(id){
+  if(!confirm('Supprimer cette note ?')) return;
+  try {
+    await sbDelete('notes_terrain','id=eq.'+id);
+    await loadNotes();
+  } catch(e){ showToast('Erreur : '+e.message); }
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
