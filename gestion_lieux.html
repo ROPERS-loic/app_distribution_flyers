@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{
   --gold:#F5C21A;--gold-dk:#DBA10E;--gold-lt:#FFF8DC;
@@ -367,6 +369,14 @@ textarea.form-input{resize:vertical;min-height:70px}
           <thead><tr><th>Lieu</th><th>Ville</th><th>Statut</th><th>🍬 Pkts</th><th>🎟️ Pkts</th><th>🍬</th><th>🎟️</th><th>Date</th><th>Distributeur</th><th>Commentaire</th></tr></thead>
           <tbody id="gs-tbody"><tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
         </table>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button onclick="exportStatsPDF()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:var(--black);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:600">
+          ⬇️ Export PDF
+        </button>
+        <button onclick="exportStatsExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#1B5E20;color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:600">
+          ⬇️ Export Excel
+        </button>
       </div>
     </div>
 
@@ -1732,6 +1742,199 @@ async function supprimerNote(id){
 document.querySelectorAll('.modal-overlay').forEach(m=>{
   m.addEventListener('click',e=>{ if(e.target===m) closeModal(m.id); });
 });
+
+// ══════════════════════════════════════════════════════════
+//  EXPORT STATS
+// ══════════════════════════════════════════════════════════
+function _getStatsFilteredData() {
+  const from = document.getElementById('gs-date-from').value;
+  const to   = document.getElementById('gs-date-to').value;
+  const stat = document.getElementById('gs-statut').value;
+  const ngt  = document.getElementById('gs-nougat').value;
+  let data = [...(_gsData||[])];
+  if(from) data = data.filter(p=>p.heure_validation && p.heure_validation >= from);
+  if(to)   data = data.filter(p=>p.heure_validation && p.heure_validation <= to+'T23:59:59');
+  if(stat) data = data.filter(p=>p.statut===stat);
+  if(ngt==='1') data = data.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]'));
+  if(ngt==='0') data = data.filter(p=>!(p.commentaire_distributeur||'').includes('[Nougat offert]'));
+  return data;
+}
+
+function _statsFiltersLabel() {
+  const from = document.getElementById('gs-date-from').value;
+  const to   = document.getElementById('gs-date-to').value;
+  const stat = document.getElementById('gs-statut').value;
+  const fmt = v => v ? new Date(v).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : null;
+  const period = (from||to) ? [(fmt(from)||'…'),(fmt(to)||'aujourd\'hui')].join(' — ') : 'Toute la période';
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  return { period, statut: stat ? (labels[stat]||stat) : 'Tous' };
+}
+
+function exportStatsPDF() {
+  const { jsPDF } = window.jspdf;
+  if(!jsPDF){ alert('jsPDF non chargé'); return; }
+  const filtered = _getStatsFilteredData();
+  const { period, statut } = _statsFiltersLabel();
+  const now = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const W = doc.internal.pageSize.getWidth();
+
+  // ── HEADER ──
+  doc.setFillColor(26,26,26);
+  doc.rect(0,0,W,20,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255,255,255);
+  doc.text('La Nougaterie du Pont d\'Arc',10,8);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor(212,160,23);
+  doc.text('RAPPORT STATISTIQUES',10,14);
+  doc.setTextColor(200,200,200);
+  doc.setFontSize(8);
+  doc.text('Généré le '+now, W-10, 10, {align:'right'});
+  doc.text('Export sélection', W-10, 15, {align:'right'});
+
+  // ── META BAND ──
+  doc.setFillColor(247,246,242);
+  doc.rect(0,20,W,9,'F');
+  doc.setTextColor(80,80,80);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','bold');
+  doc.text('Période :', 10, 26);
+  doc.setFont('helvetica','normal');
+  doc.text(period, 30, 26);
+  doc.setFont('helvetica','bold');
+  doc.text('Statut :', 100, 26);
+  doc.setFont('helvetica','normal');
+  doc.text(statut, 116, 26);
+  doc.setFont('helvetica','bold');
+  doc.text('Résultats :', 160, 26);
+  doc.setFont('helvetica','normal');
+  doc.text(filtered.length+' visites', 180, 26);
+
+  // ── KPI ROW ──
+  const dist = filtered.filter(p=>p.statut==='distribue');
+  const paquets = dist.reduce((s,p)=>s+(p.quantite_flyers||0),0);
+  const paquetsCh = dist.reduce((s,p)=>s+(p.quantite_flyers_chateau||0),0);
+  const taux = filtered.length ? Math.round(dist.length/filtered.length*100)+'%' : '—';
+  const nougats = filtered.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]')).length;
+  const entrees = filtered.filter(p=>p.entree_gratuite).length;
+
+  const kpis = [
+    { val: String(filtered.length), lbl: 'Visites totales' },
+    { val: taux,                    lbl: 'Taux distribution' },
+    { val: String(nougats),         lbl: 'Nougats offerts' },
+    { val: String(entrees),         lbl: 'Entrees offertes' },
+    { val: String(paquets),         lbl: 'Paquets Nougaterie' },
+    { val: String(paquetsCh),       lbl: 'Paquets Chateau' },
+  ];
+  const kW = (W-20)/6;
+  kpis.forEach((k,i) => {
+    const x = 10 + i*kW;
+    doc.setFillColor(240,240,238);
+    doc.roundedRect(x,31,kW-3,14,2,2,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12);
+    doc.setTextColor(26,26,26);
+    doc.text(k.val, x+(kW-3)/2, 39, {align:'center'});
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120,120,120);
+    doc.text(k.lbl.toUpperCase(), x+(kW-3)/2, 43, {align:'center'});
+  });
+
+  // ── TABLE ──
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const rows = filtered.map(p => {
+    const l = p.lieux||{};
+    const t = p.tournees||{};
+    const d = p.heure_validation ? new Date(p.heure_validation).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+    const qty   = p.statut==='distribue' ? String(p.quantite_flyers||0) : '—';
+    const qtyCh = p.statut==='distribue' ? String(p.quantite_flyers_chateau||0) : '—';
+    return [
+      l.nom||'—', l.ville||'—', labels[p.statut]||p.statut,
+      qty, qtyCh, isNougat?'Oui':'', p.entree_gratuite?'Oui':'',
+      d, t.distributeur?.nom||'—', comment
+    ];
+  });
+
+  const statColors = {distribue:[39,174,96],ferme:[229,57,53],refus:[232,135,10],absent:[142,36,170]};
+  doc.autoTable({
+    startY: 48,
+    head:[['Lieu','Ville','Statut','Ngt Pkts','Cht Pkts','Ngt','Entr.','Date','Distributeur','Commentaire']],
+    body: rows,
+    styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica' },
+    headStyles:{ fillColor:[26,26,26], textColor:255, fontStyle:'bold', fontSize:7 },
+    alternateRowStyles:{ fillColor:[250,250,248] },
+    columnStyles:{
+      0:{fontStyle:'bold', cellWidth:38},
+      1:{cellWidth:22, textColor:[100,100,100]},
+      2:{cellWidth:22},
+      3:{cellWidth:14, halign:'center'},
+      4:{cellWidth:14, halign:'center'},
+      5:{cellWidth:10, halign:'center'},
+      6:{cellWidth:10, halign:'center'},
+      7:{cellWidth:20, textColor:[100,100,100]},
+      8:{cellWidth:28},
+      9:{textColor:[130,130,130], fontStyle:'italic'},
+    },
+    didDrawCell(data){
+      if(data.section==='body' && data.column.index===2){
+        const raw = filtered[data.row.index];
+        const col = statColors[raw?.statut];
+        if(col){ doc.setTextColor(...col); doc.setFont('helvetica','bold'); doc.text(data.cell.text.join(''), data.cell.x+1, data.cell.y+data.cell.height/2+1); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); }
+      }
+    },
+    didDrawPage(data){
+      const pg = doc.internal.getCurrentPageInfo().pageNumber;
+      const total = '{total_pages_count_string}';
+      doc.setFontSize(7); doc.setTextColor(160,160,160);
+      doc.text('La Nougaterie du Pont d\'Arc — Usage interne', 10, doc.internal.pageSize.getHeight()-5);
+      doc.text('Page '+pg+' / '+doc.internal.getNumberOfPages(), W-10, doc.internal.pageSize.getHeight()-5, {align:'right'});
+    }
+  });
+
+  doc.save('stats_nougaterie_'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+function exportStatsExcel() {
+  const filtered = _getStatsFilteredData();
+  const { period, statut } = _statsFiltersLabel();
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const BOM = '﻿';
+  const sep = ';';
+  const rows = [
+    ['La Nougaterie du Pont d\'Arc — Export Statistiques'],
+    ['Période :',period,'Statut :',statut,'Total :',filtered.length+' visites'],
+    [],
+    ['Lieu','Ville','Statut','Paquets Nougaterie','Paquets Château','Nougat offert','Entrée gratuite','Date','Distributeur','Commentaire'],
+    ...filtered.map(p => {
+      const l = p.lieux||{};
+      const t = p.tournees||{};
+      const d = p.heure_validation ? new Date(p.heure_validation).toLocaleDateString('fr-FR') : '';
+      const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+      const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+      return [
+        l.nom||'', l.ville||'', labels[p.statut]||p.statut,
+        p.statut==='distribue' ? (p.quantite_flyers||0) : '',
+        p.statut==='distribue' ? (p.quantite_flyers_chateau||0) : '',
+        isNougat ? 'Oui' : 'Non',
+        p.entree_gratuite ? 'Oui' : 'Non',
+        d, t.distributeur?.nom||'', comment
+      ];
+    })
+  ];
+  const csv = BOM + rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(sep)).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stats_nougaterie_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
 </script>
 </body>
 </html>
