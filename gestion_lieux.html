@@ -317,8 +317,16 @@ textarea.form-input{resize:vertical;min-height:70px}
 
     <!-- STATISTIQUES -->
     <div class="section" id="section-stats">
-      <div class="page-title">Statistiques des visites</div>
-      <div class="page-sub">Historique complet des points de distribution</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
+        <div>
+          <div class="page-title">Statistiques des visites</div>
+          <div class="page-sub">Historique complet des points de distribution</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;margin-top:4px">
+          <button onclick="exportStatsPDF()" style="display:flex;align-items:center;gap:5px;padding:8px 14px;background:var(--black);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:600">⬇️ PDF</button>
+          <button onclick="exportStatsExcel()" style="display:flex;align-items:center;gap:5px;padding:8px 14px;background:#1B5E20;color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:600">⬇️ Excel</button>
+        </div>
+      </div>
       <div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
         <div class="stat-card"><div class="val" id="gs-total">—</div><div class="lbl">Visites totales</div></div>
         <div class="stat-card"><div class="val" id="gs-taux">—</div><div class="lbl">Taux distribution</div></div>
@@ -369,14 +377,6 @@ textarea.form-input{resize:vertical;min-height:70px}
           <thead><tr><th>Lieu</th><th>Ville</th><th>Statut</th><th>🍬 Pkts</th><th>🎟️ Pkts</th><th>🍬</th><th>🎟️</th><th>Date</th><th>Distributeur</th><th>Commentaire</th></tr></thead>
           <tbody id="gs-tbody"><tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
         </table>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:14px">
-        <button onclick="exportStatsPDF()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:var(--black);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:600">
-          ⬇️ Export PDF
-        </button>
-        <button onclick="exportStatsExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#1B5E20;color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:600">
-          ⬇️ Export Excel
-        </button>
       </div>
     </div>
 
