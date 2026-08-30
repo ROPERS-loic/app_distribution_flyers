@@ -2,11 +2,6 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<!-- This site is hosted on Netlify. Anyone can build and deploy a site
-     like this one for free: https://netlify.new/?utm_campaign=ai-legible&utm_source=comment&utm_medium=referral&utm_id=857427a1-b479-43f6-93a0-9831ffec39c8
-     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
-<meta name="hosting-provider" content="Netlify">
-<meta name="netlify-deploy" content="https://netlify.new/?utm_campaign=ai-legible&amp;utm_source=meta&amp;utm_medium=referral&amp;utm_id=857427a1-b479-43f6-93a0-9831ffec39c8">
 <title>Éditeur de lieux – Nougaterie du Pont d'Arc</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,12 +12,9 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #header{background:#2B2B2B;color:#fff;padding:0 10px;display:flex;align-items:center;gap:7px;height:50px;flex-shrink:0}
 #header h1{font-size:12px;font-weight:bold;flex:1}
 .hbtn{padding:5px 9px;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-weight:bold;white-space:nowrap}
-#btn-export{background:#E8A020;color:#2B2B2B}
 #btn-add{background:#43A047;color:#fff}
 #btn-zones{background:#546E7A;color:#fff}
 #btn-route{background:#1E88E5;color:#fff}
-#btn-saved{background:#6A1B9A;color:#fff}
-#btn-export-mobile{background:#E53935;color:#fff}
 /* Mini login Supabase */
 #sb-login-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center}
 #sb-login-overlay.hidden{display:none}
@@ -33,8 +25,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #sb-login-btn{width:100%;padding:10px;background:#E8A020;color:#2B2B2B;border:none;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer}
 #sb-login-btn:hover{background:#d4911a}
 #sb-login-err{color:#E53935;font-size:11px;margin-top:6px;display:none}
-#sb-status{font-size:10px;padding:2px 8px;border-radius:8px;border:1px solid #555;background:rgba(255,255,255,0.08);color:#aaa;white-space:nowrap}
-#sb-status.connected{color:#81C784;border-color:#43A047}
 .hbtn:hover{filter:brightness(1.15)}
 #btn-undo{background:#37474F;color:#fff}
 #btn-undo:disabled{opacity:.35;cursor:not-allowed;filter:none}
@@ -202,7 +192,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .statut-closed-temp{background:#F3E5F5;color:#8E24AA;border:1px solid #8E24AA}
 .poi-item.statut-dim{opacity:0.55}
 /* TOURNÉE PANEL */
-#tournee-panel{position:absolute;bottom:0;left:310px;width:320px;background:#fff;border-top:2px solid #27AE60;border-right:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:480px}
+#tournee-panel{position:absolute;bottom:0;right:0;width:320px;background:#fff;border-top:2px solid #27AE60;border-left:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:480px}
 #tournee-panel.open{display:flex}
 #tournee-header{background:#27AE60;color:#fff;padding:7px 10px;display:flex;align-items:center;justify-content:space-between}
 #tournee-header h3{font-size:12px;font-weight:bold}
@@ -229,6 +219,34 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .tbtn-save{background:#27AE60;color:#fff;flex:2}
 .tbtn:hover{filter:brightness(1.1)}
 #btn-tournee.active{background:#E53935!important}
+#btn-pointage.active{background:#E53935!important}
+/* Visite rapide modal */
+#visite-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center}
+#visite-modal.open{display:flex}
+#visite-box{background:#fff;border-radius:10px;padding:18px;width:300px;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+#visite-box h3{font-size:13px;font-weight:bold;margin-bottom:12px;color:#27AE60}
+.visite-row{margin-bottom:10px}
+.visite-row label{display:block;font-size:11px;font-weight:bold;color:#555;margin-bottom:3px}
+.visite-row select,.visite-row input,.visite-row textarea{width:100%;padding:6px;border:1px solid #ddd;border-radius:5px;font-size:12px;box-sizing:border-box}
+.visite-row textarea{resize:none;height:60px}
+.visite-btns{display:flex;gap:8px;margin-top:12px}
+.visite-btn-ok{flex:1;padding:8px;background:#27AE60;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer}
+.visite-btn-cancel{padding:8px 14px;background:#eee;border:none;border-radius:6px;cursor:pointer}
+.btn-nougat{width:100%;padding:7px;background:#eee;border:2px solid #ddd;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;color:#888;margin-bottom:8px;transition:all 0.15s}
+.btn-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#E8A020}
+/* Pointage panel */
+#pointage-panel{position:absolute;bottom:0;right:0;width:340px;background:#fff;border-top:2px solid #8E24AA;border-left:1px solid #ddd;z-index:999;display:none;flex-direction:column;max-height:520px}
+#pointage-panel.open{display:flex}
+#pointage-header{background:#8E24AA;color:#fff;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#pointage-header h3{margin:0;font-size:12px}
+#pointage-list{overflow-y:auto;flex:1;padding:8px}
+.pointage-item{background:#F3E5F5;border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px}
+.pointage-item-name{font-weight:bold;margin-bottom:6px;color:#4A148C}
+.pointage-item select,.pointage-item input,.pointage-item textarea{width:100%;padding:4px;border:1px solid #CE93D8;border-radius:4px;font-size:11px;box-sizing:border-box;margin-top:3px}
+.pointage-item textarea{resize:none;height:40px}
+#pointage-footer{padding:10px;border-top:1px solid #E1BEE7;flex-shrink:0}
+#btn-save-pointage{width:100%;padding:9px;background:#8E24AA;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px}
+
 
 /* HISTORIQUE PANEL */
 .hp-item{display:flex;gap:7px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
@@ -244,6 +262,35 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 
 /* TOAST */
 #toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#2B2B2B;color:#fff;padding:8px 15px;border-radius:7px;font-size:12px;z-index:9999;display:none;border-left:4px solid #E8A020;white-space:nowrap}
+/* STATS MODAL */
+#stats-modal{display:none;position:fixed;inset:0;background:#f5f5f5;z-index:3000;flex-direction:column}
+#stats-modal.open{display:flex}
+#stats-header{background:#2B2B2B;color:#fff;padding:0 14px;display:flex;align-items:center;gap:10px;height:48px;flex-shrink:0}
+#stats-header h2{font-size:13px;font-weight:bold;flex:1}
+#stats-header button{padding:5px 10px;border:none;border-radius:5px;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;cursor:pointer;font-weight:bold}
+#stats-header button:hover{background:rgba(255,255,255,0.25)}
+#stats-summary{display:flex;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+.stat-card{flex:1;min-width:90px;background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;text-align:center}
+.stat-card .sc-val{font-size:22px;font-weight:bold;color:#2B2B2B}
+.stat-card .sc-lbl{font-size:10px;color:#888;margin-top:2px}
+#stats-filters{display:flex;gap:7px;padding:8px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+#stats-filters select{padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;outline:none;cursor:pointer}
+#stats-filters select:focus{border-color:#E8A020}
+#stats-list{flex:1;overflow-y:auto;padding:10px 14px}
+.sv-row{background:#fff;border:1px solid #e8e8e8;border-radius:7px;padding:9px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;font-size:11px}
+.sv-lieu{flex:1;min-width:0}
+.sv-nom{font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-sub{font-size:10px;color:#888;margin-top:1px}
+.sv-badge{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.sv-b-distribue{background:#E8F5E9;color:#27AE60}
+.sv-b-ferme{background:#FFEBEE;color:#E53935}
+.sv-b-refus{background:#FFF3E0;color:#E8A020}
+.sv-b-absent{background:#EDE7F6;color:#8E24AA}
+.sv-b-other{background:#f0f0f0;color:#666}
+.sv-qty{font-weight:bold;color:#2B2B2B;white-space:nowrap;flex-shrink:0}
+.sv-nougat{font-size:14px;flex-shrink:0}
+.sv-date{font-size:10px;color:#999;white-space:nowrap;flex-shrink:0}
+#stats-empty{text-align:center;padding:40px;color:#aaa;font-size:12px;font-style:italic}
 </style>
 </head>
 <body>
@@ -259,15 +306,10 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   <button class="hbtn" id="btn-add" onclick="toggleAddMode()">➕ Ajouter</button>
   <button class="hbtn" id="btn-zones" onclick="openZoneModal()">🎨 Zones</button>
   <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
-  <button class="hbtn" id="btn-saved" onclick="toggleSavedPanel()">📋 Mes itinéraires</button>
   <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
-  <span id="save-indicator">💾 …</span>
-  <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
+  <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
+<button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
-  <button class="hbtn" id="btn-link-csv" onclick="linkCSV()" style="background:#546E7A;color:#fff" title="Lier le fichier CSV pour l'écriture directe">📁 Lier CSV</button>
-  <button class="hbtn" id="btn-sync-supa" onclick="syncDepuisSupabase()" style="background:#1565C0;color:#fff" title="Charger les données depuis Supabase">⬇️ Sync Supabase</button>
-  <span id="sb-status">☁️ …</span>
-  <button class="hbtn" id="btn-export" onclick="enregistrer()" style="background:#E8A020;color:#2B2B2B;font-size:12px;padding:6px 14px">💾 Enregistrer</button>
 </div>
 
 <!-- Login Supabase -->
@@ -332,6 +374,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="btn-save" onclick="saveEdit()">✓ Enregistrer</button>
         <button class="btn-del" onclick="deletePoi()">🗑</button>
         <button class="btn-cancel" onclick="closeEdit()">✕</button>
+        <button class="btn-save" onclick="openVisiteRapide()" style="background:#27AE60;margin-top:4px">Visite rapide</button>
       </div>
     </div>
     <!-- HISTORIQUE SUPABASE -->
@@ -367,7 +410,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="rbtn rbtn-clear" onclick="clearRoute()">🗑</button>
       </div>
       <div class="route-action-row">
-        <button class="rbtn rbtn-save" onclick="openSaveModal()">💾 Enregistrer l'itinéraire</button>
       </div>
       <div class="route-action-row" id="gmap-row" style="display:none">
         <button class="rbtn rbtn-gmap" onclick="openInGoogleMaps()">🗺 Ouvrir dans Google Maps</button>
@@ -386,7 +428,12 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       <div><div class="tf-label">Nom de la tournée *</div><input class="tf-input" id="tf-nom" type="text" placeholder="ex: Vallon / Ruoms"></div>
       <div style="display:flex;gap:6px">
         <div style="flex:1"><div class="tf-label">Date *</div><input class="tf-input" id="tf-date" type="date"></div>
-        <div style="flex:1"><div class="tf-label">Flyers/lieu</div><input class="tf-input" id="tf-qty" type="number" value="10" min="0"></div>
+        <div style="flex:1"><div class="tf-label">Paquets/lieu</div><select class="tf-input" id="tf-qty">
+          <option value="1" selected>1 paquet</option>
+          <option value="2">2 paquets</option>
+          <option value="3">3 paquets</option>
+          <option value="4">4 paquets</option>
+        </select></div>
       </div>
       <div><div class="tf-label">Distributeur</div><select class="tf-input" id="tf-distributeur"><option value="">— Choisir —</option></select></div>
       <div><div class="tf-label">Secteur</div><input class="tf-input" id="tf-secteur" type="text" placeholder="ex: Zone Ardèche"></div>
@@ -406,14 +453,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     </div>
   </div>
 
-  <!-- SAVED PANEL -->
-  <div id="saved-panel">
-    <div id="saved-header">
-      <h3>📋 Mes itinéraires enregistrés</h3>
-      <button onclick="toggleSavedPanel()">✕</button>
-    </div>
-    <div id="saved-list"></div>
-  </div>
 </div>
 
 <!-- GMAP SEGMENTS MODAL -->
@@ -443,23 +482,102 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
 </div>
 
-<!-- SAVE NAME MODAL -->
-<div id="save-modal">
-  <div id="save-box">
-    <div id="save-box-header">
-      <h2>💾 Enregistrer l'itinéraire</h2>
-      <button onclick="closeSaveModal()">✕</button>
+
+
+<!-- VISITE RAPIDE MODAL -->
+<div id="visite-modal">
+  <div id="visite-box">
+    <h3>Visite rapide &mdash; <span id="visite-nom"></span></h3>
+    <div class="visite-row"><label>Resultat</label>
+      <select id="visite-statut">
+        <option value="distribue">Distribue</option>
+        <option value="ferme">Ferme</option>
+        <option value="refus">Refus</option>
+        <option value="absent">Absent</option>
+      </select>
     </div>
-    <div id="save-box-body">
-      <label>Nom de l'itinéraire</label>
-      <input id="save-name-input" type="text" placeholder="ex: Tournée Vallon–Ruoms J1 matin" autocomplete="off">
-      <div class="save-stops-preview" id="save-stops-preview"></div>
+    <div class="visite-row"><label>🍬 Paquets Nougaterie</label>
+      <select id="visite-qty">
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
     </div>
-    <div id="save-box-footer">
-      <button class="sfbtn sfbtn-ok" onclick="confirmSave()">✓ Enregistrer</button>
-      <button class="sfbtn sfbtn-cancel" onclick="closeSaveModal()">Annuler</button>
+    <div class="visite-row"><label>🎟️ Paquets Château des Roure</label>
+      <select id="visite-qty-chateau">
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
+    </div>
+    <button id="visite-nougat" class="btn-nougat" onclick="this.classList.toggle('active')">🍬 Nougat dégustation offert</button>
+    <button id="visite-entree" class="btn-nougat" style="border-color:#1A73E8;color:#1A73E8" onclick="this.classList.toggle('active');this.style.background=this.classList.contains('active')?'#E8F0FE':'';this.style.color=this.classList.contains('active')?'#1A73E8':'#888'">🎟️ Entrée gratuite Château offerte</button>
+    <div class="visite-row"><label>Remarque</label>
+      <textarea id="visite-comment" placeholder="Optionnel..."></textarea>
+    </div>
+    <div class="visite-btns">
+      <button class="visite-btn-ok" onclick="saveVisiteRapide()">Enregistrer</button>
+      <button class="visite-btn-cancel" onclick="closeVisiteModal()">Annuler</button>
     </div>
   </div>
+</div>
+
+<!-- POINTAGE PANEL -->
+<div id="pointage-panel">
+  <div id="pointage-header">
+    <h3>Pointage en cours</h3>
+    <button onclick="togglePointageMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">x</button>
+  </div>
+  <div id="pointage-list"></div>
+  <div id="pointage-footer">
+    <div style="margin-bottom:7px;font-size:11px">
+      <label style="font-weight:bold;color:#555;display:block;margin-bottom:3px">Date de visite</label>
+      <input id="pointage-date" type="date" style="width:100%;padding:5px;border:1px solid #CE93D8;border-radius:5px;font-size:12px;box-sizing:border-box">
+    </div>
+    <button id="btn-save-pointage" onclick="savePointageSupabase()">Valider tout</button>
+  </div>
+</div>
+
+<!-- STATS MODAL -->
+<div id="stats-modal">
+  <div id="stats-header">
+    <h2>📊 Statistiques des visites</h2>
+    <button onclick="closeStats()">✕ Fermer</button>
+  </div>
+  <div id="stats-summary">
+    <div class="stat-card"><div class="sc-val" id="sc-total">—</div><div class="sc-lbl">Visites totales</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-paquets">—</div><div class="sc-lbl">Paquets distribués</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-taux">—</div><div class="sc-lbl">Taux distribution</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-nougat">—</div><div class="sc-lbl">Nougats offerts</div></div>
+  </div>
+  <div id="stats-filters">
+    <select id="sf-periode" onchange="applyStatsFilters()">
+      <option value="all">Toutes périodes</option>
+      <option value="month">Ce mois</option>
+      <option value="year">Cette année</option>
+    </select>
+    <select id="sf-statut" onchange="applyStatsFilters()">
+      <option value="">Tous statuts</option>
+      <option value="distribue">Distribué</option>
+      <option value="ferme">Fermé</option>
+      <option value="refus">Refus</option>
+      <option value="absent">Absent</option>
+    </select>
+    <select id="sf-nougat" onchange="applyStatsFilters()">
+      <option value="">Tous</option>
+      <option value="1">🍬 Avec nougat</option>
+      <option value="0">Sans nougat</option>
+    </select>
+    <select id="sf-sort" onchange="applyStatsFilters()">
+      <option value="date_desc">Date ↓</option>
+      <option value="date_asc">Date ↑</option>
+      <option value="lieu_az">Lieu A→Z</option>
+      <option value="qty_desc">Paquets ↓</option>
+    </select>
+  </div>
+  <div id="stats-list"><div id="stats-empty">Chargement…</div></div>
 </div>
 
 <div id="toast"></div>
@@ -469,25 +587,22 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 //  SUPABASE
 // ══════════════════════════════════════════════════════════
 const SB_URL = 'https://krbzipnoeroaofojccri.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyYnppcG5vZXJvYW9mb2pjY3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTUyMzIsImV4cCI6MjA5NTM5MTIzMn0.4Nhqnb7KF8-micNPrHRrKtR1xRU1sziPafV6EtwN350';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const SB_KEY = 'sb_publishable_00DghQOW-_toZkmmA2uEkA_8yd9xNSP';
 
-function setSbStatus(msg, connected){
-  var el = document.getElementById('sb-status');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = connected ? 'connected' : '';
-}
+function getStoredSession(){try{var r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
+function getToken(){var s=getStoredSession();return(s&&s.access_token)||SB_KEY;}
+async function refreshSession(){var s=getStoredSession();if(!s||!s.refresh_token)return false;try{var d=await sbAuthPost('token?grant_type=refresh_token',{refresh_token:s.refresh_token});localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token',JSON.stringify(d));return true;}catch(e){return false;}}
+async function sbFetch(url,opts){var r=await fetch(url,opts);if(r.status===401){var ok=await refreshSession();if(ok){opts.headers['Authorization']='Bearer '+getToken();r=await fetch(url,opts);}}if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbGet(path){return sbFetch(SB_URL+'/rest/v1/'+path,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken()}});}
+async function sbPost(table,data){return sbFetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});}
+async function sbPatch(table,filter,data){return sbFetch(SB_URL+'/rest/v1/'+table+'?'+filter,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:JSON.stringify(data)});}
+async function sbAuthPost(endpoint,body,token){var h={'apikey':SB_KEY,'Content-Type':'application/json'};if(token)h['Authorization']='Bearer '+token;var r=await fetch(SB_URL+'/auth/v1/'+endpoint,{method:'POST',headers:h,body:JSON.stringify(body)});if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.message||e.error_description||'HTTP '+r.status);}return r.json();}
 
 // Vérifie la session au chargement
 window.addEventListener('load', async function(){
-  var { data: { session } } = await sb.auth.getSession();
-  if(session){ setSbStatus('☁️ ' + session.user.email, true); }
-  else { setSbStatus('☁️ Non connecté', false); showSbLogin(); }
-  sb.auth.onAuthStateChange(function(event, session){
-    if(session){ setSbStatus('☁️ ' + session.user.email, true); }
-    else { setSbStatus('☁️ Non connecté', false); }
-  });
+  var stored = getStoredSession();
+  if(stored && stored.user){ autoSyncSupabase(); }
+  else { showSbLogin(); }
 });
 
 function showSbLogin(){ document.getElementById('sb-login-overlay').classList.remove('hidden'); }
@@ -498,29 +613,20 @@ async function sbLogin(){
   var pwd   = document.getElementById('sb-pwd').value;
   var err   = document.getElementById('sb-login-err');
   err.style.display = 'none';
-  var { error } = await sb.auth.signInWithPassword({ email, password: pwd });
-  if(error){ err.textContent = error.message; err.style.display = 'block'; return; }
-  hideSbLogin();
+  try {
+    var data = await sbAuthPost('token?grant_type=password', {email: email, password: pwd});
+    localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token', JSON.stringify(data));
+    hideSbLogin(); autoSyncSupabase();
+  } catch(e){ err.textContent = e.message; err.style.display = 'block'; }
 }
 
-// Enregistre : CSV + Supabase
-async function enregistrer(){
-  var btn = document.getElementById('btn-export');
-  btn.textContent = '⏳ Enregistrement…'; btn.disabled = true;
-  // 1. Sauvegarde CSV
-  await autoSaveCSV();
-  // 2. Sync Supabase
-  await syncSupabase();
-  btn.textContent = '💾 Enregistrer'; btn.disabled = false;
-}
 
 async function syncSupabase(){
-  var { data: { session } } = await sb.auth.getSession();
-  if(!session){ showSbLogin(); showToast('⚠ Connecte-toi d\'abord pour synchroniser Supabase'); return; }
+  var stored = getStoredSession();
+  if(!stored || !stored.user){ showSbLogin(); showToast('⚠ Connecte-toi d\'abord pour synchroniser Supabase'); return; }
 
   showToast('☁️ Sync Supabase…');
-  // Récupère les IDs existants par nom
-  var { data: existing } = await sb.from('lieux').select('id, nom');
+  var existing = await sbGet('lieux?select=id,nom').catch(function(){return[];});
   var byNom = {};
   (existing||[]).forEach(function(l){ byNom[(l.nom||'').toLowerCase().trim()] = l; });
 
@@ -547,13 +653,13 @@ async function syncSupabase(){
   var errors = 0;
   // Insertions par lots
   for(var i=0; i<toInsert.length; i+=50){
-    var { error } = await sb.from('lieux').insert(toInsert.slice(i, i+50));
-    if(error){ errors++; console.error('insert', error.message); }
+    try { await sbPost('lieux', toInsert.slice(i, i+50)); }
+    catch(e){ errors++; console.error('insert', e.message); }
   }
-  // Mises à jour par lots de 1 (pas d'update en masse sans unique constraint)
+  // Mises à jour par lots de 1
   for(var j=0; j<toUpdate.length; j++){
-    var { error } = await sb.from('lieux').update(toUpdate[j].data).eq('id', toUpdate[j].id);
-    if(error){ errors++; console.error('update', toUpdate[j].data.nom, error.message); }
+    try { await sbPatch('lieux', 'id=eq.'+toUpdate[j].id, toUpdate[j].data); }
+    catch(e){ errors++; console.error('update', toUpdate[j].data.nom, e.message); }
   }
 
   if(errors){ showToast('⚠ Sync terminée avec ' + errors + ' erreur(s)'); }
@@ -593,40 +699,18 @@ var markers    = {};
 var routeLayer = null;
 var tourneeRouteLayer = null;
 var selectedId = null;
+function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
+function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 var addMode    = false;
 var routeMode  = false;
 var tourneeMode = false;
+var pointageMode = false;
+var pointageStops = [];
+var _visitePoiId = null;
 var routeStops = [];
 var tourneeStops = [];
 var tourneeDistributeurs = [];
 var nextId     = POIS.length + 10000;
-var STORE_KEY  = 'nougaterie_itineraires';
-
-// ══════════════════════════════════════════════════════════
-//  STORAGE
-// ══════════════════════════════════════════════════════════
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); }catch(e){ return []; }
-}
-function writeSaved(arr){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }catch(e){ showToast('⚠ Impossible de sauvegarder'); }
-}
-
-function exportPourMobile(){
-  var saved = loadSaved();
-  if(!saved || !saved.length){
-    showToast('⚠ Aucun itinéraire sauvegardé à exporter');
-    return;
-  }
-  var data = JSON.stringify(saved, null, 2);
-  var blob = new Blob([data], {type: 'application/json;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  var date = new Date().toLocaleDateString('fr-FR').replace(/\//g,'-');
-  a.download = 'itineraires_nougaterie_' + date + '.json';
-  a.click();
-  showToast('📱 ' + saved.length + ' itinéraire(s) exporté(s) — transférez ce fichier sur votre téléphone');
-}
 
 // ══════════════════════════════════════════════════════════
 //  ZONE HELPERS
@@ -664,25 +748,30 @@ var map=L.map('map').setView([44.45,4.40],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 map.on('click',function(e){ if(addMode){ createNewPoi(e.latlng.lat,e.latlng.lng); toggleAddMode(); } });
 
-function makeIcon(color,selected,routeNum){
+function makeIcon(color,selected,routeNum,badge){
   var sz=selected?30:22;
   var brd=selected?'3px solid #fff':'2px solid rgba(255,255,255,0.6)';
   var sh=selected?'0 0 0 3px '+color+',0 2px 6px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.3)';
-  var inner='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:bold">'+(routeNum!=null?routeNum:'')+'</div>';
+  var fs=sz>24?'11':'9';
+  var label=routeNum?String(routeNum):badge?badge:'';
+  var inner='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px">'+label+'</div>';
   return L.divIcon({html:inner,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-sz/2],className:''});
 }
 function refreshMarkerIcon(id){
   var p=POIS.find(function(p){return p.id===id;}); if(!p||!markers[id]) return;
   var color=zoneColor(p.zone_tournee);
   var rn=routeStops.indexOf(id); rn=rn>=0?rn+1:null;
-  markers[id].setIcon(makeIcon(color,selectedId===id,rn));
+  var badge=null;
+  if(tourneeStops.indexOf(id)>=0){badge='T';color='#27AE60';}
+  if(pointageStops.indexOf(id)>=0){badge='P';color='#8E24AA';}
+  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge));
 }
 function buildMarkers(){
   POIS.forEach(function(p){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
     var m=L.marker([lat,lon],{draggable:true,icon:makeIcon(zoneColor(p.zone_tournee),false,null),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
-    m.on('click',function(){ tourneeMode?toggleTourneeStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
-    m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); showToast('📍 Position mise à jour'); });
+    m.on('click',function(){ tourneeMode?toggleTourneeStop(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
+    m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
   });
 }
@@ -692,14 +781,14 @@ function buildMarkers(){
 // ══════════════════════════════════════════════════════════
 var filteredPois=POIS.slice();
 function applyFilters(){
-  var q=document.getElementById('search-input').value.toLowerCase().trim();
+  var q=norm(document.getElementById('search-input').value).trim();
   var zf=document.getElementById('filter-zone').value;
   var tf=document.getElementById('filter-type').value;
   var sf=document.getElementById('filter-statut')?document.getElementById('filter-statut').value:'';
   filteredPois=POIS.filter(function(p){
     var statOk=!sf||(sf==='active'?(!p.statut||p.statut===''):
       p.statut===sf);
-    return (!q||(p.nom+' '+p.commune).toLowerCase().includes(q))
+    return (!q||norm(p.nom+' '+p.commune).includes(q))
       &&(!zf||zoneKey(p.zone_tournee)===zf)
       &&(!tf||p.type_lieu===tf)
       &&statOk;
@@ -721,7 +810,7 @@ function renderList(){
     div.innerHTML=(rn>=0?'<div class="route-num">'+(rn+1)+'</div>':'')
       +'<div class="poi-dot" style="background:'+color+'"></div>'
       +'<div class="poi-info"><div class="poi-nom">'+escHtml(p.nom)+statBadge+'</div><div class="poi-sub">'+escHtml(p.type_lieu)+' · '+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>';
-    div.onclick=function(){ routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
+    div.onclick=function(){ tourneeMode?toggleTourneeStop(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
     list.appendChild(div);
   });
   document.getElementById('poi-count').textContent=filteredPois.length+' lieu'+(filteredPois.length>1?'x':'');
@@ -770,7 +859,7 @@ function saveEdit(){
   if(markers[p.id]&&!isNaN(lat)&&!isNaN(lon)) markers[p.id].setLatLng([lat,lon]);
   refreshMarkerIcon(p.id);
   document.getElementById('edit-title').textContent='✏️ '+p.nom;
-  applyFilters(); pushHistory(); saveState(); autoSaveCSV(); showToast('✓ Modifié : '+p.nom);
+  applyFilters(); pushHistory(); saveState(); savePOIToSupabase(p); showToast('✓ Modifié : '+p.nom);
 }
 function deletePoi(){
   var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
@@ -852,7 +941,7 @@ function saveZones(){
   });
   ZONES.length=0; zoneEdits.forEach(function(z){ZONES.push({id:z.id,name:z.name,color:z.color});});
   POIS.forEach(function(p){refreshMarkerIcon(p.id);});
-  rebuildZoneSelects(); applyFilters(); pushHistory(); saveState(); autoSaveCSV(); closeZoneModal();
+  rebuildZoneSelects(); applyFilters(); pushHistory(); saveState(); closeZoneModal();
   showToast('✓ Zones mises à jour');
 }
 function closeZoneModal(){ document.getElementById('zone-modal').classList.remove('open'); }
@@ -1069,156 +1158,65 @@ function openInGoogleMaps(){
 
 
 // ══════════════════════════════════════════════════════════
-//  SAVE / LOAD ITINERARY
+//  AUTO-SYNC SUPABASE AU DÉMARRAGE (silencieux)
 // ══════════════════════════════════════════════════════════
-function openSaveModal(){
-  if(routeStops.length<2){showToast('⚠ Ajoutez au moins 2 arrêts');return;}
-  var inp=document.getElementById('save-name-input');
-  inp.value=''; inp.focus();
-  var names=routeStops.slice(0,5).map(function(id){ var p=POIS.find(function(p){return p.id===id;}); return p?p.commune:'?'; });
-  var preview=routeStops.length+' arrêts · '+[...new Set(names)].join(', ')+(routeStops.length>5?' …':'');
-  document.getElementById('save-stops-preview').textContent=preview;
-  document.getElementById('save-modal').classList.add('open');
-  setTimeout(function(){inp.focus();},80);
-}
-function closeSaveModal(){ document.getElementById('save-modal').classList.remove('open'); }
-
-function confirmSave(){
-  var name=document.getElementById('save-name-input').value.trim();
-  if(!name){showToast('⚠ Donnez un nom à l\'itinéraire');document.getElementById('save-name-input').focus();return;}
-  var stops=routeStops.map(function(id){
-    var p=POIS.find(function(p){return p.id===id;}); if(!p) return null;
-    return {id:p.id,nom:p.nom,commune:p.commune,adresse:p.adresse,lat:p.lat,lon:p.lon,zone:p.zone_tournee,type:p.type_lieu};
-  }).filter(Boolean);
-  var saved=loadSaved();
-  saved.push({name:name,date:new Date().toLocaleDateString('fr-FR'),stops:stops});
-  writeSaved(saved);
-  closeSaveModal();
-  renderSavedList();
-  showToast('💾 Itinéraire enregistré : '+name);
-}
-
-// ── SAVED PANEL ──────────────────────────────────────────
-function toggleSavedPanel(){
-  var panel=document.getElementById('saved-panel');
-  var isOpen=panel.classList.contains('open');
-  panel.classList.toggle('open',!isOpen);
-  if(!isOpen) renderSavedList();
-}
-function renderSavedList(){
-  var saved=loadSaved();
-  var list=document.getElementById('saved-list');
-  if(saved.length===0){list.innerHTML='<div id="saved-empty">Aucun itinéraire enregistré</div>';return;}
-  list.innerHTML='';
-  saved.forEach(function(it,i){
-    var div=document.createElement('div'); div.className='saved-item';
-    var stopNames=it.stops.slice(0,4).map(function(s){return s.nom;}).join(', ')+(it.stops.length>4?' …':'');
-    div.innerHTML='<div class="saved-item-header"><span class="saved-item-name">'+escHtml(it.name)+'</span></div>'
-      +'<div class="saved-item-meta">'+escHtml(it.date)+' · '+it.stops.length+' arrêts</div>'
-      +'<div class="saved-item-stops">'+escHtml(stopNames)+'</div>'
-      +'<div class="saved-actions">'
-        +'<button class="sa-btn sa-load" onclick="loadItinerary('+i+')">📍 Charger</button>'
-        +'<button class="sa-btn sa-gmap" onclick="openSavedInGoogleMaps('+i+')">🗺 Google Maps</button>'
-        +'<button class="sa-btn sa-pdf" onclick="exportRoutePDF('+i+')">📄 PDF</button>'
-        +'<button class="sa-btn sa-del" onclick="deleteSaved('+i+')">🗑</button>'
-      +'</div>';
-    list.appendChild(div);
-  });
-}
-function loadItinerary(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  // Try to match stops to current POIS by id, fallback by name+commune
-  routeStops=[];
-  it.stops.forEach(function(s){
-    var p=POIS.find(function(p){return p.id===s.id;});
-    if(!p) p=POIS.find(function(p){return p.nom===s.nom&&p.commune===s.commune;});
-    if(p) routeStops.push(p.id);
-  });
-  if(!routeMode) toggleRouteMode();
-  POIS.forEach(function(p){refreshMarkerIcon(p.id);}); renderList(); renderRouteList(); clearRouteLayer();
-  document.getElementById('route-result').style.display='none';
-  document.getElementById('gmap-row').style.display='none';
-  toggleSavedPanel();
-  showToast('📍 Chargé : '+it.name+' ('+routeStops.length+' arrêts)');
-}
-function openSavedInGoogleMaps(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  if(it.stops.length<2){showToast('⚠ Pas assez d\'arrêts');return;}
-  var wps=_stopsToWps(it.stops);
-  openGmapModal(it.name, wps);
-}
-function deleteSaved(i){
-  var saved=loadSaved();
-  var it=saved[i]; if(!it) return;
-  if(!confirm('Supprimer l\'itinéraire "'+it.name+'" ?')) return;
-  saved.splice(i,1); writeSaved(saved); renderSavedList();
-  showToast('🗑 Supprimé : '+it.name);
-}
-
-// ══════════════════════════════════════════════════════════
-//  SYNC DEPUIS SUPABASE → ÉDITEUR
-// ══════════════════════════════════════════════════════════
-async function syncDepuisSupabase() {
-  var btn = document.getElementById('btn-sync-supa');
-  var sess = await sb.auth.getSession();
-  if (!sess.data.session) { showToast('⚠ Non connecté à Supabase'); return; }
-
-  if (!confirm('Charger toutes les données depuis Supabase ?\nCela remplacera les données locales par les données enregistrées dans Supabase.')) return;
-
-  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
-
-  var { data, error } = await sb.from('lieux').select('*').eq('actif', true).order('nom');
-  if (error) { showToast('❌ Erreur : ' + error.message); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
-  if (!data || !data.length) { showToast('⚠ Aucun lieu dans Supabase'); btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false; return; }
-
-  var updated = 0, added = 0;
-
+async function autoSyncSupabase() {
+  if (!getStoredSession()) return;
+  var data;
+  try { data = await sbGet('lieux?select=*&actif=eq.true&order=nom'); } catch(e){ return; }
+  if (!data || !data.length) { if(POIS.length>0) syncSupabase(); return; }
+  POIS.length = 0;
+  var maxId = 0;
   data.forEach(function(l) {
     if (!l.latitude || !l.longitude) return;
-    // Cherche le POI existant par nom
-    var existing = POIS.find(function(p) { return p.nom === l.nom; });
-    if (existing) {
-      existing.lat        = String(l.latitude);
-      existing.lon        = String(l.longitude);
-      existing.commune    = l.ville || existing.commune;
-      existing.adresse    = l.adresse || existing.adresse;
-      existing.code_postal= l.code_postal || existing.code_postal;
-      existing.contacts   = l.telephone || existing.contacts;
-      existing.zone_tournee = l.zone_tournee || existing.zone_tournee;
-      existing.statut     = existing.statut || '';
-      updated++;
-    } else {
-      // Nouveau lieu présent dans Supabase mais pas dans POIS
-      POIS.push({
-        id: 90000 + l.id,
-        nom: l.nom,
-        type_lieu: l.categorie || '',
-        commune: l.ville || '',
-        code_postal: l.code_postal || '',
-        departement: '',
-        adresse: l.adresse || '',
-        lat: String(l.latitude),
-        lon: String(l.longitude),
-        contacts: l.telephone || '',
-        zone_tournee: l.zone_tournee || '',
-        statut: '',
-        source: 'Supabase'
-      });
-      added++;
-    }
+    var id = 90000 + l.id;
+    if (id > maxId) maxId = id;
+    POIS.push({
+      id: id, supabase_id: l.id,
+      nom: l.nom || '', type_lieu: l.categorie || '',
+      commune: l.ville || '', code_postal: l.code_postal || '',
+      departement: '', adresse: l.adresse || '',
+      lat: String(l.latitude), lon: String(l.longitude),
+      contacts: l.telephone || '', zone_tournee: l.zone_tournee || '',
+      statut: '', source: 'Supabase'
+    });
   });
-
-  // Mettre à jour les marqueurs sur la carte
+  nextId = maxId + 1;
   Object.keys(markers).forEach(function(id) { map.removeLayer(markers[id]); });
   markers = {};
-  buildMarkers();
-  applyFilters();
-  saveState();
+  document.getElementById('restore-banner').classList.add('hidden');
+  buildMarkers(); applyFilters(); saveState();
+  showToast('✅ ' + POIS.length + ' lieux chargés depuis Supabase');
+}
 
-  showToast('✅ Sync terminée — ' + updated + ' mis à jour, ' + added + ' ajoutés');
-  btn.textContent = '⬇️ Sync Supabase'; btn.disabled = false;
+// ══════════════════════════════════════════════════════════
+//  SAUVEGARDE INDIVIDUELLE VERS SUPABASE
+// ══════════════════════════════════════════════════════════
+async function savePOIToSupabase(p) {
+  if (!getStoredSession()) return;
+  var payload = {
+    nom: p.nom || '', categorie: p.type_lieu || '',
+    adresse: p.adresse || '', code_postal: p.code_postal || '',
+    ville: p.commune || '',
+    latitude: parseFloat(p.lat) || null,
+    longitude: parseFloat(p.lon) || null,
+    telephone: p.contacts || '', zone_tournee: p.zone_tournee || '',
+    actif: true
+  };
+  try {
+    if (p.supabase_id) {
+      await sbPatch('lieux', 'id=eq.'+p.supabase_id, payload);
+    } else {
+      var existing = await sbGet('lieux?select=id&nom=eq.'+encodeURIComponent(p.nom)+'&limit=1').catch(function(){return[];});
+      if (existing && existing[0]) {
+        p.supabase_id = existing[0].id;
+        await sbPatch('lieux', 'id=eq.'+existing[0].id, payload);
+      } else {
+        var ins = await sbPost('lieux', payload).catch(function(){return null;});
+        if (ins && ins[0]) p.supabase_id = ins[0].id;
+      }
+    }
+  } catch(e){ console.error('savePOIToSupabase', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1233,20 +1231,15 @@ async function loadHistPanelForPoi(nomPoi) {
   countEl.textContent = '';
 
   try {
-    var sess = await sb.auth.getSession();
-    if(!sess.data.session){ content.innerHTML = '<div style="font-size:11px;color:#aaa">Non connecté à Supabase</div>'; return; }
+    if(!getStoredSession()){ content.innerHTML = '<div style="font-size:11px;color:#aaa">Non connecté à Supabase</div>'; return; }
 
     // Chercher le lieu dans Supabase par nom
-    var { data: lieuxData } = await sb.from('lieux').select('id').eq('nom', nomPoi).limit(1);
+    var lieuxData = await sbGet('lieux?select=id&nom=eq.'+encodeURIComponent(nomPoi)+'&limit=1').catch(function(){return[];});
     if(!lieuxData || !lieuxData.length){ content.innerHTML = '<div style="font-size:11px;color:#aaa;font-style:italic">Lieu non synchronisé dans Supabase</div>'; return; }
     var lieuId = lieuxData[0].id;
 
     var yr = new Date().getFullYear();
-    var { data } = await sb.from('points_tournee')
-      .select('id, statut, quantite_flyers, heure_validation, commentaire_distributeur, photo_preuve, tournees(nom, date, distributeur:utilisateurs(nom))')
-      .eq('lieu_id', lieuId).neq('statut','a_faire').not('heure_validation','is',null)
-      .gte('heure_validation', yr+'-01-01').lte('heure_validation', yr+'-12-31')
-      .order('heure_validation',{ascending:false});
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+lieuId+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc').catch(function(){return[];});
 
     var list = data || [];
     var flyTotal = list.filter(function(p){return p.statut==='distribue';}).reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
@@ -1301,11 +1294,9 @@ async function loadHistPanelForPoi(nomPoi) {
 // ══════════════════════════════════════════════════════════
 
 async function loadTourneeDistributeurs(){
-  if(!sb) return;
+  if(!getStoredSession()) return;
   try {
-    var sess = await sb.auth.getSession();
-    if(!sess.data.session) return;
-    var { data } = await sb.from('utilisateurs').select('id, nom').order('nom');
+    var data = await sbGet('utilisateurs?select=id,nom&order=nom.asc');
     tourneeDistributeurs = data || [];
     var sel = document.getElementById('tf-distributeur');
     sel.innerHTML = '<option value="">— Choisir —</option>';
@@ -1315,6 +1306,152 @@ async function loadTourneeDistributeurs(){
       sel.appendChild(o);
     });
   } catch(e) { console.warn('loadTourneeDistributeurs:', e); }
+}
+
+
+// ================================================================
+//  VISITE RAPIDE
+// ================================================================
+function openVisiteRapide(){
+  var p=POIS.find(function(p){return p.id===selectedId;});
+  if(!p){showToast('Selectionnez un lieu d abord');return;}
+  if(!p.supabase_id){showToast('Ce lieu n est pas synchronise avec Supabase');return;}
+  _visitePoiId=p.id;
+  document.getElementById('visite-nom').textContent=p.nom;
+  document.getElementById('visite-statut').value='distribue';
+  document.getElementById('visite-qty').value='1';
+  document.getElementById('visite-qty-chateau').value='1';
+  document.getElementById('visite-comment').value='';
+  document.getElementById('visite-nougat').classList.remove('active');
+  document.getElementById('visite-entree').classList.remove('active');
+  document.getElementById('visite-modal').classList.add('open');
+}
+function closeVisiteModal(){
+  document.getElementById('visite-modal').classList.remove('open');
+  _visitePoiId=null;
+}
+async function getOrCreateJournalTournee(prefix){
+  var today=new Date().toISOString().slice(0,10);
+  var nomT=prefix+'_'+today;
+  var existing=await sbGet('tournees?nom=eq.'+encodeURIComponent(nomT)+'&select=id').catch(function(){return[];});
+  if(existing&&existing.length) return existing[0].id;
+  var res=await sbPost('tournees',{nom:nomT,date:today,statut:'planifiee'});
+  var t=Array.isArray(res)?res[0]:res;
+  return t.id;
+}
+async function saveVisiteRapide(){
+  var p=POIS.find(function(p){return p.id===_visitePoiId;});
+  if(!p||!p.supabase_id){closeVisiteModal();return;}
+  var statut=document.getElementById('visite-statut').value;
+  var qty=parseInt(document.getElementById('visite-qty').value)||0;
+  var qtyChateau=parseInt(document.getElementById('visite-qty-chateau').value)||0;
+  var comment=document.getElementById('visite-comment').value.trim();
+  var nougat=document.getElementById('visite-nougat').classList.contains('active');
+  var entree=document.getElementById('visite-entree').classList.contains('active');
+  if(nougat) comment=(comment?'[Nougat offert] '+comment:'[Nougat offert]');
+  showToast('Enregistrement...');
+  try{
+    var tId=await getOrCreateJournalTournee('Visite_rapide');
+    await sbPost('points_tournee',[{
+      tournee_id:tId,lieu_id:p.supabase_id,ordre_passage:1,
+      quantite_flyers:qty,quantite_flyers_chateau:qtyChateau,
+      entree_gratuite:entree,statut:statut,
+      heure_validation:new Date().toISOString(),
+      commentaire_distributeur:comment||null
+    }]);
+    showToast('Visite enregistree : '+p.nom);
+    closeVisiteModal();
+    loadHistPanelForPoi(p.nom);
+  }catch(e){showToast('Erreur : '+e.message);}
+}
+
+// ================================================================
+//  POINTAGE
+// ================================================================
+function togglePointageMode(){
+  pointageMode=!pointageMode;
+  var btn=document.getElementById('btn-pointage');
+  btn.textContent=pointageMode?'Annuler pointage':'Pointage';
+  btn.classList.toggle('active',pointageMode);
+  document.getElementById('pointage-panel').classList.toggle('open',pointageMode);
+  if(pointageMode){
+    pointageStops=[];
+    var td=new Date().toISOString().slice(0,10);
+    document.getElementById('pointage-date').value=td;
+    renderPointageList();
+  }
+  else{pointageStops=[];POIS.forEach(function(p){refreshMarkerIcon(p.id);});renderList();}
+}
+function togglePointageStop(id){
+  var idx=pointageStops.indexOf(id);
+  if(idx>=0){pointageStops.splice(idx,1);}
+  else{pointageStops.push(id);}
+  POIS.forEach(function(p){refreshMarkerIcon(p.id);});
+  renderList();renderPointageList();
+}
+function renderPointageList(){
+  var list=document.getElementById('pointage-list');
+  if(!pointageStops.length){
+    list.innerHTML='<div style="padding:12px;font-size:11px;color:#aaa;text-align:center">Cliquez sur des lieux pour les ajouter</div>';
+    return;
+  }
+  list.innerHTML='';
+  pointageStops.forEach(function(id){
+    var p=POIS.find(function(p){return p.id===id;}); if(!p) return;
+    var div=document.createElement('div');div.className='pointage-item';
+    div.innerHTML='<div class="pointage-item-name">'+escHtml(p.nom)+'</div>'
+      +'<select id="ps-statut-'+id+'">'
+      +'<option value="distribue">Distribue</option>'
+      +'<option value="ferme">Ferme</option>'
+      +'<option value="refus">Refus</option>'
+      +'<option value="absent">Absent</option>'
+      +'</select>'
+      +'<div style="font-size:10px;font-weight:bold;color:#888;margin:4px 0 2px">🍬 Nougaterie</div>'
+      +'<select id="ps-qty-'+id+'">'
+      +'<option value="1" selected>1 paquet</option>'
+      +'<option value="2">2 paquets</option>'
+      +'<option value="3">3 paquets</option>'
+      +'<option value="4">4 paquets</option>'
+      +'</select>'
+      +'<div style="font-size:10px;font-weight:bold;color:#888;margin:6px 0 2px">🎟️ Château des Roure</div>'
+      +'<select id="ps-qtyc-'+id+'">'
+      +'<option value="1" selected>1 paquet</option>'
+      +'<option value="2">2 paquets</option>'
+      +'<option value="3">3 paquets</option>'
+      +'<option value="4">4 paquets</option>'
+      +'</select>'
+      +'<button id="ps-nougat-'+id+'" class="btn-nougat" onclick="this.classList.toggle(\'active\')" style="margin-top:4px">🍬 Nougat dégustation offert</button>'
+      +'<button id="ps-entree-'+id+'" class="btn-nougat" onclick="this.classList.toggle(\'active\')" style="margin-top:4px;border-color:#1A73E8;color:#1A73E8">🎟️ Entrée gratuite Château offerte</button>'
+      +'<textarea id="ps-comment-'+id+'" placeholder="Remarque..."></textarea>'
+      +'<button onclick="togglePointageStop('+id+')" style="margin-top:4px;font-size:10px;background:#eee;border:none;border-radius:4px;cursor:pointer;padding:2px 6px">Retirer</button>';
+    list.appendChild(div);
+  });
+}
+async function savePointageSupabase(){
+  if(!pointageStops.length){showToast('Aucun lieu selectionne');return;}
+  showToast('Enregistrement...');
+  try{
+    var pDate=document.getElementById('pointage-date').value||new Date().toISOString().slice(0,10);
+    var tId=await getOrCreateJournalTournee('Pointage_'+pDate);
+    var points=[];
+    pointageStops.forEach(function(id,i){
+      var p=POIS.find(function(p){return p.id===id;}); if(!p||!p.supabase_id) return;
+      var statut=document.getElementById('ps-statut-'+id).value;
+      var qty=parseInt(document.getElementById('ps-qty-'+id).value)||0;
+      var qtyChateau=parseInt(document.getElementById('ps-qtyc-'+id)?.value)||0;
+      var nougat=document.getElementById('ps-nougat-'+id)&&document.getElementById('ps-nougat-'+id).classList.contains('active');
+      var entree=document.getElementById('ps-entree-'+id)?.classList.contains('active')||false;
+      var comment=document.getElementById('ps-comment-'+id).value.trim();
+      if(nougat) comment=(comment?'[Nougat offert] '+comment:'[Nougat offert]');
+      points.push({tournee_id:tId,lieu_id:p.supabase_id,ordre_passage:i+1,
+        quantite_flyers:qty,quantite_flyers_chateau:qtyChateau,entree_gratuite:entree,statut:statut,
+        heure_validation:pDate+'T12:00:00.000Z',
+        commentaire_distributeur:comment||null});
+    });
+    await sbPost('points_tournee',points);
+    showToast('Pointage valide : '+points.length+' lieux');
+    togglePointageMode();
+  }catch(e){showToast('Erreur : '+e.message);}
 }
 
 function toggleTourneeMode(){
@@ -1336,8 +1473,14 @@ function toggleTourneeMode(){
 
 function toggleTourneeStop(id){
   var p = POIS.find(function(p){ return p.id===id; });
-  tourneeStops.push(id);
-  showToast('✓ Ajouté : '+(p?p.nom:''));
+  var idx = tourneeStops.indexOf(id);
+  if(idx >= 0){
+    tourneeStops.splice(idx, 1);
+    showToast('✕ Retiré : '+(p?p.nom:''));
+  } else {
+    tourneeStops.push(id);
+    showToast('✓ Ajouté : '+(p?p.nom:''));
+  }
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
   renderList(); renderTourneeList(); clearTourneeLayer();
   document.getElementById('tournee-result').style.display = 'none';
@@ -1464,8 +1607,7 @@ async function saveTourneeSupabase(){
   if(!nom || !date){ showToast('⚠ Nom et date obligatoires'); return; }
   if(tourneeStops.length === 0){ showToast('⚠ Ajoutez au moins 1 lieu'); return; }
 
-  var session = await sb.auth.getSession();
-  if(!session.data.session){ showToast('⚠ Non connecté à Supabase'); return; }
+  if(!getStoredSession()){ showToast('⚠ Non connecté à Supabase'); return; }
 
   var distId = document.getElementById('tf-distributeur').value || null;
   var qty = parseInt(document.getElementById('tf-qty').value) || 10;
@@ -1474,34 +1616,23 @@ async function saveTourneeSupabase(){
 
   showToast('⏳ Création en cours…');
 
-  // Récupérer les IDs Supabase des lieux par nom
-  var nomsList = tourneeStops.map(function(id){
-    var p = POIS.find(function(p){ return p.id===id; }); return p ? p.nom : null;
-  }).filter(Boolean);
+  // Creer la tournee
+  var tArr;
+  try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
+  catch(e){ showToast('❌ Erreur création : '+e.message); return; }
+  var tData = Array.isArray(tArr) ? tArr[0] : tArr;
 
-  var { data: lieuxSupa, error: lErr } = await sb.from('lieux').select('id, nom').in('nom', nomsList);
-  if(lErr){ showToast('❌ Erreur lieux : '+lErr.message); return; }
-
-  // Créer la tournée
-  var { data: tData, error: tErr } = await sb.from('tournees').insert({
-    nom: nom, date: date, distributeur_id: distId,
-    secteur: secteur || null, commentaire: comment || null, statut: 'planifiee'
-  }).select().single();
-  if(tErr){ showToast('❌ Erreur création : '+tErr.message); return; }
-
-  // Créer les points dans l'ordre
+  // Points (p.supabase_id = UUID Supabase)
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
-    var l = lieuxSupa.find(function(l){ return l.nom===p.nom; }); if(!l) return;
-    points.push({ tournee_id: tData.id, lieu_id: l.id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
+    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
-
   var noMatch = tourneeStops.length - points.length;
 
   if(points.length > 0){
-    var { error: pErr } = await sb.from('points_tournee').insert(points);
-    if(pErr){ showToast('❌ Erreur points : '+pErr.message); return; }
+    try { await sbPost('points_tournee', points); }
+    catch(e){ showToast('❌ Erreur points : '+e.message); return; }
   }
 
   var msg = '✅ Tournée "'+nom+'" créée — '+points.length+' arrêts';
@@ -1636,197 +1767,99 @@ async function exportRoutePDF(i){
   win.document.close();
 }
 
-// ══════════════════════════════════════════════════════════
-//  FILE SYSTEM ACCESS API – liaison directe CSV
-// ══════════════════════════════════════════════════════════
-var _csvFileHandle = null;
-var _CSV_IDB_NAME  = 'nougaterie_fs';
-var _CSV_IDB_KEY   = 'csv_handle_v1';
 
-function _openHandleDb(cb){
-  try {
-    var req = indexedDB.open(_CSV_IDB_NAME, 1);
-    req.onupgradeneeded = function(e){ e.target.result.createObjectStore('handles'); };
-    req.onsuccess  = function(e){ cb(e.target.result); };
-    req.onerror    = function(){ cb(null); };
-  } catch(e){ cb(null); }
-}
-function _saveHandle(handle){
-  _openHandleDb(function(db){
-    if(!db) return;
-    try { var tx=db.transaction('handles','readwrite'); tx.objectStore('handles').put(handle,_CSV_IDB_KEY); } catch(e){}
-  });
-}
-function _loadHandle(cb){
-  _openHandleDb(function(db){
-    if(!db){ cb(null); return; }
-    try {
-      var tx=db.transaction('handles','readonly');
-      var req=tx.objectStore('handles').get(_CSV_IDB_KEY);
-      req.onsuccess=function(e){ cb(e.target.result||null); };
-      req.onerror=function(){ cb(null); };
-    } catch(e){ cb(null); }
-  });
-}
-function _clearHandle(){
-  _openHandleDb(function(db){
-    if(!db) return;
-    try { var tx=db.transaction('handles','readwrite'); tx.objectStore('handles').delete(_CSV_IDB_KEY); } catch(e){}
-  });
-  _csvFileHandle = null;
-  updateLinkBtn();
-}
-function updateLinkBtn(){
-  var btn    = document.getElementById('btn-link-csv');
-  var expBtn = document.getElementById('btn-export');
-  if(!btn || !expBtn) return;
-  if(_csvFileHandle){
-    btn.textContent  = '🔗 ' + _csvFileHandle.name;
-    btn.style.background = '#2E7D32';
-    btn.title        = 'Cliquez pour changer de fichier CSV lié';
-    expBtn.textContent = '💾 Sauvegarder CSV';
-    expBtn.title     = 'Écrit directement dans ' + _csvFileHandle.name;
-  } else {
-    btn.textContent  = '📁 Lier CSV';
-    btn.style.background = '#546E7A';
-    btn.title        = 'Lier le fichier CSV pour l\'écriture directe';
-    expBtn.textContent = '⬇ CSV';
-    expBtn.title     = '';
-  }
-}
-async function linkCSV(){
-  if(!window.showOpenFilePicker){
-    showToast('⚠ Navigateur non compatible – utilisez Chrome ou Edge');
-    return;
-  }
-  try {
-    var handles = await window.showOpenFilePicker({
-      types: [{ description: 'Fichier CSV', accept: {'text/csv': ['.csv'], 'text/plain': ['.csv']} }],
-      multiple: false
-    });
-    var handle = handles[0];
-    var perm = await handle.requestPermission({ mode: 'readwrite' });
-    if(perm !== 'granted'){ showToast('⚠ Permission refusée'); return; }
-    _csvFileHandle = handle;
-    _saveHandle(handle);
-    updateLinkBtn();
-    showToast('✓ CSV lié : ' + handle.name + ' — prêt pour l\'écriture directe');
-  } catch(e){
-    if(e.name !== 'AbortError') showToast('⚠ ' + (e.message || 'Erreur lors de la liaison'));
-  }
-}
-async function checkStoredHandle(){
-  _loadHandle(async function(handle){
-    if(!handle) return;
-    try {
-      var perm = await handle.queryPermission({ mode: 'readwrite' });
-      _csvFileHandle = handle;
-      updateLinkBtn();
-      if(perm === 'granted'){
-        showToast('🔗 CSV lié : ' + handle.name);
-      } else {
-        // Permission expirée : le handle est conservé, sera redemandée à l'export
-        showToast('🔗 CSV lié : ' + handle.name + ' (cliquez 💾 pour confirmer l\'accès)');
-      }
-    } catch(e){ _clearHandle(); }
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  EXPORT CSV
-// ══════════════════════════════════════════════════════════
-function buildCSVContent(){
-  var cols=['département','commune','code_postal','type_lieu','nom','adresse','latitude','longitude','description','contacts','classements','source','zone_tournee','statut'];
-  var lines=[cols.join(';')];
-  POIS.forEach(function(p){
-    var row=[p.departement,p.commune,p.code_postal,p.type_lieu,p.nom,p.adresse,p.lat,p.lon,p.description||'',p.contacts,p.classements||'',p.source,p.zone_tournee,p.statut||'']
-      .map(function(v){ v=(v||'').toString(); if(v.includes(';')||v.includes('"')||v.includes('\n'))v='"'+v.replace(/"/g,'""')+'"'; return v; });
-    lines.push(row.join(';'));
-  });
-  return '﻿'+lines.join('\r\n');
-}
-function fallbackDownload(csvContent){
-  var blob=new Blob([csvContent],{type:'text/csv;charset=utf-8'});
-  var url=URL.createObjectURL(blob); var a=document.createElement('a');
-  a.href=url; a.download='poi_touristiques_30km_vallon.csv'; a.click(); URL.revokeObjectURL(url);
-  showToast('✓ CSV téléchargé — '+POIS.length+' lieux');
-}
-// Écriture silencieuse dans le CSV lié (appelée après chaque modification)
-async function autoSaveCSV(){
-  if(!_csvFileHandle) return; // pas de fichier lié → rien à faire
-  try {
-    var perm = await _csvFileHandle.queryPermission({ mode: 'readwrite' });
-    if(perm !== 'granted') perm = await _csvFileHandle.requestPermission({ mode: 'readwrite' });
-    if(perm !== 'granted') return;
-    var writable = await _csvFileHandle.createWritable();
-    await writable.write(buildCSVContent());
-    await writable.close();
-    var ind = document.getElementById('save-indicator');
-    if(ind){ var d=new Date(); ind.textContent='💾 '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+' (CSV ✓)'; ind.className='saved'; }
-  } catch(e){ console.warn('autoSaveCSV error', e); }
-}
-
-async function exportCSV(){
-  var csvContent = buildCSVContent();
-  if(_csvFileHandle){
-    try {
-      var perm = await _csvFileHandle.requestPermission({ mode: 'readwrite' });
-      if(perm !== 'granted'){ showToast('⚠ Permission refusée – téléchargement à la place'); fallbackDownload(csvContent); return; }
-      var writable = await _csvFileHandle.createWritable();
-      await writable.write(csvContent);
-      await writable.close();
-      showToast('✓ CSV sauvegardé directement — '+POIS.length+' lieux');
-    } catch(e){
-      console.warn('exportCSV write error', e);
-      showToast('⚠ Erreur écriture – téléchargement à la place');
-      fallbackDownload(csvContent);
-    }
-  } else {
-    fallbackDownload(csvContent);
-  }
-}
-
-// ══════════════════════════════════════════════════════════
-//  EXPORT ZONES → Supabase
-// ══════════════════════════════════════════════════════════
-function exportZonesJSON(){
-  // Filtre uniquement les lieux qui ont une zone assignée
-  var withZone = POIS.filter(function(p){ return p.zone_tournee && p.zone_tournee.trim(); });
-  if(!withZone.length){
-    showToast('⚠ Aucun lieu avec une zone assignée');
-    return;
-  }
-  var data = withZone.map(function(p){
-    return { nom: p.nom, commune: p.commune||p.ville||'', zone_tournee: p.zone_tournee.trim() };
-  });
-  var json = JSON.stringify(data, null, 2);
-  var blob = new Blob([json], {type:'application/json'});
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement('a');
-  a.href   = url;
-  a.download = 'zones_export.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✓ ' + data.length + ' zones exportées → zones_export.json');
-}
-
-// ══════════════════════════════════════════════════════════
-//  UTILS
-// ══════════════════════════════════════════════════════════
-function filterZone(key){
-  var sel=document.getElementById('filter-zone');
-  if(sel.value===key){sel.value='';document.querySelectorAll('.leg-item').forEach(function(e){e.classList.remove('active-filter');});}
-  else{sel.value=key;document.querySelectorAll('.leg-item').forEach(function(e){e.classList.remove('active-filter');});var l=document.getElementById('leg-'+key);if(l)l.classList.add('active-filter');}
-  applyFilters();
-}
-function haversine(la1,lo1,la2,lo2){
-  var R=6371,d=Math.PI/180,dLa=(la2-la1)*d,dLo=(lo2-lo1)*d;
-  var a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLo/2)*Math.sin(dLo/2);
-  return R*2*Math.asin(Math.sqrt(a));
-}
-function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 var toastT=null;
 function showToast(m){var e=document.getElementById('toast');e.textContent=m;e.style.display='block';if(toastT)clearTimeout(toastT);toastT=setTimeout(function(){e.style.display='none';},2800);}
+
+// ══════════════════════════════════════════════════════════
+//  STATISTIQUES
+// ══════════════════════════════════════════════════════════
+var _statsData = [];
+
+async function openStats(){
+  document.getElementById('stats-modal').classList.add('open');
+  document.getElementById('stats-empty').textContent = 'Chargement…';
+  document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Chargement…</div>';
+  try {
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
+    _statsData = data || [];
+    applyStatsFilters();
+  } catch(e) {
+    document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Erreur de chargement : '+e.message+'</div>';
+  }
+}
+
+function closeStats(){
+  document.getElementById('stats-modal').classList.remove('open');
+}
+
+function applyStatsFilters(){
+  var periode = document.getElementById('sf-periode').value;
+  var statut  = document.getElementById('sf-statut').value;
+  var nougat  = document.getElementById('sf-nougat').value;
+  var sort    = document.getElementById('sf-sort').value;
+
+  var now = new Date();
+  var filtered = _statsData.filter(function(p){
+    if(statut && p.statut !== statut) return false;
+    if(nougat === '1' && !(p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(nougat === '0' && (p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(periode !== 'all' && p.heure_validation){
+      var d = new Date(p.heure_validation);
+      if(periode === 'month' && (d.getMonth()!==now.getMonth()||d.getFullYear()!==now.getFullYear())) return false;
+      if(periode === 'year' && d.getFullYear()!==now.getFullYear()) return false;
+    }
+    return true;
+  });
+
+  filtered.sort(function(a,b){
+    if(sort==='date_desc') return new Date(b.heure_validation||0)-new Date(a.heure_validation||0);
+    if(sort==='date_asc')  return new Date(a.heure_validation||0)-new Date(b.heure_validation||0);
+    if(sort==='lieu_az')   return ((a.lieux&&a.lieux.nom)||'').localeCompare((b.lieux&&b.lieux.nom)||'');
+    if(sort==='qty_desc')  return (b.quantite_flyers||0)-(a.quantite_flyers||0);
+    return 0;
+  });
+
+  // Résumé
+  var total   = filtered.length;
+  var dist    = filtered.filter(function(p){return p.statut==='distribue';});
+  var paquets = dist.reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
+  var taux    = total ? Math.round(dist.length/total*100)+'%' : '—';
+  var nougats = filtered.filter(function(p){return (p.commentaire_distributeur||'').includes('[Nougat offert]');}).length;
+  document.getElementById('sc-total').textContent   = total;
+  document.getElementById('sc-paquets').textContent = paquets;
+  document.getElementById('sc-taux').textContent    = taux;
+  document.getElementById('sc-nougat').textContent  = nougats;
+
+  // Liste
+  var el = document.getElementById('stats-list');
+  if(!filtered.length){ el.innerHTML='<div id="stats-empty">Aucun résultat</div>'; return; }
+
+  var badgeClass = {distribue:'sv-b-distribue',ferme:'sv-b-ferme',refus:'sv-b-refus',absent:'sv-b-absent'};
+  var badgeLabel = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  el.innerHTML = filtered.map(function(p){
+    var l = p.lieux || {};
+    var t = p.tournees || {};
+    var d = p.heure_validation ? new Date(p.heure_validation) : null;
+    var dateStr = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    var isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    var comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+    var bc = badgeClass[p.statut]||'sv-b-other';
+    var bl = badgeLabel[p.statut]||p.statut;
+    var qtyStr = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '';
+    return '<div class="sv-row">'
+      +'<div class="sv-lieu">'
+        +'<div class="sv-nom">'+(l.nom||'—')+'</div>'
+        +'<div class="sv-sub">'+(l.ville||'')+(l.categorie?' · '+l.categorie:'')+(t.distributeur?(' · '+t.distributeur.nom):'')+'</div>'
+        +(comment?'<div class="sv-sub" style="font-style:italic">'+comment+'</div>':'')
+      +'</div>'
+      +'<span class="sv-badge '+bc+'">'+bl+'</span>'
+      +(qtyStr?'<span class="sv-qty">'+qtyStr+'</span>':'')
+      +(isNougat?'<span class="sv-nougat" title="Nougat offert">🍬</span>':'')
+      +'<span class="sv-date">'+dateStr+'</span>'
+    +'</div>';
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════════════
 //  INIT
