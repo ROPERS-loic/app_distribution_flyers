@@ -1,6 +1,6 @@
 # Suivi Projet — App Distribution de Flyers
 
-**Dernière mise à jour :** 30 août 2026 (session 2)
+**Dernière mise à jour :** 30 août 2026 (session 3 — vérification & correctifs)
 **Stack :** 2 applications distinctes, même base Supabase (voir détail ci-dessous)
 **Version app Flutter :** 1.0.0+1
 
@@ -10,7 +10,7 @@
 
 Le projet comprend en réalité **deux applications séparées**, connectées à la même base Supabase :
 
-1. **Application web (PWA)** — `tournee.html`, `gestion_lieux.html`, `editeur_lieux.html`, `app_distribution.html`, dans ce dossier. C'est l'outil le plus abouti et le plus utilisé sur le terrain : **77 commits Git entre le 15 et le 19 juin 2026**, puis pause (aucun commit depuis). Fonctionnalités avancées déjà en place : pointage terrain, mode hors-ligne, photos preuve, export PDF/Excel, statistiques par période.
+1. **Application web (PWA)** — `tournee.html`, `gestion_lieux.html`, `editeur_lieux.html`, `app_distribution.html`, dans ce dossier. C'est l'outil le plus abouti et le plus utilisé sur le terrain : **80 commits Git** (77 entre le 15 et le 19 juin 2026, 3 le 30 août : export PDF/Excel, fix boutons, suivi de projet + logos). Fonctionnalités avancées déjà en place : pointage terrain, mode hors-ligne, photos preuve, export PDF/Excel, statistiques par période.
 2. **Application mobile Flutter** (`mon_app`, dossier `C:\src\mon_app`) — un CRM de suivi commercial (lieux, tournées, visites, admin). Développée du 23 au 24 mai 2026, puis en pause depuis (~3 mois), et **sans dépôt Git initialisé** dans ce dossier. Elle couvre les bases (auth, CRUD lieux/tournées/visites, carte, admin) mais n'a pas encore les fonctions terrain avancées de la version web (pas de pointage flyers, pas de mode hors-ligne, pas d'export).
 
 > ❓ À clarifier avec toi : ces deux apps doivent-elles converger (le Flutter remplace le web à terme ?) ou rester deux outils distincts (web = terrain quotidien, Flutter = autre usage) ?
@@ -19,14 +19,14 @@ Le projet comprend en réalité **deux applications séparées**, connectées à
 
 ## Application Web (PWA) — outil de distribution terrain
 
-**Dépôt Git :** initialisé dans ce dossier, branche `main`, 79 commits (15–19/06/2026 + 30/08/2026)
+**Dépôt Git :** initialisé dans ce dossier, branche `main`, 80 commits (15–19/06/2026 + 30/08/2026), à jour avec GitHub
 
 | Fichier | Rôle |
 |---|---|
 | `tournee.html` | Interface terrain, installable en PWA — pointage des visites, notes terrain, mode hors-ligne |
 | `gestion_lieux.html` | Back-office : gestion des lieux, statistiques (export PDF/Excel), notes terrain |
 | `editeur_lieux.html` | Éditeur de lieux (carte, zones, sync Supabase via bouton "Enregistrer") |
-| `admin.html` | Interface PC admin : gestion lieux + tournées + suivi live (Supabase) |
+| `admin.html` | Interface PC admin : gestion lieux + tournées + suivi live (Supabase) — ⚠️ en ligne sur Netlify mais **absent du dossier local et du dépôt Git** (voir note du 30/08 ci-dessous) |
 | `app_distribution.html` | Ancienne interface terrain (localStorage uniquement — remplacée par `tournee.html` à venir) |
 | `reset-password.html` | Page de réinitialisation de mot de passe (Supabase Auth) |
 | `manifest.json` / `sw.js` / `icon-512.png` | Config PWA (installable, fonctionnement hors-ligne) |
@@ -70,8 +70,8 @@ Un **nouveau projet Supabase** a été créé spécifiquement pour l'app de dist
 **RLS :** tout utilisateur authentifié peut lire/écrire (simplifié pour le démarrage — `auth.uid() IS NOT NULL`).
 
 **Hébergement :** `https://resonant-cannoli-eede25.netlify.app`
-- `/admin.html` — interface PC
-- `/editeur_lieux.html` — éditeur de lieux avec sync Supabase
+- `/admin.html` — interface PC (⚠️ vérifié en ligne le 30/08, fonctionnel — mais le fichier source n'est ni dans le dossier local ni dans Git)
+- `/editeur_lieux.html` — éditeur de lieux avec sync Supabase (⚠️ la version en ligne contient la sync Supabase ; la version dans le dossier local/Git est plus ancienne, sans cette sync)
 
 ---
 
@@ -133,13 +133,32 @@ Un **nouveau projet Supabase** a été créé spécifiquement pour l'app de dist
 
 - Les clés `SUPABASE_ANON_KEY` et `GOOGLE_MAPS_API_KEY` sont codées en dur dans `main.dart` et `carte_page.dart`, alors qu'un fichier `.env` (avec `flutter_dotenv` en dépendance) existe déjà dans le projet — à migrer vers `.env` pour éviter d'exposer les clés si le code est un jour poussé sur un dépôt public.
 - Le dossier `mon_app` (app Flutter) n'a pas de dépôt Git initialisé, contrairement à ce dossier de projet qui en a un (branche `main`, 77 commits).
-- Dans ce dossier de projet, 3 fichiers récents ne sont pas encore commités : `SUIVI_PROJET.md`, `logo_icon.svg`, `logo_icon_transparent.svg`.
+- Dans ce dossier de projet, 3 fichiers récents ont été commités et poussés le 30/08 : `SUIVI_PROJET.md`, `logo_icon.svg`, `logo_icon_transparent.svg`.
+- **⚠️ Découverte du 30/08 (vérification) :** `admin.html` et la version de `editeur_lieux.html` avec sync Supabase (décrits dans la session « Refonte architecture » ci-dessous) sont **en ligne sur Netlify et fonctionnels**, mais **absents du dossier local et du dépôt Git** — probablement déployés directement sur Netlify sans être sauvegardés/commités ici. Ce code n'est donc ni versionné ni sauvegardé localement : risque de perte définitive si le site Netlify est un jour redéployé ou supprimé.
 
 ---
 
 ## Historique des sessions
 
+### Session du 30/08/2026 (3) — Vérification état réel du dépôt + correctifs
+
+**Contexte :** vérification de l'état réel du dossier projet avant un commit, suite à la mise à jour du suivi de projet.
+
+**Constats :**
+- Le dépôt Git local était déjà à jour avec GitHub (aucun commit en attente de push) ; seuls `SUIVI_PROJET.md`, `logo_icon.svg`, `logo_icon_transparent.svg` restaient à committer.
+- Un fichier `.git/index.lock` résiduel bloquait les commits dans GitHub Desktop → supprimé.
+- **`admin.html` et la sync Supabase de `editeur_lieux.html` (décrits en session 2) sont en ligne sur Netlify et fonctionnels, mais absents du dossier local et jamais commités sur Git.**
+
+**Actions effectuées :**
+- Suppression du fichier de verrou Git (`index.lock`)
+- Commit + push des 3 fichiers en attente
+- Correction du présent suivi de projet pour refléter l'état réel
+
+---
+
 ### Session du 30/08/2026 (2) — Refonte architecture + admin.html + sync Supabase
+
+> ⚠️ **Statut vérifié le 30/08 (session suivante) :** ce travail est réel et fonctionne en production sur Netlify, mais **le code source n'a jamais été sauvegardé dans ce dossier ni commité sur Git**. À récupérer depuis Netlify (voir « À faire »).
 
 **Contexte :** migration de l'app terrain de localStorage vers une architecture multi-utilisateurs Supabase, pour gérer une équipe de 3+ distributeurs en saison.
 
@@ -211,7 +230,8 @@ Un **nouveau projet Supabase** a été créé spécifiquement pour l'app de dist
 **App web existante :**
 - [ ] Clarifier la relation entre l'ancienne app web (tournee.html existant) et la nouvelle architecture Supabase
 - [ ] Intégrer le nouveau logo SVG
-- [ ] Pousser les commits du 30/08 sur GitHub (export PDF/Excel + fix boutons + admin.html + editeur sync)
+- [x] Pousser les commits du 30/08 sur GitHub (export PDF/Excel + fix boutons) — fait, dépôt à jour
+- [ ] **Priorité :** récupérer `admin.html` et la version Supabase de `editeur_lieux.html` depuis Netlify (`https://resonant-cannoli-eede25.netlify.app`), les remettre dans ce dossier et les committer — actuellement uniquement en ligne, non sauvegardés localement/dans Git
 
 **App Flutter :**
 - [ ] Clarifier si Flutter continue ou si tout passe en web
