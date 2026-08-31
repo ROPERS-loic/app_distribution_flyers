@@ -592,6 +592,7 @@ async function syncOfflineQueue() {
     try {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
+      else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -955,6 +956,7 @@ function openValidation(pointId) {
     statut: p.statut!=='a_faire' ? p.statut : null,
     flyers: p.quantite_flyers||0,
     commentaire: p.commentaire_distributeur||'',
+    dateOuverture: '', dateFermeture: '',
     photoB64: null, photoFile: null
   };
   navTo('validation');
@@ -1016,6 +1018,20 @@ function renderValidation() {
       </div>
 
       <div class="form-group">
+        <label class="form-label">📅 Infos saison (optionnel)</label>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
+            <input type="date" class="form-input" id="date-fermeture-input" value="${f.dateFermeture||''}" onchange="ST.form.dateFermeture=this.value">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
+            <input type="date" class="form-input" id="date-ouverture-input" value="${f.dateOuverture||''}" onchange="ST.form.dateOuverture=this.value">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
         <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍬 Nougat dégustation offert</button>
         <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>
         <label class="form-label">Commentaire (optionnel)</label>
@@ -1031,12 +1047,46 @@ function renderValidation() {
       <div id="hist-inval"></div>
     </div>`;
 
-  if (l.id) loadAndRenderHistInline(l.id, 'hist-inval');
+  if (l.id) { loadAndRenderHistInline(l.id, 'hist-inval'); loadSaisonInfo(l.id); }
 }
 
 function setStatut(s) {
   ST.form.statut = s;
   renderValidation();
+}
+
+// ════════════════════════════════════════════
+//  SAISON / HORAIRES DU LIEU
+// ════════════════════════════════════════════
+async function loadSaisonInfo(lieuId) {
+  try {
+    const annee = new Date().getFullYear();
+    const rows = await sbGet(`saisons_lieux?select=id,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+    if (rows && rows[0]) {
+      if (!ST.form.dateOuverture) ST.form.dateOuverture = rows[0].date_ouverture || '';
+      if (!ST.form.dateFermeture) ST.form.dateFermeture = rows[0].date_fermeture || '';
+      const oi = document.getElementById('date-ouverture-input');
+      const fi = document.getElementById('date-fermeture-input');
+      if (oi) oi.value = ST.form.dateOuverture;
+      if (fi) fi.value = ST.form.dateFermeture;
+    }
+  } catch(e) {}
+}
+
+async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture) {
+  if (!lieuId) return;
+  const annee = new Date().getFullYear();
+  const payload = {
+    lieu_id: lieuId, annee,
+    date_ouverture: dateOuverture || null,
+    date_fermeture: dateFermeture || null,
+    source: 'distributeur',
+    maj_par: ST.user?.id || null,
+    maj_le: new Date().toISOString()
+  };
+  const existing = await sbGet(`saisons_lieux?select=id&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+  if (existing && existing[0]) { await sbPatch('saisons_lieux', 'id=eq.'+existing[0].id, payload); }
+  else { await sbPost('saisons_lieux', payload); }
 }
 
 function handlePLPhoto(input) {
@@ -1100,6 +1150,18 @@ async function submitValidation() {
       queued = true;
     } else {
       toast('Erreur lors de la validation ✗'); btn.disabled=false; btn.textContent='Valider'; return;
+    }
+  }
+
+  if (ST.form.dateOuverture || ST.form.dateFermeture) {
+    const lieuIdSaison = ST.activePoints.find(x=>x.id===ST.form.pointId)?.lieux?.id;
+    if (lieuIdSaison) {
+      try { await saveSaisonLieu(lieuIdSaison, ST.form.dateOuverture||null, ST.form.dateFermeture||null); }
+      catch(e) {
+        if (!navigator.onLine || e instanceof TypeError) {
+          addToOfflineQueue({ type:'saison', lieuId:lieuIdSaison, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null });
+        }
+      }
     }
   }
 

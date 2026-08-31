@@ -448,6 +448,12 @@ textarea.form-input{resize:vertical;min-height:70px}
       <div style="padding:10px 14px;background:var(--white);border-bottom:1px solid var(--grey-lt);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700">Carte des lieux</span>
         <select class="filter-select" id="map-tournee-filter" onchange="filterMap()" style="margin-left:auto"><option value="">Tous les lieux</option></select>
+        <select class="filter-select" id="map-saison-filter" onchange="filterMap()">
+          <option value="">Tous statuts saison</option>
+          <option value="ferme">🔒 Fermés actuellement</option>
+          <option value="ferme_bientot">⏳ Ferment sous 30j</option>
+          <option value="sans_info">❔ Sans info saison</option>
+        </select>
         <button class="btn btn-secondary btn-sm" onclick="centerMap()">📍 Recentrer</button>
         <button class="btn btn-secondary btn-sm" onclick="showSection('editeur')">✏️ Ouvrir l'éditeur →</button>
       </div>
@@ -546,6 +552,16 @@ textarea.form-input{resize:vertical;min-height:70px}
       <div class="form-group">
         <label class="form-label">Lieux à inclure</label>
         <input class="lpi-search" type="search" id="lieux-picker-search" placeholder="🔍 Filtrer les lieux…" oninput="filterLieuxPicker()">
+        <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:2px">
+          <select class="form-input" id="picker-mois-ouvre" onchange="filterLieuxPicker()" style="font-size:12px">
+            <option value="">Ouvre — tous mois</option>
+            <option value="1">Ouvre en janvier</option><option value="2">Ouvre en février</option><option value="3">Ouvre en mars</option><option value="4">Ouvre en avril</option><option value="5">Ouvre en mai</option><option value="6">Ouvre en juin</option><option value="7">Ouvre en juillet</option><option value="8">Ouvre en août</option><option value="9">Ouvre en septembre</option><option value="10">Ouvre en octobre</option><option value="11">Ouvre en novembre</option><option value="12">Ouvre en décembre</option>
+          </select>
+          <select class="form-input" id="picker-mois-ferme" onchange="filterLieuxPicker()" style="font-size:12px">
+            <option value="">Ferme — tous mois</option>
+            <option value="1">Ferme en janvier</option><option value="2">Ferme en février</option><option value="3">Ferme en mars</option><option value="4">Ferme en avril</option><option value="5">Ferme en mai</option><option value="6">Ferme en juin</option><option value="7">Ferme en juillet</option><option value="8">Ferme en août</option><option value="9">Ferme en septembre</option><option value="10">Ferme en octobre</option><option value="11">Ferme en novembre</option><option value="12">Ferme en décembre</option>
+          </select>
+        </div>
         <div id="lieux-picker"></div>
         <div style="margin-top:6px;font-size:11px;color:var(--grey)" id="picker-count">0 lieu sélectionné</div>
       </div>
@@ -684,7 +700,7 @@ var ST = {
   distributeurs: [],
   currentTourneeId: null, currentTourneeStops: [],
   pickerSelected: new Set(), addStopsSelected: new Set(),
-  map: null, mapMarkers: [], lastVisits: {},
+  map: null, mapMarkers: [], lastVisits: {}, saisons: {},
   realtimeSub: null,
   editeurLoaded: false
 };
@@ -875,18 +891,32 @@ function openTourneeModal(){
   document.getElementById('t-secteur').value='';
   document.getElementById('t-commentaire').value='';
   document.getElementById('t-quantite').value='10';
+  const pmo=document.getElementById('picker-mois-ouvre'), pmf=document.getElementById('picker-mois-ferme');
+  if(pmo) pmo.value=''; if(pmf) pmf.value='';
   ST.pickerSelected=new Set(); renderLieuxPicker();
   openModal('modal-tournee');
 }
 
 function renderLieuxPicker(){
   const q=(document.getElementById('lieux-picker-search')||{}).value||'';
-  const filtered=ST.lieux.filter(l=>!q||norm(l.nom).includes(norm(q))||norm(l.ville).includes(norm(q)));
-  document.getElementById('lieux-picker').innerHTML=filtered.map(l=>`
+  const moisOuvre=document.getElementById('picker-mois-ouvre')?.value||'';
+  const moisFerme=document.getElementById('picker-mois-ferme')?.value||'';
+  const filtered=ST.lieux.filter(l=>{
+    if(q && !norm(l.nom).includes(norm(q)) && !norm(l.ville).includes(norm(q))) return false;
+    const s=ST.saisons[l.id];
+    if(moisOuvre){ if(!s||!s.date_ouverture||(new Date(s.date_ouverture).getMonth()+1)!==parseInt(moisOuvre)) return false; }
+    if(moisFerme){ if(!s||!s.date_fermeture||(new Date(s.date_fermeture).getMonth()+1)!==parseInt(moisFerme)) return false; }
+    return true;
+  });
+  document.getElementById('lieux-picker').innerHTML=filtered.map(l=>{
+    const s=ST.saisons[l.id];
+    const saisonBadge=(s&&(s.date_ouverture||s.date_fermeture))?`<div class="lpi-cat" style="color:#8D6E63">${s.date_ouverture?'Ouvre '+new Date(s.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${s.date_ouverture&&s.date_fermeture?' · ':''}${s.date_fermeture?'Ferme '+new Date(s.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}</div>`:'';
+    return `
     <div class="lieu-pick-item ${ST.pickerSelected.has(l.id)?'selected':''}" onclick="togglePicker(${l.id})">
       <div class="lpi-check">${ST.pickerSelected.has(l.id)?'✓':''}</div>
-      <div style="flex:1;min-width:0"><div class="lpi-name">${esc(l.nom)}</div><div class="lpi-cat">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div></div>
-    </div>`).join('');
+      <div style="flex:1;min-width:0"><div class="lpi-name">${esc(l.nom)}</div><div class="lpi-cat">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>${saisonBadge}</div>
+    </div>`;
+  }).join('');
   document.getElementById('picker-count').textContent=ST.pickerSelected.size+' lieu'+(ST.pickerSelected.size>1?'x':'')+' sélectionné'+(ST.pickerSelected.size>1?'s':'');
 }
 function filterLieuxPicker(){ renderLieuxPicker(); }
@@ -1028,6 +1058,27 @@ function markerColor(lieuId, seuilMs) {
   return '#E53935'; // rouge : refus/fermé/absent récent
 }
 
+async function loadSaisonsActuelles(){
+  try {
+    const rows = await sbGet('saisons_lieux?select=lieu_id,annee,date_ouverture,date_fermeture&order=lieu_id.asc,annee.desc');
+    const map = {};
+    rows.forEach(r => { if (!map[r.lieu_id]) map[r.lieu_id] = r; });
+    ST.saisons = map;
+  } catch(e) { ST.saisons = {}; }
+}
+
+function saisonStatut(lieuId){
+  const s = ST.saisons[lieuId];
+  if (!s || (!s.date_ouverture && !s.date_fermeture)) return null;
+  const today = new Date().toISOString().slice(0,10);
+  if (s.date_fermeture && today > s.date_fermeture && (!s.date_ouverture || today < s.date_ouverture)) return 'ferme';
+  if (s.date_fermeture) {
+    const joursAvant = (new Date(s.date_fermeture) - new Date(today)) / 86400000;
+    if (joursAvant >= 0 && joursAvant <= 30) return 'ferme_bientot';
+  }
+  return 'ouvert';
+}
+
 function getSeuilMs() {
   const weeks = parseInt(document.getElementById('map-seuil')?.value) || 4;
   return weeks * 7 * 24 * 3600 * 1000;
@@ -1037,27 +1088,38 @@ function initMap(){
   if(ST.map) return;
   ST.map=L.map('map').setView([44.4073,4.3980],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(ST.map);
-  loadLastVisits().then(()=>{ updateMapMarkers(); renderMapAlertes(); });
+  Promise.all([loadLastVisits(), loadSaisonsActuelles()]).then(()=>{ updateMapMarkers(); renderMapAlertes(); });
 }
 
 function updateMapMarkers(){
   if(!ST.map) return;
   ST.mapMarkers.forEach(m=>m.remove()); ST.mapMarkers=[];
   const seuilMs = getSeuilMs();
+  const saisonFiltre = document.getElementById('map-saison-filter')?.value || '';
   ST.lieux.forEach(l=>{
     if(!l.latitude||!l.longitude) return;
+    const statutSaison = saisonStatut(l.id);
+    if (saisonFiltre === 'sans_info' && statutSaison !== null) return;
+    if (saisonFiltre && saisonFiltre !== 'sans_info' && statutSaison !== saisonFiltre) return;
     const color = markerColor(l.id, seuilMs);
     const v = ST.lastVisits[l.id];
     const lastStr = v
       ? new Date(v.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) + ' — ' +
         ({distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'}[v.statut]||v.statut)
       : '⚫ Jamais visité';
+    const s = ST.saisons[l.id];
+    const saisonStr = statutSaison==='ferme'
+      ? '<br><span style="color:#E53935;font-weight:600">🔒 Fermé actuellement'+(s&&s.date_ouverture?' — réouvre le '+new Date(s.date_ouverture).toLocaleDateString('fr-FR'):'')+'</span>'
+      : statutSaison==='ferme_bientot'
+      ? '<br><span style="color:#E8A020;font-weight:600">⏳ Ferme le '+new Date(s.date_fermeture).toLocaleDateString('fr-FR')+'</span>'
+      : '';
+    const ringStyle = (statutSaison==='ferme'||statutSaison==='ferme_bientot') ? 'outline:2px dashed #2B2B2B;outline-offset:2px;' : '';
     const icon=L.divIcon({
-      html:`<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.4)"></div>`,
+      html:`<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.4);${ringStyle}"></div>`,
       iconSize:[14,14],iconAnchor:[7,7],className:''
     });
     const m=L.marker([l.latitude,l.longitude],{icon})
-      .bindPopup(`<strong>${l.nom}</strong><br><span style="color:#666;font-size:11px">${l.categorie||''}${l.ville?' · '+l.ville:''}</span><br><span style="font-size:11px">${lastStr}</span>`)
+      .bindPopup(`<strong>${l.nom}</strong><br><span style="color:#666;font-size:11px">${l.categorie||''}${l.ville?' · '+l.ville:''}</span><br><span style="font-size:11px">${lastStr}</span>${saisonStr}`)
       .addTo(ST.map);
     ST.mapMarkers.push(m);
   });
@@ -1212,6 +1274,7 @@ async function openFicheLieu(id) {
 
   const yr = new Date().getFullYear();
   const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${id}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
+  const saisons = await sbGet(`saisons_lieux?select=annee,date_ouverture,date_fermeture,commentaire,source&lieu_id=eq.${id}&order=annee.desc`).catch(()=>[]);
   const annee = all.filter(p=>p.heure_validation&&p.heure_validation.startsWith(yr));
   const flyAn  = annee.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const flyAll = all.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
@@ -1231,6 +1294,8 @@ async function openFicheLieu(id) {
         ${l.telephone?`<div style="font-size:13px;margin-bottom:4px">📞 <a href="tel:${l.telephone}">${esc(l.telephone)}</a></div>`:''}
         ${l.email?`<div style="font-size:13px;margin-bottom:4px">✉️ <a href="mailto:${l.email}">${esc(l.email)}</a></div>`:''}
         ${l.zone_tournee?`<div style="font-size:13px;margin-bottom:4px">🗂 Zone : ${esc(l.zone_tournee)}</div>`:''}
+        ${saisons.length?`<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px">📅 Saison</div>${saisons.map(s=>`<div style="font-size:12px;margin-bottom:2px"><strong>${s.annee}</strong> — ${s.date_ouverture?'ouvre '+new Date(s.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${s.date_ouverture&&s.date_fermeture?' · ':''}${s.date_fermeture?'ferme '+new Date(s.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${!s.date_ouverture&&!s.date_fermeture?'—':''}${s.commentaire?' · '+esc(s.commentaire):''}</div>`).join('')}`:''}
+        ${l.source_horaires?`<div style="font-size:12px;margin-top:4px">🔗 ${/^https?:\/\//.test(l.source_horaires)?`<a href="${esc(l.source_horaires)}" target="_blank">${esc(l.source_horaires)}</a>`:esc(l.source_horaires)}</div>`:''}
         ${l.notes?`<div style="font-size:12px;color:var(--grey);margin-top:6px">${esc(l.notes)}</div>`:''}
         ${gm?`<a href="${gm}" target="_blank" class="btn btn-secondary btn-sm" style="margin-top:8px;display:inline-flex">🗺️ Voir sur Maps</a>`:''}
       </div>
