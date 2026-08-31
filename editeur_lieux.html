@@ -310,6 +310,10 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
 <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
+  <button class="hbtn" id="btn-import-lieux" onclick="document.getElementById('csv-import-input').click()" style="background:#8D6E63;color:#fff" title="Importer des lieux depuis un fichier CSV ou JSON">📂 Importer CSV</button>
+  <input type="file" id="csv-import-input" accept=".csv,.json" style="display:none" onchange="importLieux(this)">
+  <button class="hbtn" id="btn-import-zones" onclick="document.getElementById('zones-import-input').click()" style="background:#546E7A;color:#fff" title="Synchroniser les zones de tournée depuis un fichier zones_export.json">🗂 Sync zones</button>
+  <input type="file" id="zones-import-input" accept=".json" style="display:none" onchange="importZones(this)">
 </div>
 
 <!-- Login Supabase -->
@@ -1217,6 +1221,128 @@ async function savePOIToSupabase(p) {
       }
     }
   } catch(e){ console.error('savePOIToSupabase', e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  IMPORT CSV / JSON EN MASSE
+// ══════════════════════════════════════════════════════════
+function parseCSVRobust(text){
+  var clean = text.replace(/^\uFEFF/, '');
+  var firstLine = clean.split('\n')[0];
+  var sep = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+  var rows = [];
+  var field = '', inQuote = false, row = [];
+  for(var i=0; i<clean.length; i++){
+    var c = clean[i];
+    if(inQuote){
+      if(c==='"' && clean[i+1]==='"'){ field+='"'; i++; }
+      else if(c==='"'){ inQuote=false; }
+      else { field+=c; }
+    } else {
+      if(c==='"'){ inQuote=true; }
+      else if(c===sep){ row.push(field.trim()); field=''; }
+      else if(c==='\n'){ row.push(field.trim()); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r'){ field+=c; }
+    }
+  }
+  if(field||row.length){ row.push(field.trim()); rows.push(row); }
+
+  if(!rows.length) return [];
+  var headers = rows[0].map(function(h){ return h.toLowerCase().replace(/"/g,'').trim(); });
+  return rows.slice(1).filter(function(r){ return r.some(function(v){ return v; }); }).map(function(r){
+    var obj={};
+    headers.forEach(function(h,i){ obj[h]=(r[i]||'').replace(/^"|"$/g,'').trim(); });
+    return obj;
+  });
+}
+
+// Import CSV / JSON — insert si nouveau, mise à jour si le nom existe déjà
+async function importLieux(input){
+  var file = input.files[0]; if(!file) return;
+  if(!getStoredSession()){ showToast('⚠ Connecte-toi à Supabase pour importer'); input.value=''; return; }
+  var text = await file.text();
+  var rows = [];
+  if(file.name.endsWith('.json')){
+    try{ rows = JSON.parse(text); }catch(e){ showToast('❌ JSON invalide'); return; }
+  } else {
+    rows = parseCSVRobust(text);
+  }
+
+  var mapped = rows.filter(function(r){ return r.nom||r.name; }).map(function(r){
+    return {
+      nom:          r.nom||r.name||'',
+      categorie:    r.type_lieu||r.categorie||r.type||'',
+      adresse:      r.adresse||r.address||'',
+      code_postal:  r.code_postal||r.cp||'',
+      ville:        r.commune||r.ville||r.city||'',
+      latitude:     parseFloat(String(r.latitude||r.lat||'').replace(',','.'))||null,
+      longitude:    parseFloat(String(r.longitude||r.lon||r.lng||'').replace(',','.'))||null,
+      telephone:    r.telephone||r.tel||'',
+      zone_tournee: r.zone_tournee||r.zone||'',
+      actif: true
+    };
+  });
+
+  if(!mapped.length){ showToast('⚠ Aucun lieu trouvé dans le fichier'); input.value=''; return; }
+
+  showToast('🔍 Vérification des doublons…');
+  var existingRaw;
+  try{ existingRaw = await sbGet('lieux?select=id,nom'); }
+  catch(e){ showToast('❌ Impossible de vérifier les doublons : '+e.message); return; }
+  var existingByNom = {};
+  (existingRaw||[]).forEach(function(l){ existingByNom[(l.nom||'').toLowerCase().trim()] = l; });
+
+  var toInsert = [], toUpdate = [];
+  mapped.forEach(function(data){
+    var key = (data.nom||'').toLowerCase().trim();
+    var existing = existingByNom[key];
+    if(existing){ toUpdate.push({id: existing.id, data: data}); }
+    else { toInsert.push(data); }
+  });
+
+  var inserted=0, updated=0, errors=0;
+
+  for(var i=0; i<toInsert.length; i+=50){
+    var batch = toInsert.slice(i, i+50);
+    try{ await sbPost('lieux', batch); inserted += batch.length; }
+    catch(e){ errors++; console.error('import insert lot', e.message); }
+  }
+
+  for(var j=0; j<toUpdate.length; j++){
+    var u = toUpdate[j];
+    try{ await sbPatch('lieux', 'id=eq.'+u.id, u.data); updated++; }
+    catch(e){ errors++; console.error('import update', u.data.nom, e.message); }
+  }
+
+  showToast('✅ '+inserted+' insérés · '+updated+' mis à jour'+(errors?' · ❌ '+errors+' erreurs':''));
+  input.value='';
+  await autoSyncSupabase();
+}
+
+// Sync zones depuis un fichier zones_export.json — met à jour zone_tournee par nom de lieu
+async function importZones(input){
+  var file = input.files[0]; if(!file) return;
+  if(!getStoredSession()){ showToast('⚠ Connecte-toi à Supabase pour importer'); input.value=''; return; }
+  var zones;
+  try{ zones = JSON.parse(await file.text()); }
+  catch(e){ showToast('❌ Fichier JSON invalide'); return; }
+  if(!Array.isArray(zones)||!zones.length){ showToast('⚠ Fichier zones vide'); input.value=''; return; }
+
+  var ok=0, notFound=0, errors=0;
+  for(var i=0; i<zones.length; i++){
+    var z = zones[i];
+    if(!z.zone_tournee) continue;
+    var match = POIS.find(function(p){
+      return (p.nom||'').toLowerCase().trim() === (z.nom||'').toLowerCase().trim();
+    });
+    if(!match || !match.supabase_id){ notFound++; continue; }
+    try{ await sbPatch('lieux', 'id=eq.'+match.supabase_id, {zone_tournee: z.zone_tournee}); ok++; }
+    catch(e){ errors++; console.error('import zone', z.nom, e.message); }
+  }
+  showToast('✅ '+ok+' zones synchronisées · '+notFound+' non trouvées'+(errors?' · ❌ '+errors+' erreurs':''));
+  input.value='';
+  await autoSyncSupabase();
 }
 
 // ══════════════════════════════════════════════════════════

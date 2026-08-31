@@ -524,48 +524,6 @@ textarea.form-input{resize:vertical;min-height:70px}
 
 <!-- MODALS -->
 
-<!-- Lieu -->
-<div class="modal-overlay" id="modal-lieu">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="lieu-modal-title">Nouveau lieu</h3>
-      <button class="modal-close" onclick="closeModal('modal-lieu')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="f-nom" placeholder="Nom du lieu"></div>
-        <div class="form-group"><label class="form-label">Catégorie</label>
-          <select class="form-input" id="f-categorie">
-            <option value="">— Choisir —</option>
-            <option>Hôtel</option><option>Camping</option><option>Office de tourisme</option>
-            <option>Restaurant</option><option>Site touristique</option><option>Gîte</option>
-            <option>Chambre d'hôtes</option><option>Loisirs</option><option>Autre</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row full"><div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="f-adresse" placeholder="Rue, numéro…"></div></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Code postal</label><input class="form-input" id="f-cp" placeholder="07150"></div>
-        <div class="form-group"><label class="form-label">Ville</label><input class="form-input" id="f-ville" placeholder="Vallon-Pont-d'Arc"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="f-lat" type="number" step="0.0001" placeholder="44.4073"></div>
-        <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="f-lon" type="number" step="0.0001" placeholder="4.3980"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-tel" placeholder="04 75…"></div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" type="email" placeholder="contact@…"></div>
-      </div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Zone de tournée</label><input class="form-input" id="f-zone" placeholder="ex: Vallon, Ruoms…"></div></div>
-      <div class="form-row full"><div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="f-notes" placeholder="Informations utiles…"></textarea></div></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-lieu')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveLieu()">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
 <!-- Tournée -->
 <div class="modal-overlay" id="modal-tournee">
   <div class="modal-box" style="width:680px">
@@ -802,7 +760,7 @@ async function loadLieux(){
   try {
     const data = await sbGet('lieux?select=*&actif=eq.true&order=nom');
     ST.lieux = data||[]; ST.lieuxFiltered=[...ST.lieux];
-    renderLieuxTable(); updateMapMarkers(); updateCatFilter();
+    updateMapMarkers();
   } catch(e) {
     showToast('❌ Lieux : '+e.message, 6000);
     const tb=document.getElementById('lieux-tbody'); if(tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">❌ ${e.message}</td></tr>`;
@@ -875,89 +833,6 @@ function renderDashboard(){
       <span class="badge b-${t.statut}">${statutLabel(t.statut)}</span>
     </div>`;
   }).join('');
-}
-
-// ══════════════════════════════════════════════════════════
-//  LIEUX
-// ══════════════════════════════════════════════════════════
-function renderLieuxTable(){
-  const tbody=document.getElementById('lieux-tbody'), data=ST.lieuxFiltered;
-  if(!tbody) return;
-  const cnt=document.getElementById('lieux-count'); if(cnt) cnt.textContent=data.length+' lieux';
-  if(!data.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--grey)">Aucun lieu</td></tr>'; return; }
-  tbody.innerHTML = data.map(l=>`
-    <tr style="cursor:pointer" onclick="openFicheLieu(${l.id})">
-      <td><strong>${esc(l.nom)}</strong></td>
-      <td><span class="badge" style="background:var(--gold-lt);color:var(--gold-dk)">${esc(l.categorie||'—')}</span></td>
-      <td>${esc(l.ville||'—')}</td>
-      <td>${l.zone_tournee?`<span class="badge" style="background:var(--blue-lt);color:var(--blue)">${esc(l.zone_tournee)}</span>`:'<span style="color:var(--grey)">—</span>'}</td>
-      <td>${l.actif?'<span class="badge b-distribue">Actif</span>':'<span class="badge b-ferme">Inactif</span>'}</td>
-      <td onclick="event.stopPropagation()" style="display:flex;gap:6px">
-        <button class="btn btn-secondary btn-sm" onclick="editLieu(${l.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteLieu(${l.id})">🗑</button>
-      </td>
-    </tr>`).join('');
-}
-
-function filterLieuxTable(){
-  const qs=document.getElementById('lieux-search'); if(!qs) return;
-  const q=norm(qs.value);
-  const cat=document.getElementById('lieux-cat-filter').value;
-  const zone=document.getElementById('lieux-zone-filter').value;
-  ST.lieuxFiltered=ST.lieux.filter(l=>
-    (!q||norm(l.nom).includes(q)||norm(l.ville).includes(q))&&
-    (!cat||l.categorie===cat)&&(!zone||l.zone_tournee===zone));
-  renderLieuxTable();
-}
-
-function updateCatFilter(){
-  const cats=[...new Set(ST.lieux.map(l=>l.categorie).filter(Boolean))].sort();
-  const catEl=document.getElementById('lieux-cat-filter');
-  if(catEl) catEl.innerHTML='<option value="">Toutes catégories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  const zones=[...new Set(ST.lieux.map(l=>l.zone_tournee).filter(Boolean))].sort();
-  const zoneEl=document.getElementById('lieux-zone-filter');
-  if(zoneEl) zoneEl.innerHTML='<option value="">Toutes zones</option>'+zones.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('');
-}
-
-var editingLieuId = null;
-function openLieuModal(lieu=null){
-  editingLieuId=lieu?lieu.id:null;
-  document.getElementById('lieu-modal-title').textContent=lieu?'Modifier le lieu':'Nouveau lieu';
-  const f={nom:'',categorie:'',adresse:'',cp:'',ville:'',lat:'',lon:'',tel:'',email:'',zone:'',notes:''};
-  if(lieu) Object.assign(f,{nom:lieu.nom,categorie:lieu.categorie||'',adresse:lieu.adresse||'',cp:lieu.code_postal||'',ville:lieu.ville||'',lat:lieu.latitude||'',lon:lieu.longitude||'',tel:lieu.telephone||'',email:lieu.email||'',zone:lieu.zone_tournee||'',notes:lieu.notes||''});
-  Object.keys(f).forEach(k=>{ const el=document.getElementById('f-'+k); if(el) el.value=f[k]; });
-  openModal('modal-lieu');
-}
-function editLieu(id){ const l=ST.lieux.find(x=>x.id===id); if(l) openLieuModal(l); }
-
-async function saveLieu(){
-  const data={
-    nom:document.getElementById('f-nom').value.trim(),
-    categorie:document.getElementById('f-categorie').value,
-    adresse:document.getElementById('f-adresse').value.trim(),
-    code_postal:document.getElementById('f-cp').value.trim(),
-    ville:document.getElementById('f-ville').value.trim(),
-    latitude:parseFloat(document.getElementById('f-lat').value)||null,
-    longitude:parseFloat(document.getElementById('f-lon').value)||null,
-    telephone:document.getElementById('f-tel').value.trim(),
-    email:document.getElementById('f-email').value.trim(),
-    zone_tournee:document.getElementById('f-zone').value.trim(),
-    notes:document.getElementById('f-notes').value.trim(),
-    actif:true
-  };
-  if(!data.nom){ showToast('⚠ Le nom est obligatoire'); return; }
-  try {
-    if(editingLieuId){ await sbPatch('lieux','id=eq.'+editingLieuId,data); }
-    else { await sbPost('lieux',data); }
-    showToast(editingLieuId?'✅ Lieu mis à jour':'✅ Lieu ajouté');
-    closeModal('modal-lieu'); await loadLieux();
-  } catch(e){ showToast('❌ '+e.message); }
-}
-
-async function deleteLieu(id){
-  if(!confirm('Supprimer ce lieu ?')) return;
-  try { await sbPatch('lieux','id=eq.'+id,{actif:false}); showToast('🗑 Lieu supprimé'); await loadLieux(); }
-  catch(e){ showToast('❌ '+e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
