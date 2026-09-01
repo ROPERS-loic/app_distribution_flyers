@@ -307,6 +307,39 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .sv-nougat{font-size:14px;flex-shrink:0}
 .sv-date{font-size:10px;color:#999;white-space:nowrap;flex-shrink:0}
 #stats-empty{text-align:center;padding:40px;color:#aaa;font-size:12px;font-style:italic}
+:root{--gold-dk:#DBA10E;--grey:#6B6B6B;--grey-lt:#F0F0F0;--cream:#F7F6F2;--white:#fff;--green:#27AE60;--green-lt:#E8F8EF;--red:#E53935;--red-lt:#FFEBEE;--orange:#E8870A;--orange-lt:#FFF3E0}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:14px;width:780px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
+.modal-header h3{font-size:15px;font-weight:800}
+.modal-close{background:none;border:none;font-size:20px;color:var(--grey);line-height:1;cursor:pointer}
+.modal-body{padding:20px}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.b-distribue{background:var(--green-lt);color:var(--green)}
+.b-ferme{background:var(--red-lt);color:var(--red)}
+.b-refus{background:#F3E5F5;color:#7B1FA2}
+.b-absent{background:var(--orange-lt);color:var(--orange)}
+.fiche-stats-d{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.fsd-tile{background:var(--cream);border-radius:8px;padding:12px;text-align:center}
+.fsd-tile .sv{font-family:Arial,sans-serif;font-size:22px;font-weight:800}
+.fsd-tile .sl{font-size:10px;color:var(--grey);margin-top:2px}
+.ftd-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--grey-lt)}
+.ftd-item:last-child{border-bottom:none}
+.ftd-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;border:2px solid white}
+.ftd-content{flex:1;min-width:0}
+.ftd-date{font-size:12px;font-weight:700;margin-bottom:3px;text-transform:capitalize}
+.ftd-comment{font-size:12px;background:var(--cream);border-radius:6px;padding:6px 10px;margin-top:5px;color:#1A1A1A}
+.ftd-photo{width:70px;height:70px;border-radius:6px;object-fit:cover;cursor:pointer;margin-top:6px;flex-shrink:0}
+.photo-grid-d{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px}
+.photo-grid-d img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:.15s}
+.photo-grid-d img:hover{opacity:.8}
+.photo-lb-d{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:3000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.photo-lb-d img{max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain}
+.photo-lb-d-close{position:absolute;top:14px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1}
+.loader-d{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--gold-dk);border-radius:50%;animation:spin-d .7s linear infinite}
+@keyframes spin-d{to{transform:rotate(360deg)}}
+.btn-fiche{background:#1E88E5;color:#fff}
 </style>
 </head>
 <body>
@@ -439,6 +472,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="btn-save" onclick="saveEdit()">✓ Enregistrer</button>
         <button class="btn-del" onclick="deletePoi()">🗑</button>
         <button class="btn-cancel" onclick="closeEdit()">✕</button>
+        <button class="btn-save btn-fiche" onclick="openFicheLieuEditeur()" style="margin-top:4px">👁️ Fiche complète</button>
         <button class="btn-save" onclick="openVisiteRapide()" style="background:#27AE60;margin-top:4px">Visite rapide</button>
       </div>
     </div>
@@ -683,6 +717,19 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 
 <div id="toast"></div>
 
+<!-- Modal fiche lieu -->
+<div class="modal-overlay" id="modal-fiche-lieu">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="fiche-lieu-title">Fiche lieu</h3>
+      <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
+    </div>
+    <div class="modal-body" id="fiche-lieu-body">
+      <div style="text-align:center;padding:40px;color:var(--grey)">Chargement…</div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════
 //  SUPABASE
@@ -802,6 +849,123 @@ var routeLayer = null;
 var tourneeRouteLayer = null;
 var selectedId = null;
 function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
+
+// ══════════════════════════════════════════════════════════
+//  MODAL FICHE LIEU (consultation : infos, historique, photos)
+// ══════════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+async function openFicheLieuEditeur(){
+  var p = POIS.find(function(p){ return p.id===selectedId; });
+  if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
+  document.getElementById('fiche-lieu-title').textContent = p.nom;
+  document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
+  openModal('modal-fiche-lieu');
+
+  var yr = new Date().getFullYear();
+  var all = [];
+  try {
+    all = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+p.supabase_id+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc');
+  } catch(e){ all = []; }
+
+  var annee = all.filter(function(pt){ return pt.heure_validation && pt.heure_validation.indexOf(String(yr))===0; });
+  var flyAn  = annee.filter(function(pt){ return pt.statut==='distribue'; }).reduce(function(s,pt){ return s+(pt.quantite_flyers||0); },0);
+  var taux   = all.length ? Math.round(all.filter(function(pt){ return pt.statut==='distribue'; }).length/all.length*100) : 0;
+  var photos = all.filter(function(pt){ return pt.photo_preuve; });
+  var dotC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
+  var bgC    = {distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
+  var txtC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
+  var slbls  = {distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  var lat=parseFloat(p.lat), lon=parseFloat(p.lon);
+  var gm = (!isNaN(lat)&&!isNaN(lon)) ? 'https://www.google.com/maps/search/?api=1&query='+lat+','+lon : null;
+
+  var html = '<div style="display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap">'
+    + '<div style="flex:1;min-width:200px">'
+    + (p.adresse||p.commune?'<div style="font-size:13px;margin-bottom:4px">📍 '+escHtml([p.adresse,p.code_postal,p.commune].filter(Boolean).join(', '))+'</div>':'')
+    + (p.contacts?'<div style="font-size:13px;margin-bottom:4px">📞 '+escHtml(p.contacts)+'</div>':'')
+    + (p.zone_tournee?'<div style="font-size:13px;margin-bottom:4px">🗂 Zone : '+escHtml(zoneKey(p.zone_tournee))+'</div>':'')
+    + (gm?'<a href="'+gm+'" target="_blank" style="font-size:12px;color:#1E88E5;display:inline-block;margin-top:6px">🗺️ Voir sur Maps</a>':'')
+    + '</div>'
+    + '<div style="flex:2">'
+    + '<div class="fiche-stats-d">'
+    + '<div class="fsd-tile"><div class="sv">'+annee.length+'</div><div class="sl">Visites '+yr+'</div></div>'
+    + '<div class="fsd-tile"><div class="sv" style="color:var(--gold-dk)">'+flyAn+'</div><div class="sl">Flyers '+yr+'</div></div>'
+    + '<div class="fsd-tile"><div class="sv" style="color:var(--green)">'+taux+'%</div><div class="sl">Taux réussite</div></div>'
+    + '<div class="fsd-tile"><div class="sv">'+all.length+'</div><div class="sl">Total visites</div></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + ['distribue','ferme','refus','absent'].map(function(s){ var n=all.filter(function(pt){return pt.statut===s;}).length; return n?'<span class="badge b-'+s+'">'+slbls[s]+' : '+n+'</span>':''; }).join('')
+    + '</div></div></div>';
+
+  if(photos.length){
+    html += '<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">📷 Photos ('+photos.length+')</div>'
+      + '<div class="photo-grid-d">'
+      + photos.slice(0,12).map(function(pt){
+          var d = pt.heure_validation ? new Date(pt.heure_validation).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) : '';
+          return '<img src="'+pt.photo_preuve+'" loading="lazy" title="'+escHtml(d)+'" data-caption="'+escHtml(d)+'" onclick="openPhotoLbEditeur(this.src,this.dataset.caption)" alt="'+escHtml(d)+'">';
+        }).join('')
+      + '</div>';
+  }
+
+  window._ficheEdAll = all; window._ficheEdAnnee = annee;
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    + '<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px">Historique des visites</div>'
+    + '<div style="display:flex;gap:6px">'
+    + '<button id="fed-yr-btn" onclick="ficheEdFilter(true)" class="hbtn" style="background:#F5C21A">'+yr+'</button>'
+    + '<button id="fed-all-btn" onclick="ficheEdFilter(false)" class="hbtn" style="background:#eee">Tout</button>'
+    + '</div></div>'
+    + '<div id="fed-timeline">'+ficheTimelineEditeurHTML(annee,dotC,bgC,txtC,slbls)+'</div>';
+
+  document.getElementById('fiche-lieu-body').innerHTML = html;
+}
+
+function ficheEdFilter(yearOnly){
+  var list = yearOnly ? window._ficheEdAnnee : window._ficheEdAll;
+  var dotC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
+  var bgC={distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
+  var txtC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
+  var slbls={distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  document.getElementById('fed-yr-btn').style.background = yearOnly ? '#F5C21A' : '#eee';
+  document.getElementById('fed-all-btn').style.background = yearOnly ? '#eee' : '#F5C21A';
+  document.getElementById('fed-timeline').innerHTML = ficheTimelineEditeurHTML(list,dotC,bgC,txtC,slbls);
+}
+
+function ficheTimelineEditeurHTML(list,dotC,bgC,txtC,slbls){
+  if(!list.length) return '<div style="text-align:center;padding:30px;color:var(--grey);font-size:13px">Aucun passage enregistré</div>';
+  return list.map(function(pt){
+    var d = pt.heure_validation ? new Date(pt.heure_validation) : null;
+    var dateStr = d ? d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}) : (pt.tournees&&pt.tournees.date||'—');
+    var heureStr = d ? d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
+    var dist = (pt.tournees&&pt.tournees.distributeur&&pt.tournees.distributeur.nom) || '';
+    return '<div class="ftd-item">'
+      + '<div class="ftd-dot" style="background:'+(dotC[pt.statut]||'#ccc')+';box-shadow:0 0 0 2px '+(dotC[pt.statut]||'#ccc')+'"></div>'
+      + '<div class="ftd-content" style="flex:1">'
+      + '<div class="ftd-date">'+escHtml(dateStr)+(heureStr?' · '+heureStr:'')+'</div>'
+      + '<div style="margin:3px 0">'
+      + '<span class="badge" style="background:'+bgC[pt.statut]+';color:'+txtC[pt.statut]+'">'+(slbls[pt.statut]||pt.statut)+'</span>'
+      + (pt.statut==='distribue'&&pt.quantite_flyers?'<span style="font-size:11px;color:var(--grey);margin-left:6px">🗞 '+pt.quantite_flyers+' flyers</span>':'')
+      + (pt.tournees&&pt.tournees.nom?'<span style="font-size:11px;color:var(--grey);margin-left:6px">📋 '+escHtml(pt.tournees.nom)+'</span>':'')
+      + (dist?'<span style="font-size:11px;color:var(--grey);margin-left:6px">👤 '+escHtml(dist)+'</span>':'')
+      + '</div>'
+      + (pt.commentaire_distributeur?'<div class="ftd-comment">💬 '+escHtml(pt.commentaire_distributeur)+'</div>':'')
+      + '</div>'
+      + (pt.photo_preuve?'<img src="'+pt.photo_preuve+'" class="ftd-photo" loading="lazy" data-caption="'+escHtml(dateStr)+'" onclick="openPhotoLbEditeur(this.src,this.dataset.caption)" alt="Photo">':'')
+      + '</div>';
+  }).join('');
+}
+
+function openPhotoLbEditeur(url, caption){
+  var lb = document.createElement('div');
+  lb.className = 'photo-lb-d';
+  lb.innerHTML = '<span class="photo-lb-d-close" onclick="this.parentElement.remove()">✕</span><img src="'+url+'" alt="'+caption+'"><div style="color:rgba(255,255,255,.7);font-size:12px">'+caption+'</div>';
+  lb.onclick = function(e){ if(e.target===lb) lb.remove(); };
+  document.body.appendChild(lb);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(function(m){
+  m.addEventListener('click', function(e){ if(e.target===m) closeModal(m.id); });
+});
 function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 var addMode    = false;
 var routeMode  = false;
