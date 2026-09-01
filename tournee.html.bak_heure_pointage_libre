@@ -1752,10 +1752,7 @@ async function submitPointageLibre() {
   const keys = Object.keys(plSelected);
   if (!keys.length) { toast('Selectionnez au moins un lieu'); return; }
   const dateVal = document.getElementById('pl-date')?.value || new Date().toISOString().slice(0,10);
-  const todayStr = new Date().toISOString().slice(0,10);
-  // Saisie du jour même : heure réelle de l'envoi. Saisie rétroactive (date passée) :
-  // on ne connaît pas l'heure exacte, on garde un repère fixe à midi.
-  const heure = (dateVal === todayStr) ? new Date().toISOString() : new Date(dateVal+'T12:00:00').toISOString();
+  const heure = new Date(dateVal+'T12:00:00').toISOString();
   toast('Vérification…');
   try {
     const nomT = 'Visite_rapide_'+dateVal;

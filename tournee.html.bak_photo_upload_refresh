@@ -425,10 +425,22 @@ textarea.form-input{resize:vertical;min-height:60px}
             <div class="pl-sheet-label">Paquets</div>
             <div class="pl-qty-row">
               <div class="pl-qty-box"><label>🍬 Nougaterie</label>
-                <select id="pl-sheet-qty"></select>
+                <select id="pl-sheet-qty">
+                  <option value="0.5">½ paquet</option>
+                  <option value="1" selected>1 paquet</option>
+                  <option value="2">2 paquets</option>
+                  <option value="3">3 paquets</option>
+                  <option value="4">4 paquets</option>
+                </select>
               </div>
               <div class="pl-qty-box"><label>🎟️ Château</label>
-                <select id="pl-sheet-qtych"></select>
+                <select id="pl-sheet-qtych">
+                  <option value="0.5">½ paquet</option>
+                  <option value="1" selected>1 paquet</option>
+                  <option value="2">2 paquets</option>
+                  <option value="3">3 paquets</option>
+                  <option value="4">4 paquets</option>
+                </select>
               </div>
             </div>
             <div class="pl-sheet-label">Offres</div>
@@ -541,32 +553,10 @@ if ('serviceWorker' in navigator) {
 const SUPA_URL = 'https://krbzipnoeroaofojccri.supabase.co';
 const SUPA_KEY = 'sb_publishable_00DghQOW-_toZkmmA2uEkA_8yd9xNSP';
 
-// Liste de référence unique pour les quantités de paquets (Nougaterie / Château),
-// utilisée partout où ces menus déroulants sont générés ou lus.
-const PAQUET_QTY_OPTIONS = [
-  {v:0,   l:'Aucun'},
-  {v:0.5, l:'½ paquet'},
-  {v:1,   l:'1 paquet'},
-  {v:2,   l:'2 paquets'},
-  {v:3,   l:'3 paquets'},
-  {v:4,   l:'4 paquets'}
-];
-function paquetOptionsHTML(selected) {
-  return PAQUET_QTY_OPTIONS.map(o => {
-    const sel = (o.v === 4) ? (selected >= 4) : (o.v === 0 ? !selected : selected === o.v);
-    return `<option value="${o.v}" ${sel?'selected':''}>${o.l}</option>`;
-  }).join('');
-}
-function parseQty(val, fallback = 0) {
-  const n = parseFloat(val);
-  return isNaN(n) ? fallback : n;
-}
-
 function getStoredSession(){try{const r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
 function getToken(){const s=getStoredSession();return s?.access_token||SUPA_KEY;}
 async function refreshSession(){const s=getStoredSession();if(!s?.refresh_token)return false;try{const d=await sbAuthPost('token?grant_type=refresh_token',{refresh_token:s.refresh_token});localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token',JSON.stringify(d));return true;}catch(e){return false;}}
 async function sbFetch(url,opts){let r=await fetch(url,opts);if(r.status===401){const ok=await refreshSession();if(ok){opts.headers['Authorization']='Bearer '+getToken();r=await fetch(url,opts);}else{localStorage.removeItem('sb-krbzipnoeroaofojccri-auth-token');navTo('login');throw new Error('Session expirée, reconnectez-vous');}}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
-async function uploadPhoto(file,path){const doUp=(tok)=>fetch(`${SUPA_URL}/storage/v1/object/photos-distribution/${path}`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok,'Content-Type':file.type||'image/jpeg','x-upsert':'true'},body:file});let r=await doUp(getToken());if(r.status===401){const ok=await refreshSession();if(ok)r=await doUp(getToken());}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return `${SUPA_URL}/storage/v1/object/public/photos-distribution/${path}`;}
 async function sbGet(path){return sbFetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken()}});}
 async function sbPost(table,data){return sbFetch(`${SUPA_URL}/rest/v1/${table}`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});}
 async function sbPatch(table,filter,data){return sbFetch(`${SUPA_URL}/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});}
@@ -1104,12 +1094,22 @@ function renderValidation() {
 
       <div class="form-group" id="flyers-group" style="display:${(!isLivraisonOnly && f.statut==='distribue')?'block':'none'}">
         <label class="form-label">🍬 Paquets Nougaterie</label>
-        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseQty(this.value)">
-          ${paquetOptionsHTML(f.flyers)}
+        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseFloat(this.value)||0">
+          <option value="0" ${!f.flyers?'selected':''}>Aucun</option>
+          <option value="0.5" ${f.flyers===0.5?'selected':''}>½ paquet</option>
+          <option value="1" ${f.flyers===1?'selected':''}>1 paquet</option>
+          <option value="2" ${f.flyers===2?'selected':''}>2 paquets</option>
+          <option value="3" ${f.flyers===3?'selected':''}>3 paquets</option>
+          <option value="4" ${f.flyers>=4?'selected':''}>4 paquets</option>
         </select>
         <label class="form-label" style="margin-top:10px">🎟️ Paquets Château des Roure</label>
-        <select class="form-input" id="flyers-chateau-input" onchange="ST.form.flyersChateau=parseQty(this.value)">
-          ${paquetOptionsHTML(f.flyersChateau)}
+        <select class="form-input" id="flyers-chateau-input" onchange="ST.form.flyersChateau=parseFloat(this.value)||0">
+          <option value="0" ${!f.flyersChateau?'selected':''}>Aucun</option>
+          <option value="0.5" ${f.flyersChateau===0.5?'selected':''}>½ paquet</option>
+          <option value="1" ${f.flyersChateau===1?'selected':''}>1 paquet</option>
+          <option value="2" ${f.flyersChateau===2?'selected':''}>2 paquets</option>
+          <option value="3" ${f.flyersChateau===3?'selected':''}>3 paquets</option>
+          <option value="4" ${f.flyersChateau>=4?'selected':''}>4 paquets</option>
         </select>
       </div>
 
@@ -1273,10 +1273,11 @@ async function submitValidation() {
     try {
       const ext = ST.form.photoFile.name.split('.').pop()||'jpg';
       const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.${ext}`;
-      photoUrl = await uploadPhoto(ST.form.photoFile, path);
-    } catch(e) {
-      toast('⚠️ Photo non envoyée : ' + e.message);
-    }
+      const upR = await fetch(`${SUPA_URL}/storage/v1/object/photos-distribution/${path}`, {
+        method:'POST', headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':ST.form.photoFile.type||'image/jpeg','x-upsert':'true'}, body:ST.form.photoFile
+      });
+      if (upR.ok) photoUrl = `${SUPA_URL}/storage/v1/object/public/photos-distribution/${path}`;
+    } catch(e) {}
   }
 
   const commentFinal = [ST.form.nougat?'[Nougat offert]':'', ST.form.commentaire||''].filter(Boolean).join(' ')||null;
@@ -1658,8 +1659,8 @@ function openPLSheet(k) {
   const prev = (plSelected[k] && typeof plSelected[k]==='object') ? plSelected[k] : {};
   document.getElementById('pl-sheet-title').textContent = l.nom||'—';
   document.getElementById('pl-sheet-sub').textContent = (l.categorie||'')+(l.ville?' · '+l.ville:'');
-  document.getElementById('pl-sheet-qty').innerHTML = paquetOptionsHTML(prev.qty ?? 1);
-  document.getElementById('pl-sheet-qtych').innerHTML = paquetOptionsHTML(prev.qtyChateau ?? 1);
+  document.getElementById('pl-sheet-qty').value = prev.qty||1;
+  document.getElementById('pl-sheet-qtych').value = prev.qtyChateau||1;
   const nBtn = document.getElementById('pl-sheet-nougat');
   const eBtn = document.getElementById('pl-sheet-entree');
   prev.nougat ? nBtn.classList.add('active') : nBtn.classList.remove('active');
@@ -1703,8 +1704,8 @@ function setPLStatut(s) {
 function validatePLSheet() {
   const k = plSheetK; if (!k) return;
   const statut = document.querySelector('.pl-statut-pill.active')?.dataset.s||'distribue';
-  const qty = parseQty(document.getElementById('pl-sheet-qty').value, 1);
-  const qtyChateau = parseQty(document.getElementById('pl-sheet-qtych').value, 1);
+  const qty = parseFloat(document.getElementById('pl-sheet-qty').value)||1;
+  const qtyChateau = parseFloat(document.getElementById('pl-sheet-qtych').value)||1;
   const nougat = document.getElementById('pl-sheet-nougat').classList.contains('active');
   const entree = document.getElementById('pl-sheet-entree').classList.contains('active');
   const comment = document.getElementById('pl-sheet-comment').value.trim();
@@ -1752,10 +1753,7 @@ async function submitPointageLibre() {
   const keys = Object.keys(plSelected);
   if (!keys.length) { toast('Selectionnez au moins un lieu'); return; }
   const dateVal = document.getElementById('pl-date')?.value || new Date().toISOString().slice(0,10);
-  const todayStr = new Date().toISOString().slice(0,10);
-  // Saisie du jour même : heure réelle de l'envoi. Saisie rétroactive (date passée) :
-  // on ne connaît pas l'heure exacte, on garde un repère fixe à midi.
-  const heure = (dateVal === todayStr) ? new Date().toISOString() : new Date(dateVal+'T12:00:00').toISOString();
+  const heure = new Date(dateVal+'T12:00:00').toISOString();
   toast('Vérification…');
   try {
     const nomT = 'Visite_rapide_'+dateVal;
@@ -1800,13 +1798,14 @@ async function submitPointageLibre() {
         try {
           const ext = d.photoFile.name.split('.').pop()||'jpg';
           const path = `pl_${dateVal}/lieu${k}_${Date.now()}.${ext}`;
-          photoUrl = await uploadPhoto(d.photoFile, path);
-        } catch(e) {
-          toast('⚠️ Photo non envoyée (lieu ' + k + ') : ' + e.message);
-        }
+          const upR = await fetch(`${SUPA_URL}/storage/v1/object/photos-distribution/${path}`, {
+            method:'POST', headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':d.photoFile.type||'image/jpeg','x-upsert':'true'}, body:d.photoFile
+          });
+          if (upR.ok) photoUrl = `${SUPA_URL}/storage/v1/object/public/photos-distribution/${path}`;
+        } catch(e) {}
       }
       return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
-               quantite_flyers:d.qty??1, quantite_flyers_chateau:d.qtyChateau??1,
+               quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
                entree_gratuite:d.entree||false, statut, heure_validation:heure,
                commentaire_distributeur:comment, photo_preuve:photoUrl };
     };
