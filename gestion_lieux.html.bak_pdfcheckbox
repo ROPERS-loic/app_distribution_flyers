@@ -1085,13 +1085,13 @@ function printTourneePDF(){
   doc.setFillColor(255,247,224);
   doc.rect(0,31,W,7,'F');
   doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(140,110,20);
-  doc.text('À utiliser sur le terrain en cas de problème technique avec l\'application. Cochez le statut de chaque arrêt et notez les quantités à la main.', W/2, 35.5, {align:'center'});
+  doc.text('📋 À utiliser sur le terrain en cas de problème technique avec l\'application. Cochez le statut de chaque arrêt et notez les quantités à la main.', W/2, 35.5, {align:'center'});
 
   // ── TABLE-FORMULAIRE (à remplir à la main) ──
   const rows = stops.map(s=>{
     const l=s.lieu||{};
     const adresse=[l.adresse,l.ville].filter(Boolean).join(', ')||'—';
-    return [String(s.ordre_passage||''), l.nom||'—', adresse, '[  ] Distribué\n[  ] Fermé\n[  ] Refus\n[  ] Absent', '', '', '[  ]', '[  ]', ''];
+    return [String(s.ordre_passage||''), l.nom||'—', adresse, '☐ Distribué\n☐ Fermé\n☐ Refus\n☐ Absent', '', '', '☐', '☐', ''];
   });
 
   doc.autoTable({
@@ -1102,9 +1102,9 @@ function printTourneePDF(){
     headStyles:{ fillColor:[26,26,26], textColor:255, fontStyle:'bold', fontSize:7.5, valign:'middle' },
     columnStyles:{
       0:{cellWidth:9,halign:'center'},
-      1:{cellWidth:40},
-      2:{cellWidth:48},
-      3:{cellWidth:32},
+      1:{cellWidth:42},
+      2:{cellWidth:50},
+      3:{cellWidth:26},
       4:{cellWidth:15,halign:'center'},
       5:{cellWidth:15,halign:'center'},
       6:{cellWidth:15,halign:'center'},

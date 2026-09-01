@@ -416,7 +416,6 @@ textarea.form-input{resize:vertical;min-height:70px}
           <button class="btn btn-primary btn-sm" onclick="openAddStopModal()">+ Ajouter des lieux</button>
           <button class="btn btn-secondary btn-sm" onclick="openGmapTournee()">🗺️ Google Maps</button>
           <button class="btn btn-secondary btn-sm" onclick="printTourneePDF()">🖨️ Imprimer la tournée</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTournee(ST.currentTourneeId)">🗑 Supprimer</button>
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
           <div class="card">
@@ -967,12 +966,7 @@ async function saveTournee(){
 
 async function deleteTournee(id){
   if(!confirm('Supprimer cette tournée et tous ses points ?')) return;
-  try {
-    await sbDelete('tournees','id=eq.'+id);
-    showToast('🗑 Tournée supprimée');
-    if(ST.currentTourneeId===id) closeTourneeDetail();
-    await loadTournees();
-  }
+  try { await sbDelete('tournees','id=eq.'+id); showToast('🗑 Tournée supprimée'); await loadTournees(); }
   catch(e){ showToast('❌ '+e.message); }
 }
 
@@ -1056,7 +1050,7 @@ function printTourneePDF(){
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
   doc.setTextColor(212,160,23);
-  doc.text('FEUILLE DE ROUTE — '+(t?.nom||'').toUpperCase(),10,14);
+  doc.text('TOURNÉE — '+(t?.nom||'').toUpperCase(),10,14);
   doc.setTextColor(200,200,200);
   doc.setFontSize(8);
   doc.text('Généré le '+now, W-10, 8, {align:'right'});
@@ -1072,48 +1066,108 @@ function printTourneePDF(){
   doc.setFont('helvetica','normal'); doc.text(fmtDate(t?.date),24,metaY1);
   doc.setFont('helvetica','bold'); doc.text('Distributeur :',70,metaY1);
   doc.setFont('helvetica','normal'); doc.text(t?.distributeur?.nom||'Non assigné',95,metaY1);
-  doc.setFont('helvetica','bold'); doc.text('Arrêts :',150,metaY1);
-  doc.setFont('helvetica','normal'); doc.text(String(stops.length),165,metaY1);
+  doc.setFont('helvetica','bold'); doc.text('Statut :',150,metaY1);
+  doc.setFont('helvetica','normal'); doc.text(statutLabel(t?.statut),165,metaY1);
   doc.setFont('helvetica','bold'); doc.text('Secteur :',10,metaY2);
   doc.setFont('helvetica','normal'); doc.text(t?.secteur||'—',24,metaY2);
+  doc.setFont('helvetica','bold'); doc.text('Arrêts :',70,metaY2);
+  doc.setFont('helvetica','normal'); doc.text(String(stops.length),85,metaY2);
   if(t?.commentaire){
-    doc.setFont('helvetica','bold'); doc.text('Commentaire :',70,metaY2);
-    doc.setFont('helvetica','normal'); doc.text(String(t.commentaire).slice(0,80),95,metaY2);
+    doc.setFont('helvetica','bold'); doc.text('Commentaire :',150,metaY2);
+    doc.setFont('helvetica','normal'); doc.text(String(t.commentaire).slice(0,60),175,metaY2);
   }
 
-  // ── NOTE D'USAGE ──
-  doc.setFillColor(255,247,224);
-  doc.rect(0,31,W,7,'F');
-  doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(140,110,20);
-  doc.text('À utiliser sur le terrain en cas de problème technique avec l\'application. Cochez le statut de chaque arrêt et notez les quantités à la main.', W/2, 35.5, {align:'center'});
+  // ── SCHÉMA D'ITINÉRAIRE ──
+  const mx=10, my=35, mw=W-20, mh=62;
+  doc.setDrawColor(220,220,216);
+  doc.setFillColor(252,252,250);
+  doc.roundedRect(mx,my,mw,mh,2,2,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(120,120,120);
+  doc.text('ITINÉRAIRE (schéma — ordre de passage)', mx+3, my+5);
 
-  // ── TABLE-FORMULAIRE (à remplir à la main) ──
+  const geo = stops.filter(s=>s.lieu?.latitude&&s.lieu?.longitude);
+  const statColors = {distribue:[39,174,96],ferme:[229,57,53],refus:[232,135,10],absent:[142,36,170],a_faire:[160,160,160]};
+  if(geo.length){
+    const pad=8, bx=mx+pad, by=my+9, bw=mw-pad*2, bh=mh-13;
+    let minLat=Math.min(...geo.map(s=>+s.lieu.latitude)), maxLat=Math.max(...geo.map(s=>+s.lieu.latitude));
+    let minLon=Math.min(...geo.map(s=>+s.lieu.longitude)), maxLon=Math.max(...geo.map(s=>+s.lieu.longitude));
+    const latPad=(maxLat-minLat)*0.18||0.01, lonPad=(maxLon-minLon)*0.18||0.01;
+    minLat-=latPad; maxLat+=latPad; minLon-=lonPad; maxLon+=lonPad;
+    const meanLatRad=(minLat+maxLat)/2*Math.PI/180;
+    const latSpan=maxLat-minLat, lonSpanEff=(maxLon-minLon)*Math.cos(meanLatRad)||0.01;
+    const scale=Math.min(bw/lonSpanEff, bh/latSpan);
+    const drawnW=lonSpanEff*scale, drawnH=latSpan*scale;
+    const offX=bx+(bw-drawnW)/2, offY=by+(bh-drawnH)/2;
+    const px=lon=>offX+(lon-minLon)*Math.cos(meanLatRad)*scale;
+    const py=lat=>offY+drawnH-(lat-minLat)*scale;
+
+    // ligne reliant les arrêts dans l'ordre
+    doc.setDrawColor(180,180,178); doc.setLineWidth(0.35);
+    for(let i=0;i<geo.length-1;i++){
+      doc.line(px(+geo[i].lieu.longitude), py(+geo[i].lieu.latitude), px(+geo[i+1].lieu.longitude), py(+geo[i+1].lieu.latitude));
+    }
+    // points numérotés
+    geo.forEach(s=>{
+      const x=px(+s.lieu.longitude), y=py(+s.lieu.latitude);
+      const c=statColors[s.statut]||statColors.a_faire;
+      doc.setFillColor(c[0],c[1],c[2]);
+      doc.setDrawColor(255,255,255); doc.setLineWidth(0.4);
+      doc.circle(x,y,2.6,'FD');
+      doc.setFont('helvetica','bold'); doc.setFontSize(5.5); doc.setTextColor(255,255,255);
+      doc.text(String(s.ordre_passage||''), x, y+1.1, {align:'center'});
+    });
+    // Nord
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(140,140,140);
+    doc.text('▲ N', mx+mw-14, my+8);
+
+    // légende
+    const legend=[['distribue','Distribué'],['ferme','Fermé'],['refus','Refus'],['absent','Absent'],['a_faire','Non validé']];
+    let lx=mx+3;
+    const ly=my+mh-3.5;
+    doc.setFontSize(6.5);
+    legend.forEach(([k,lbl])=>{
+      const c=statColors[k];
+      doc.setFillColor(c[0],c[1],c[2]);
+      doc.circle(lx,ly-1,1.3,'F');
+      doc.setFont('helvetica','normal'); doc.setTextColor(90,90,90);
+      doc.text(lbl, lx+2.5, ly);
+      lx += doc.getTextWidth(lbl)+9;
+    });
+  } else {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Aucune coordonnée disponible pour ces arrêts.', mx+mw/2, my+mh/2, {align:'center'});
+  }
+
+  // ── TABLE DES ARRÊTS ──
   const rows = stops.map(s=>{
     const l=s.lieu||{};
-    const adresse=[l.adresse,l.ville].filter(Boolean).join(', ')||'—';
-    return [String(s.ordre_passage||''), l.nom||'—', adresse, '[  ] Distribué\n[  ] Fermé\n[  ] Refus\n[  ] Absent', '', '', '[  ]', '[  ]', ''];
+    const isNougat=(s.commentaire_distributeur||'').includes('[Nougat offert]');
+    const comment=(s.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
+    const qty=s.statut==='distribue' ? String(s.quantite_flyers||0) : '—';
+    const qtyCh=s.statut==='distribue' ? String(s.quantite_flyers_chateau||0) : '—';
+    const heure=s.heure_validation ? new Date(s.heure_validation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    return [String(s.ordre_passage||''), l.nom||'—', l.ville||l.adresse||'—', statutLabel(s.statut), qty, qtyCh, isNougat?'Oui':'', s.entree_gratuite?'Oui':'', heure, comment];
   });
 
   doc.autoTable({
-    startY: 42,
-    head:[['N°','Lieu','Adresse / Ville','Statut (cocher)','Flyers\nNgt','Flyers\nChât.','Nougat\noffert','Entrée\ngrat.','Commentaire']],
+    startY: my+mh+6,
+    head:[['N°','Lieu','Ville','Statut','Ngt Pkts','Cht Pkts','Ngt offert','Entr. grat.','Validé le','Commentaire']],
     body: rows,
-    styles:{ fontSize:8.5, cellPadding:3, font:'helvetica', minCellHeight:18, valign:'top' },
-    headStyles:{ fillColor:[26,26,26], textColor:255, fontStyle:'bold', fontSize:7.5, valign:'middle' },
-    columnStyles:{
-      0:{cellWidth:9,halign:'center'},
-      1:{cellWidth:40},
-      2:{cellWidth:48},
-      3:{cellWidth:32},
-      4:{cellWidth:15,halign:'center'},
-      5:{cellWidth:15,halign:'center'},
-      6:{cellWidth:15,halign:'center'},
-      7:{cellWidth:15,halign:'center'}
-    },
-    margin:{ left:10, right:10 }
+    styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica' },
+    headStyles:{ fillColor:[26,26,26], textColor:255, fontStyle:'bold', fontSize:7 },
+    columnStyles:{ 0:{cellWidth:10,halign:'center'}, 4:{cellWidth:16,halign:'center'}, 5:{cellWidth:16,halign:'center'}, 6:{cellWidth:16,halign:'center'}, 7:{cellWidth:16,halign:'center'}, 8:{cellWidth:24} },
+    margin:{ left:10, right:10 },
+    didParseCell: function(data){
+      if(data.section==='body' && data.column.index===3){
+        const raw = rows[data.row.index][3];
+        const key = Object.keys({distribue:1,ferme:1,refus:1,absent:1,a_faire:1}).find(k=>statutLabel(k)===raw);
+        const c = statColors[key];
+        if(c){ data.cell.styles.textColor = c; data.cell.styles.fontStyle='bold'; }
+      }
+    }
   });
 
-  doc.save('feuille_route_'+(t?.nom||'sans-nom').replace(/[^a-z0-9]+/gi,'_')+'_'+(t?.date||'').replace(/-/g,'')+'.pdf');
+  doc.save('tournee_'+(t?.nom||'sans-nom').replace(/[^a-z0-9]+/gi,'_')+'_'+(t?.date||'').replace(/-/g,'')+'.pdf');
 }
 
 function openAddStopModal(){ ST.addStopsSelected=new Set(); renderAddStops(); openModal('modal-add-stops'); }
