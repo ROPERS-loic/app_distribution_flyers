@@ -26,6 +26,12 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #sb-login-btn:hover{background:#d4911a}
 #sb-login-err{color:#E53935;font-size:11px;margin-top:6px;display:none}
 .hbtn:hover{filter:brightness(1.15)}
+.hbtn-dropdown{position:relative;display:inline-flex}
+.hbtn-dropdown-trigger{display:flex;align-items:center;gap:4px}
+.hbtn-dropdown-trigger .caret{font-size:9px;opacity:.75}
+.hbtn-dropdown-menu{position:absolute;top:100%;left:0;margin-top:4px;background:#3a3a3a;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,0.4);padding:6px;display:none;flex-direction:column;gap:4px;min-width:210px;z-index:3000}
+.hbtn-dropdown-menu.open{display:flex}
+.hbtn-dropdown-menu .hbtn{width:100%;text-align:left;white-space:normal}
 #btn-undo{background:#37474F;color:#fff}
 #btn-undo:disabled{opacity:.35;cursor:not-allowed;filter:none}
 #save-indicator{font-size:10px;white-space:nowrap;padding:2px 8px;border-radius:8px;border:1px solid #555;background:rgba(255,255,255,0.08);color:#aaa;cursor:default}
@@ -303,20 +309,40 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 <div id="header">
   <h1>🗺 Éditeur de lieux – Nougaterie du Pont d'Arc</h1>
   <span id="total-badge">290 lieux</span>
-  <button class="hbtn" id="btn-add" onclick="toggleAddMode()">➕ Ajouter</button>
-  <button class="hbtn" id="btn-zones" onclick="openZoneModal()">🎨 Zones</button>
-  <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
-  <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
-  <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
-<button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
-  <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
-  <button class="hbtn" id="btn-generer-import-saisons" onclick="genererFichierImportSaisons()" style="background:#455A64;color:#fff" title="Générer un fichier CSV (tous les lieux) prêt à remplir avec les dates de saison — inclut les sources déjà connues">📥 Générer fichier d'import</button>
-  <button class="hbtn" id="btn-import-lieux" onclick="document.getElementById('csv-import-input').click()" style="background:#8D6E63;color:#fff" title="Importer des lieux depuis un fichier CSV ou JSON">📂 Importer CSV</button>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('carte')" style="background:#1E88E5;color:#fff">🗺️ Carte <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-carte">
+      <button class="hbtn" id="btn-add" onclick="toggleAddMode()">➕ Ajouter</button>
+      <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
+      <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
+      <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
+    </div>
+  </div>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('affichage')" style="background:#00897B;color:#fff">🎨 Affichage <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-affichage">
+      <button class="hbtn" id="btn-zones" onclick="openZoneModal()">🎨 Zones</button>
+      <button class="hbtn" id="btn-toggle-saisons" onclick="toggleSaisonsAffichage()" style="background:#78909C;color:#fff" title="Afficher/masquer sur la carte les lieux fermés ou bientôt fermés (saison)">🔒 Saisons : OFF</button>
+    </div>
+  </div>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('import')" style="background:#455A64;color:#fff">📦 Import / Export <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-import">
+      <button class="hbtn" id="btn-generer-import-saisons" onclick="genererFichierImportSaisons()" style="background:#455A64;color:#fff" title="Générer un fichier CSV (tous les lieux) prêt à remplir avec les dates de saison — inclut les sources déjà connues">📥 Générer fichier d'import</button>
+      <button class="hbtn" id="btn-import-lieux" onclick="document.getElementById('csv-import-input').click()" style="background:#8D6E63;color:#fff" title="Importer des lieux depuis un fichier CSV ou JSON">📂 Importer CSV</button>
+      <button class="hbtn" id="btn-import-zones" onclick="document.getElementById('zones-import-input').click()" style="background:#546E7A;color:#fff" title="Synchroniser les zones de tournée depuis un fichier zones_export.json">🗂 Sync zones</button>
+      <button class="hbtn" id="btn-import-saisons" onclick="document.getElementById('saisons-import-input').click()" style="background:#2E7D32;color:#fff" title="Importer les dates d'ouverture/fermeture depuis un CSV (modèle saisons_etablissements.xlsx exporté en CSV)">🗓 Importer saisons</button>
+    </div>
+  </div>
   <input type="file" id="csv-import-input" accept=".csv,.json" style="display:none" onchange="importLieux(this)">
-  <button class="hbtn" id="btn-import-zones" onclick="document.getElementById('zones-import-input').click()" style="background:#546E7A;color:#fff" title="Synchroniser les zones de tournée depuis un fichier zones_export.json">🗂 Sync zones</button>
   <input type="file" id="zones-import-input" accept=".json" style="display:none" onchange="importZones(this)">
-  <button class="hbtn" id="btn-import-saisons" onclick="document.getElementById('saisons-import-input').click()" style="background:#2E7D32;color:#fff" title="Importer les dates d'ouverture/fermeture depuis un CSV (modèle saisons_etablissements.xlsx exporté en CSV)">🗓 Importer saisons</button>
   <input type="file" id="saisons-import-input" accept=".csv" style="display:none" onchange="importSaisons(this)">
+
+  <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
+  <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
 </div>
 
 <!-- Login Supabase -->
@@ -350,6 +376,28 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
           <option value="closed_perm">🔒 Fermés définitivement</option>
           <option value="closed_temp">⏳ Fermés temporairement</option>
         </select>
+      </div>
+      <div class="filter-row">
+        <select id="filter-mois-saison" onchange="onMoisFilterChange()" style="width:100%">
+          <option value="">🗓 Ouvert en… (tous les mois)</option>
+          <option value="1">Ouvert en janvier</option>
+          <option value="2">Ouvert en février</option>
+          <option value="3">Ouvert en mars</option>
+          <option value="4">Ouvert en avril</option>
+          <option value="5">Ouvert en mai</option>
+          <option value="6">Ouvert en juin</option>
+          <option value="7">Ouvert en juillet</option>
+          <option value="8">Ouvert en août</option>
+          <option value="9">Ouvert en septembre</option>
+          <option value="10">Ouvert en octobre</option>
+          <option value="11">Ouvert en novembre</option>
+          <option value="12">Ouvert en décembre</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#555;cursor:pointer;width:100%">
+          <input type="checkbox" id="filter-rappel-only" onchange="applyFilters()"> 🔁 "À faire" uniquement
+        </label>
       </div>
     </div>
     <div id="poi-list"></div>
@@ -388,6 +436,11 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     <div id="saison-panel" style="border-top:2px solid #8D6E63;background:#fff;flex-shrink:0;padding:9px;display:none">
       <h3 style="font-size:11px;color:#8D6E63;font-weight:bold;margin:0 0 7px">📅 Saison</h3>
       <div id="saison-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+    </div>
+    <!-- RAPPEL / A FAIRE -->
+    <div id="rappel-panel" style="border-top:2px solid #E53935;background:#fff;flex-shrink:0;padding:9px;display:none">
+      <h3 style="font-size:11px;color:#E53935;font-weight:bold;margin:0 0 7px">🔁 À faire</h3>
+      <div id="rappel-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
     </div>
     <!-- HISTORIQUE SUPABASE -->
     <div id="hist-panel" style="border-top:2px solid #1E88E5;background:#fff;flex-shrink:0;max-height:300px;overflow-y:auto;padding:9px;display:none">
@@ -435,6 +488,11 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       <h3>🗺️ Nouvelle tournée Supabase</h3>
       <button onclick="toggleTourneeMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button>
     </div>
+    <div id="tournee-search-wrap" style="padding:6px 8px;border-bottom:1px solid #eee;position:relative;flex-shrink:0">
+      <input id="tournee-search-input" type="text" placeholder="🔎 Chercher un lieu à ajouter…" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px" oninput="renderTourneeSearchResults()" onfocus="renderTourneeSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('tournee-search-results'); if(b) b.style.display='none';},150)">
+      <div id="tournee-search-results" style="position:absolute;top:100%;left:8px;right:8px;background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:1500;display:none;box-shadow:0 4px 10px rgba(0,0,0,0.15)"></div>
+    </div>
+    <button id="tf-add-all-rappels" onclick="addAllRappelsToTournee()" style="margin:6px 8px 0;padding:6px 8px;background:#E53935;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer;flex-shrink:0">🔁 Ajouter tous les lieux "à faire" visibles</button>
     <div id="tournee-list"><div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div></div>
     <div id="tournee-form">
       <div><div class="tf-label">Nom de la tournée *</div><input class="tf-input" id="tf-nom" type="text" placeholder="ex: Vallon / Ruoms"></div>
@@ -528,6 +586,17 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     <button id="visite-entree" class="btn-nougat" style="border-color:#1A73E8;color:#1A73E8" onclick="this.classList.toggle('active');this.style.background=this.classList.contains('active')?'#E8F0FE':'';this.style.color=this.classList.contains('active')?'#1A73E8':'#888'">🎟️ Entrée gratuite Château offerte</button>
     <div class="visite-row"><label>Remarque</label>
       <textarea id="visite-comment" placeholder="Optionnel..."></textarea>
+    </div>
+    <div id="visite-rappel-info" style="font-size:10px;color:#E53935;margin:2px 0 6px"></div>
+    <div class="visite-row">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="visite-rappel" onchange="document.getElementById('visite-rappel-comment-wrap').style.display=this.checked?'block':'none'">
+        🔁 Prévoir un nouveau passage
+      </label>
+    </div>
+    <div class="visite-row" id="visite-rappel-comment-wrap" style="display:none">
+      <label>Pourquoi revenir ?</label>
+      <textarea id="visite-rappel-comment" placeholder="Optionnel..."></textarea>
     </div>
     <div class="visite-btns">
       <button class="visite-btn-ok" onclick="saveVisiteRapide()">Enregistrer</button>
@@ -722,6 +791,11 @@ var _visitePoiId = null;
 var routeStops = [];
 var tourneeStops = [];
 var tourneeDistributeurs = [];
+var saisonsMap = {};
+var saisonsLoaded = false;
+var saisonsAffichage = false;
+var rappelsMap = {};
+var rappelsLoaded = false;
 var nextId     = POIS.length + 10000;
 
 // ══════════════════════════════════════════════════════════
@@ -732,6 +806,150 @@ function zoneColor(zoneName){
   var key=zoneName.split(' ')[0];
   var z=ZONES.find(function(z){ return z.id===key; });
   return z?z.color:'#999';
+}
+
+// ══════════════════════════════════════════════════════════
+//  SAISONS (dates d'ouverture/fermeture) — affichage carte
+// ══════════════════════════════════════════════════════════
+async function loadSaisonsActuelles(){
+  try{
+    var rows = await sbGet('saisons_lieux?select=lieu_id,annee,date_ouverture,date_fermeture&order=lieu_id.asc,annee.desc');
+    var map = {};
+    rows.forEach(function(r){ if(!map[r.lieu_id]) map[r.lieu_id] = r; });
+    saisonsMap = map;
+    saisonsLoaded = true;
+  } catch(e){ saisonsMap = {}; }
+}
+function saisonStatut(lieuId){
+  var s = saisonsMap[lieuId];
+  if(!s || (!s.date_ouverture && !s.date_fermeture)) return null;
+  var today = new Date().toISOString().slice(0,10);
+  if(s.date_fermeture && today > s.date_fermeture && (!s.date_ouverture || today < s.date_ouverture)) return 'ferme';
+  if(s.date_fermeture){
+    var joursAvant = (new Date(s.date_fermeture) - new Date(today)) / 86400000;
+    if(joursAvant >= 0 && joursAvant <= 30) return 'ferme_bientot';
+  }
+  return 'ouvert';
+}
+function poiSaisonRing(p){
+  if(!saisonsAffichage || !p.supabase_id) return false;
+  var st = saisonStatut(p.supabase_id);
+  return st === 'ferme' || st === 'ferme_bientot';
+}
+function matchMoisSaison(p){
+  var mois = document.getElementById('filter-mois-saison')?document.getElementById('filter-mois-saison').value:'';
+  if(!mois) return true;
+  if(!p.supabase_id) return false;
+  var s = saisonsMap[p.supabase_id];
+  if(!s || (!s.date_ouverture && !s.date_fermeture)) return false;
+  var annee = s.annee || new Date().getFullYear();
+  var mm = String(parseInt(mois,10)).padStart(2,'0');
+  var monthStart = annee + '-' + mm + '-01';
+  var monthEnd = annee + '-' + mm + '-31';
+  var ouv = s.date_ouverture || (annee + '-01-01');
+  var fer = s.date_fermeture || (annee + '-12-31');
+  return ouv <= monthEnd && fer >= monthStart;
+}
+function updateMarkersVisibility(){
+  if(!map) return;
+  POIS.forEach(function(p){
+    var m = markers[p.id]; if(!m) return;
+    var show = passesCandidateFilters(p);
+    var onMap = map.hasLayer(m);
+    if(show && !onMap) m.addTo(map);
+    if(!show && onMap) map.removeLayer(m);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  RAPPELS / A FAIRE
+// ══════════════════════════════════════════════════════════
+async function loadRappelsActuels(){
+  try{
+    var rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
+    var map2 = {};
+    rows.forEach(function(r){ if(!map2[r.lieu_id]) map2[r.lieu_id] = r; });
+    rappelsMap = map2;
+    rappelsLoaded = true;
+  } catch(e){ rappelsMap = {}; }
+}
+function poiRappelActif(p){
+  return !!(p.supabase_id && rappelsMap[p.supabase_id]);
+}
+function matchRappelFilter(p){
+  var only = document.getElementById('filter-rappel-only');
+  if(!only || !only.checked) return true;
+  return poiRappelActif(p);
+}
+function passesCandidateFilters(p){
+  return matchMoisSaison(p) && matchRappelFilter(p);
+}
+async function toggleRappelLieu(){
+  var p = POIS.find(function(p){ return p.id===selectedId; }); if(!p||!p.supabase_id) return;
+  var actif = rappelsMap[p.supabase_id];
+  if(actif){
+    if(!confirm('Marquer "'+p.nom+'" comme traité (retirer le rappel "à faire") ?')) return;
+    try{
+      await sbPatch('rappels_lieux','id=eq.'+actif.id,{statut:'traite',traite_le:new Date().toISOString()});
+      delete rappelsMap[p.supabase_id];
+      showToast('✓ Rappel traité : '+p.nom);
+    }catch(e){ showToast('❌ '+e.message); return; }
+  } else {
+    var commentaire = prompt('Commentaire (optionnel) pour ce rappel "à faire" :', '');
+    if(commentaire===null) return;
+    try{
+      var res = await sbPost('rappels_lieux',{lieu_id:p.supabase_id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire'});
+      var row = Array.isArray(res)?res[0]:res;
+      rappelsMap[p.supabase_id] = row;
+      showToast('🔁 Marqué à faire : '+p.nom);
+    }catch(e){ showToast('❌ '+e.message); return; }
+  }
+  loadRappelPanelForPoi(p);
+  refreshMarkerIcon(p.id);
+  applyFilters();
+}
+function loadRappelPanelForPoi(p){
+  var panel = document.getElementById('rappel-panel');
+  var content = document.getElementById('rappel-panel-content');
+  if(!p.supabase_id){ panel.style.display='none'; return; }
+  panel.style.display = 'block';
+  var actif = rappelsMap[p.supabase_id];
+  if(actif){
+    content.innerHTML = '<div style="font-size:11px;margin-bottom:6px"><strong>Ouvert</strong> — '
+      + (actif.origine==='terrain'?'signalé sur le terrain':actif.origine==='pointage'?'signalé au pointage':'ajouté depuis le bureau')
+      + (actif.cree_le?' le '+new Date(actif.cree_le).toLocaleDateString('fr-FR'):'')
+      + (actif.commentaire?'<br><em>'+escHtml(actif.commentaire)+'</em>':'')
+      + '</div><button class="btn-save" style="background:#546E7A;font-size:11px;padding:5px 8px" onclick="toggleRappelLieu()">✓ Marquer traité</button>';
+  } else {
+    content.innerHTML = '<div style="font-size:11px;color:#aaa;font-style:italic;margin-bottom:6px">Aucun rappel ouvert</div>'
+      + '<button class="btn-save" style="background:#E53935;font-size:11px;padding:5px 8px" onclick="toggleRappelLieu()">🔁 Marquer à faire</button>';
+  }
+}
+function addAllRappelsToTournee(){
+  var candidats = filteredPois.filter(function(p){ return poiRappelActif(p) && tourneeStops.indexOf(p.id)<0; });
+  if(!candidats.length){ showToast('⚠ Aucun lieu "à faire" à ajouter (parmi les lieux filtrés)'); return; }
+  candidats.forEach(function(p){ tourneeStops.push(p.id); });
+  POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
+  renderList(); renderTourneeList(); clearTourneeLayer();
+  document.getElementById('tournee-result').style.display = 'none';
+  showToast('✓ '+candidats.length+' lieu(x) "à faire" ajouté(s) à la tournée');
+}
+async function toggleSaisonsAffichage(){
+  saisonsAffichage = !saisonsAffichage;
+  var btn = document.getElementById('btn-toggle-saisons');
+  if(saisonsAffichage){
+    if(!saisonsLoaded){
+      btn.textContent = '⏳ Chargement…';
+      await loadSaisonsActuelles();
+    }
+    btn.textContent = '🔒 Saisons : ON';
+    btn.style.background = '#E8A020';
+    showToast('🔒 Lieux fermés / bientôt fermés affichés sur la carte');
+  } else {
+    btn.textContent = '🔒 Saisons : OFF';
+    btn.style.background = '#78909C';
+  }
+  POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
 }
 function zoneKey(zoneName){ return zoneName?zoneName.split(' ')[0]:''; }
 
@@ -760,13 +978,38 @@ var map=L.map('map').setView([44.45,4.40],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 map.on('click',function(e){ if(addMode){ createNewPoi(e.latlng.lat,e.latlng.lng); toggleAddMode(); } });
 
-function makeIcon(color,selected,routeNum,badge){
+// ══════════════════════════════════════════════════════════
+//  MENUS DÉROULANTS DE L'EN-TÊTE
+// ══════════════════════════════════════════════════════════
+function toggleHeaderDropdown(name){
+  var target = document.getElementById('dd-menu-'+name);
+  if(!target) return;
+  var wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.hbtn-dropdown-menu').forEach(function(m){ m.classList.remove('open'); });
+  if(!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.hbtn-dropdown')){
+    document.querySelectorAll('.hbtn-dropdown-menu').forEach(function(m){ m.classList.remove('open'); });
+  }
+});
+document.querySelectorAll('.hbtn-dropdown-menu').forEach(function(menu){
+  menu.addEventListener('click', function(e){
+    if(e.target.closest('button')) menu.classList.remove('open');
+  });
+});
+
+function makeIcon(color,selected,routeNum,badge,saisonRing,rappelActif){
   var sz=selected?30:22;
   var brd=selected?'3px solid #fff':'2px solid rgba(255,255,255,0.6)';
   var sh=selected?'0 0 0 3px '+color+',0 2px 6px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.3)';
   var fs=sz>24?'11':'9';
   var label=routeNum?String(routeNum):badge?badge:'';
-  var inner='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px">'+label+'</div>';
+  var ringStyle=saisonRing?'outline:2px dashed #2B2B2B;outline-offset:2px;':'';
+  var rappelDot=rappelActif?'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#E53935;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>':'';
+  var inner='<div style="position:relative;width:'+sz+'px;height:'+sz+'px">'
+    +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px;'+ringStyle+'">'+label+'</div>'
+    +rappelDot+'</div>';
   return L.divIcon({html:inner,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-sz/2],className:''});
 }
 function refreshMarkerIcon(id){
@@ -776,16 +1019,17 @@ function refreshMarkerIcon(id){
   var badge=null;
   if(tourneeStops.indexOf(id)>=0){badge='T';color='#27AE60';}
   if(pointageStops.indexOf(id)>=0){badge='P';color='#8E24AA';}
-  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge));
+  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelActif(p)));
 }
 function buildMarkers(){
   POIS.forEach(function(p){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
-    var m=L.marker([lat,lon],{draggable:true,icon:makeIcon(zoneColor(p.zone_tournee),false,null),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
+    var m=L.marker([lat,lon],{draggable:true,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelActif(p)),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
     m.on('click',function(){ tourneeMode?toggleTourneeStop(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
     m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
   });
+  updateMarkersVisibility();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -803,9 +1047,19 @@ function applyFilters(){
     return (!q||norm(p.nom+' '+p.commune).includes(q))
       &&(!zf||zoneKey(p.zone_tournee)===zf)
       &&(!tf||p.type_lieu===tf)
-      &&statOk;
+      &&statOk
+      &&passesCandidateFilters(p);
   });
   renderList();
+  updateMarkersVisibility();
+}
+async function onMoisFilterChange(){
+  var mois = document.getElementById('filter-mois-saison').value;
+  if(mois && !saisonsLoaded){
+    showToast('⏳ Chargement des saisons…');
+    await loadSaisonsActuelles();
+  }
+  applyFilters();
 }
 function renderList(){
   var list=document.getElementById('poi-list'); list.innerHTML='';
@@ -854,6 +1108,7 @@ function selectPoi(id){
   // Charger historique Supabase
   loadHistPanelForPoi(p.nom);
   loadSaisonPanelForPoi(p);
+  loadRappelPanelForPoi(p);
 }
 function saveEdit(){
   var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
@@ -890,6 +1145,7 @@ function closeEdit(){
   document.getElementById('edit-panel').classList.add('hidden');
   document.getElementById('hist-panel').style.display='none';
   document.getElementById('saison-panel').style.display='none';
+  document.getElementById('rappel-panel').style.display='none';
   document.querySelectorAll('.poi-item.selected').forEach(function(e){e.classList.remove('selected');});
 }
 
@@ -1199,6 +1455,7 @@ async function autoSyncSupabase() {
   Object.keys(markers).forEach(function(id) { map.removeLayer(markers[id]); });
   markers = {};
   document.getElementById('restore-banner').classList.add('hidden');
+  await loadRappelsActuels();
   buildMarkers(); applyFilters(); saveState();
   showToast('✅ ' + POIS.length + ' lieux chargés depuis Supabase');
 }
@@ -1606,6 +1863,12 @@ function openVisiteRapide(){
   document.getElementById('visite-comment').value='';
   document.getElementById('visite-nougat').classList.remove('active');
   document.getElementById('visite-entree').classList.remove('active');
+  document.getElementById('visite-rappel').checked=false;
+  document.getElementById('visite-rappel-comment').value='';
+  document.getElementById('visite-rappel-comment-wrap').style.display='none';
+  var rInfo=document.getElementById('visite-rappel-info');
+  var rActif=rappelsMap[p.supabase_id];
+  rInfo.innerHTML=rActif?('ℹ️ Rappel déjà ouvert : '+escHtml(rActif.commentaire||'(sans commentaire)')):'';
   document.getElementById('visite-modal').classList.add('open');
 }
 function closeVisiteModal(){
@@ -1641,6 +1904,20 @@ async function saveVisiteRapide(){
       heure_validation:new Date().toISOString(),
       commentaire_distributeur:comment||null
     }]);
+    var rappelCheck=document.getElementById('visite-rappel').checked;
+    var rappelComment=document.getElementById('visite-rappel-comment').value.trim();
+    try{
+      var existingRappel=rappelsMap[p.supabase_id];
+      if(existingRappel){
+        await sbPatch('rappels_lieux','id=eq.'+existingRappel.id,{statut:'traite',traite_le:new Date().toISOString()});
+        delete rappelsMap[p.supabase_id];
+      }
+      if(rappelCheck){
+        var rRes=await sbPost('rappels_lieux',{lieu_id:p.supabase_id,commentaire:rappelComment||null,origine:'pointage',statut:'a_faire'});
+        rappelsMap[p.supabase_id]=Array.isArray(rRes)?rRes[0]:rRes;
+      }
+      refreshMarkerIcon(p.id);
+    }catch(e2){ console.warn('rappel error', e2.message); }
     showToast('Visite enregistree : '+p.nom);
     closeVisiteModal();
     loadHistPanelForPoi(p.nom);
@@ -1817,6 +2094,38 @@ function renderTourneeList(){
       showToast('↕ Ordre mis à jour');
     });
     list.appendChild(div);
+  });
+}
+
+function renderTourneeSearchResults(){
+  var input = document.getElementById('tournee-search-input');
+  var box = document.getElementById('tournee-search-results');
+  if(!input || !box) return;
+  var q = norm(input.value.trim());
+  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  var results = POIS.filter(function(p){ return norm(p.nom+' '+p.commune).includes(q) && passesCandidateFilters(p); }).slice(0,15);
+  if(!results.length){
+    box.innerHTML = '<div style="padding:8px;font-size:12px;color:#999">Aucun résultat</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = results.map(function(p){
+    var deja = tourneeStops.indexOf(p.id) >= 0;
+    return '<div class="tournee-search-item" data-id="'+p.id+'" style="padding:6px 8px;font-size:12px;cursor:pointer;border-bottom:1px solid #f0f0f0;'+(deja?'opacity:.45':'')+'">'
+      + escHtml(p.nom) + '<span style="color:#999"> · '+escHtml(p.commune)+'</span>'
+      + (deja ? ' <span style="color:#27AE60">✓ ajouté</span>' : '')
+      + '</div>';
+  }).join('');
+  box.style.display = 'block';
+  Array.prototype.forEach.call(box.querySelectorAll('.tournee-search-item'), function(el){
+    el.addEventListener('mouseover', function(){ el.style.background = '#f5f5f5'; });
+    el.addEventListener('mouseout', function(){ el.style.background = '#fff'; });
+    el.addEventListener('mousedown', function(ev){
+      ev.preventDefault();
+      var id = parseInt(el.getAttribute('data-id'), 10);
+      toggleTourneeStop(id);
+      renderTourneeSearchResults();
+    });
   });
 }
 

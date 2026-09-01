@@ -454,6 +454,10 @@ textarea.form-input{resize:vertical;min-height:70px}
           <option value="ferme_bientot">⏳ Ferment sous 30j</option>
           <option value="sans_info">❔ Sans info saison</option>
         </select>
+        <select class="filter-select" id="map-rappel-filter" onchange="filterMap()">
+          <option value="">Tous (rappels)</option>
+          <option value="oui">🔁 "À faire" uniquement</option>
+        </select>
         <button class="btn btn-secondary btn-sm" onclick="centerMap()">📍 Recentrer</button>
         <button class="btn btn-secondary btn-sm" onclick="showSection('editeur')">✏️ Ouvrir l'éditeur →</button>
       </div>
@@ -700,7 +704,7 @@ var ST = {
   distributeurs: [],
   currentTourneeId: null, currentTourneeStops: [],
   pickerSelected: new Set(), addStopsSelected: new Set(),
-  map: null, mapMarkers: [], lastVisits: {}, saisons: {},
+  map: null, mapMarkers: [], lastVisits: {}, saisons: {}, rappels: {},
   realtimeSub: null,
   editeurLoaded: false
 };
@@ -807,7 +811,7 @@ function showSection(name){
   document.querySelectorAll('.hdr-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('section-'+name).classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
-  if(name==='carte') setTimeout(()=>ST.map&&ST.map.invalidateSize(),100);
+  if(name==='carte'){ setTimeout(()=>ST.map&&ST.map.invalidateSize(),100); Promise.all([loadSaisonsActuelles(), loadRappelsActuels()]).then(()=>{ updateMapMarkers(); renderMapAlertes(); }); }
   if(name==='suivi') renderSuivi();
   if(name==='editeur') loadEditeur();
   if(name==='distributeurs') renderDistributeursTable();
@@ -1078,6 +1082,35 @@ function saisonStatut(lieuId){
   }
   return 'ouvert';
 }
+async function loadRappelsActuels(){
+  try {
+    const rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
+    const map = {};
+    rows.forEach(r => { if (!map[r.lieu_id]) map[r.lieu_id] = r; });
+    ST.rappels = map;
+  } catch(e) { ST.rappels = {}; }
+}
+async function toggleRappelLieuFiche(id){
+  const actif = ST.rappels[id];
+  if(actif){
+    if(!confirm('Marquer ce lieu comme traité (retirer le rappel "à faire") ?')) return;
+    try{
+      await sbPatch('rappels_lieux','id=eq.'+actif.id,{statut:'traite',traite_le:new Date().toISOString()});
+      delete ST.rappels[id];
+      showToast('✓ Rappel traité');
+    } catch(e){ showToast('❌ '+e.message); return; }
+  } else {
+    const commentaire = prompt('Commentaire (optionnel) pour ce rappel "à faire" :', '');
+    if(commentaire===null) return;
+    try{
+      const res = await sbPost('rappels_lieux',{lieu_id:id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire'});
+      ST.rappels[id] = Array.isArray(res)?res[0]:res;
+      showToast('🔁 Marqué à faire');
+    } catch(e){ showToast('❌ '+e.message); return; }
+  }
+  updateMapMarkers();
+  openFicheLieu(id);
+}
 
 function getSeuilMs() {
   const weeks = parseInt(document.getElementById('map-seuil')?.value) || 4;
@@ -1088,7 +1121,7 @@ function initMap(){
   if(ST.map) return;
   ST.map=L.map('map').setView([44.4073,4.3980],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(ST.map);
-  Promise.all([loadLastVisits(), loadSaisonsActuelles()]).then(()=>{ updateMapMarkers(); renderMapAlertes(); });
+  Promise.all([loadLastVisits(), loadSaisonsActuelles(), loadRappelsActuels()]).then(()=>{ updateMapMarkers(); renderMapAlertes(); });
 }
 
 function updateMapMarkers(){
@@ -1096,11 +1129,14 @@ function updateMapMarkers(){
   ST.mapMarkers.forEach(m=>m.remove()); ST.mapMarkers=[];
   const seuilMs = getSeuilMs();
   const saisonFiltre = document.getElementById('map-saison-filter')?.value || '';
+  const rappelFiltre = document.getElementById('map-rappel-filter')?.value || '';
   ST.lieux.forEach(l=>{
     if(!l.latitude||!l.longitude) return;
     const statutSaison = saisonStatut(l.id);
     if (saisonFiltre === 'sans_info' && statutSaison !== null) return;
     if (saisonFiltre && saisonFiltre !== 'sans_info' && statutSaison !== saisonFiltre) return;
+    const rappel = ST.rappels[l.id];
+    if (rappelFiltre === 'oui' && !rappel) return;
     const color = markerColor(l.id, seuilMs);
     const v = ST.lastVisits[l.id];
     const lastStr = v
@@ -1112,14 +1148,18 @@ function updateMapMarkers(){
       ? '<br><span style="color:#E53935;font-weight:600">🔒 Fermé actuellement'+(s&&s.date_ouverture?' — réouvre le '+new Date(s.date_ouverture).toLocaleDateString('fr-FR'):'')+'</span>'
       : statutSaison==='ferme_bientot'
       ? '<br><span style="color:#E8A020;font-weight:600">⏳ Ferme le '+new Date(s.date_fermeture).toLocaleDateString('fr-FR')+'</span>'
+      : (s && (s.date_ouverture||s.date_fermeture))
+      ? '<br><span style="color:#8D6E63;font-size:11px">📅 '+(s.date_ouverture?'ouvre '+new Date(s.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'')+(s.date_ouverture&&s.date_fermeture?' · ':'')+(s.date_fermeture?'ferme '+new Date(s.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'')+'</span>'
       : '';
     const ringStyle = (statutSaison==='ferme'||statutSaison==='ferme_bientot') ? 'outline:2px dashed #2B2B2B;outline-offset:2px;' : '';
+    const rappelDot = rappel ? '<div style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#E53935;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>' : '';
+    const rappelStr = rappel ? '<br><span style="color:#E53935;font-weight:600">🔁 À faire'+(rappel.commentaire?' — '+esc(rappel.commentaire):'')+'</span>' : '';
     const icon=L.divIcon({
-      html:`<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.4);${ringStyle}"></div>`,
+      html:`<div style="position:relative;width:14px;height:14px"><div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.4);${ringStyle}"></div>${rappelDot}</div>`,
       iconSize:[14,14],iconAnchor:[7,7],className:''
     });
     const m=L.marker([l.latitude,l.longitude],{icon})
-      .bindPopup(`<strong>${l.nom}</strong><br><span style="color:#666;font-size:11px">${l.categorie||''}${l.ville?' · '+l.ville:''}</span><br><span style="font-size:11px">${lastStr}</span>${saisonStr}`)
+      .bindPopup(`<strong>${l.nom}</strong><br><span style="color:#666;font-size:11px">${l.categorie||''}${l.ville?' · '+l.ville:''}</span><br><span style="font-size:11px">${lastStr}</span>${saisonStr}${rappelStr}`)
       .addTo(ST.map);
     ST.mapMarkers.push(m);
   });
@@ -1275,6 +1315,9 @@ async function openFicheLieu(id) {
   const yr = new Date().getFullYear();
   const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${id}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
   const saisons = await sbGet(`saisons_lieux?select=annee,date_ouverture,date_fermeture,commentaire,source&lieu_id=eq.${id}&order=annee.desc`).catch(()=>[]);
+  const rappelRows = await sbGet(`rappels_lieux?select=id,commentaire,origine,cree_le&lieu_id=eq.${id}&statut=eq.a_faire&order=cree_le.desc&limit=1`).catch(()=>[]);
+  const rappelActif = rappelRows && rappelRows[0];
+  ST.rappels[id] = rappelActif || undefined;
   const annee = all.filter(p=>p.heure_validation&&p.heure_validation.startsWith(yr));
   const flyAn  = annee.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const flyAll = all.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
@@ -1295,6 +1338,8 @@ async function openFicheLieu(id) {
         ${l.email?`<div style="font-size:13px;margin-bottom:4px">✉️ <a href="mailto:${l.email}">${esc(l.email)}</a></div>`:''}
         ${l.zone_tournee?`<div style="font-size:13px;margin-bottom:4px">🗂 Zone : ${esc(l.zone_tournee)}</div>`:''}
         ${saisons.length?`<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px">📅 Saison</div>${saisons.map(s=>`<div style="font-size:12px;margin-bottom:2px"><strong>${s.annee}</strong> — ${s.date_ouverture?'ouvre '+new Date(s.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${s.date_ouverture&&s.date_fermeture?' · ':''}${s.date_fermeture?'ferme '+new Date(s.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${!s.date_ouverture&&!s.date_fermeture?'—':''}${s.commentaire?' · '+esc(s.commentaire):''}</div>`).join('')}`:''}
+        <div style="font-size:11px;font-weight:700;color:#E53935;text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px">🔁 À faire</div>
+        ${rappelActif?`<div style="font-size:12px;margin-bottom:4px">${rappelActif.commentaire?esc(rappelActif.commentaire):'<em>(sans commentaire)</em>'}<br><span style="color:var(--grey);font-size:11px">${rappelActif.origine==='terrain'?'signalé sur le terrain':rappelActif.origine==='pointage'?'signalé au pointage':'ajouté depuis le bureau'} le ${new Date(rappelActif.cree_le).toLocaleDateString('fr-FR')}</span><br><button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="toggleRappelLieuFiche(${id})">✓ Marquer traité</button></div>`:`<button class="btn btn-secondary btn-sm" style="margin-bottom:4px" onclick="toggleRappelLieuFiche(${id})">🔁 Marquer à faire</button>`}
         ${l.source_horaires?`<div style="font-size:12px;margin-top:4px">🔗 ${/^https?:\/\//.test(l.source_horaires)?`<a href="${esc(l.source_horaires)}" target="_blank">${esc(l.source_horaires)}</a>`:esc(l.source_horaires)}</div>`:''}
         ${l.notes?`<div style="font-size:12px;color:var(--grey);margin-top:6px">${esc(l.notes)}</div>`:''}
         ${gm?`<a href="${gm}" target="_blank" class="btn btn-secondary btn-sm" style="margin-top:8px;display:inline-flex">🗺️ Voir sur Maps</a>`:''}

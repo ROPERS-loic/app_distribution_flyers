@@ -444,6 +444,15 @@ textarea.form-input{resize:vertical;min-height:60px}
             <div style="padding:0 16px">
               <textarea id="pl-sheet-comment" placeholder="Optionnel..."></textarea>
             </div>
+            <div style="padding:0 16px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="pl-sheet-rappel" onchange="document.getElementById('pl-sheet-rappel-comment-wrap').style.display=this.checked?'block':'none'">
+                🔁 Prévoir un nouveau passage
+              </label>
+              <div id="pl-sheet-rappel-comment-wrap" style="display:none;margin-top:6px">
+                <textarea id="pl-sheet-rappel-comment" placeholder="Pourquoi revenir ? (optionnel)"></textarea>
+              </div>
+            </div>
             <div class="pl-sheet-label">Photo</div>
             <div style="padding:0 16px 16px">
               <input type="file" id="pl-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePLPhoto(this)">
@@ -593,6 +602,7 @@ async function syncOfflineQueue() {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
       else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
+      else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine);
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -618,6 +628,10 @@ async function syncPointageLibreItem(item) {
              heure_validation:heure, commentaire_distributeur:comment };
   });
   await sbPost('points_tournee', points);
+  await Promise.all(Object.keys(plSelectedData).map(async (k) => {
+    const d = plSelectedData[k] || {};
+    try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
+  }));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -957,6 +971,7 @@ function openValidation(pointId) {
     flyers: p.quantite_flyers||0,
     commentaire: p.commentaire_distributeur||'',
     dateOuverture: '', dateFermeture: '',
+    rappel: false, rappelComment: '',
     photoB64: null, photoFile: null
   };
   navTo('validation');
@@ -1032,6 +1047,14 @@ function renderValidation() {
       </div>
 
       <div class="form-group">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="rappel-input" ${f.rappel?'checked':''} onchange="ST.form.rappel=this.checked;renderValidation()">
+          🔁 Prévoir un nouveau passage
+        </label>
+        ${f.rappel?`<textarea class="form-input" id="rappel-comment-input" rows="2" placeholder="Pourquoi revenir ? (optionnel)" style="margin-top:6px" oninput="ST.form.rappelComment=this.value">${esc(f.rappelComment||'')}</textarea>`:''}
+      </div>
+
+      <div class="form-group">
         <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍬 Nougat dégustation offert</button>
         <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>
         <label class="form-label">Commentaire (optionnel)</label>
@@ -1087,6 +1110,20 @@ async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture) {
   const existing = await sbGet(`saisons_lieux?select=id&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
   if (existing && existing[0]) { await sbPatch('saisons_lieux', 'id=eq.'+existing[0].id, payload); }
   else { await sbPost('saisons_lieux', payload); }
+}
+
+// ════════════════════════════════════════════
+//  RAPPELS / A FAIRE
+// ════════════════════════════════════════════
+async function applyRappelUpdate(lieuId, wantOpen, commentaire, origine) {
+  if (!lieuId) return;
+  const existing = await sbGet(`rappels_lieux?select=id&lieu_id=eq.${lieuId}&statut=eq.a_faire&limit=1`);
+  if (existing && existing[0]) {
+    await sbPatch('rappels_lieux', 'id=eq.'+existing[0].id, {statut:'traite', traite_le:new Date().toISOString(), traite_par: ST.user?.id||null});
+  }
+  if (wantOpen) {
+    await sbPost('rappels_lieux', {lieu_id: lieuId, commentaire: commentaire||null, origine, statut:'a_faire', cree_par: ST.user?.id||null});
+  }
 }
 
 function handlePLPhoto(input) {
@@ -1153,14 +1190,24 @@ async function submitValidation() {
     }
   }
 
+  const lieuIdRappel = ST.activePoints.find(x=>x.id===ST.form.pointId)?.lieux?.id;
+
   if (ST.form.dateOuverture || ST.form.dateFermeture) {
-    const lieuIdSaison = ST.activePoints.find(x=>x.id===ST.form.pointId)?.lieux?.id;
-    if (lieuIdSaison) {
-      try { await saveSaisonLieu(lieuIdSaison, ST.form.dateOuverture||null, ST.form.dateFermeture||null); }
+    if (lieuIdRappel) {
+      try { await saveSaisonLieu(lieuIdRappel, ST.form.dateOuverture||null, ST.form.dateFermeture||null); }
       catch(e) {
         if (!navigator.onLine || e instanceof TypeError) {
-          addToOfflineQueue({ type:'saison', lieuId:lieuIdSaison, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null });
+          addToOfflineQueue({ type:'saison', lieuId:lieuIdRappel, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null });
         }
+      }
+    }
+  }
+
+  if (lieuIdRappel) {
+    try { await applyRappelUpdate(lieuIdRappel, ST.form.rappel, ST.form.rappelComment||null, 'terrain'); }
+    catch(e) {
+      if (!navigator.onLine || e instanceof TypeError) {
+        addToOfflineQueue({ type:'rappel', lieuId:lieuIdRappel, wantOpen:ST.form.rappel, commentaire:ST.form.rappelComment||null, origine:'terrain' });
       }
     }
   }
@@ -1486,6 +1533,9 @@ function openPLSheet(k) {
   prev.nougat ? nBtn.classList.add('active') : nBtn.classList.remove('active');
   prev.entree ? eBtn.classList.add('active') : eBtn.classList.remove('active');
   document.getElementById('pl-sheet-comment').value = prev.comment||'';
+  document.getElementById('pl-sheet-rappel').checked = !!prev.rappel;
+  document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
+  document.getElementById('pl-sheet-rappel-comment-wrap').style.display = prev.rappel?'block':'none';
   // Photo
   const photoInput = document.getElementById('pl-photo-input');
   const photoPrev  = document.getElementById('pl-photo-preview');
@@ -1523,10 +1573,12 @@ function validatePLSheet() {
   const nougat = document.getElementById('pl-sheet-nougat').classList.contains('active');
   const entree = document.getElementById('pl-sheet-entree').classList.contains('active');
   const comment = document.getElementById('pl-sheet-comment').value.trim();
+  const rappel = document.getElementById('pl-sheet-rappel').checked;
+  const rappelComment = document.getElementById('pl-sheet-rappel-comment').value.trim();
   const photoInput2 = document.getElementById('pl-photo-input');
   const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
-  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, photoFile, photoB64: photoFile ? photoB64 : null };
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, photoFile, photoB64: photoFile ? photoB64 : null };
   const btn = document.getElementById('pladd-'+k);
   if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
   closePLSheet();
@@ -1631,6 +1683,11 @@ async function submitPointageLibre() {
         await sbPatch('points_tournee', 'id=eq.'+dupMap[parseInt(k)], upd);
       }));
     }
+
+    await Promise.all([...keysToPost, ...keysToPatch].map(async (k) => {
+      const d = plSelected[k] || {};
+      try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
+    }));
 
     const total = keysToPost.length + keysToPatch.length;
     if (total > 0) toast(total+' visite'+(total>1?'s':'')+' enregistrée'+(total>1?'s':'')+' ✓');
