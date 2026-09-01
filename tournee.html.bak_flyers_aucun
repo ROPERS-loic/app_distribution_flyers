@@ -1094,10 +1094,9 @@ function renderValidation() {
 
       <div class="form-group" id="flyers-group" style="display:${(!isLivraisonOnly && f.statut==='distribue')?'block':'none'}">
         <label class="form-label">🍬 Paquets Nougaterie</label>
-        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseFloat(this.value)||0">
-          <option value="0" ${!f.flyers?'selected':''}>Aucun</option>
+        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseFloat(this.value)||1">
           <option value="0.5" ${f.flyers===0.5?'selected':''}>½ paquet</option>
-          <option value="1" ${f.flyers===1?'selected':''}>1 paquet</option>
+          <option value="1" ${!f.flyers||f.flyers===1?'selected':''}>1 paquet</option>
           <option value="2" ${f.flyers===2?'selected':''}>2 paquets</option>
           <option value="3" ${f.flyers===3?'selected':''}>3 paquets</option>
           <option value="4" ${f.flyers>=4?'selected':''}>4 paquets</option>
