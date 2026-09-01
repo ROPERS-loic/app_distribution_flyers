@@ -2322,11 +2322,6 @@ async function saveTourneeSupabase(){
   var secteur = document.getElementById('tf-secteur').value.trim();
   var comment = document.getElementById('tf-comment').value.trim();
 
-  var departVal = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
-  var arriveeVal = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
-  var departId = departVal ? parseInt(departVal,10) : null;
-  var arriveeId = arriveeVal ? parseInt(arriveeVal,10) : null;
-
   showToast('⏳ Création en cours…');
 
   // Creer la tournee
@@ -2339,8 +2334,7 @@ async function saveTourneeSupabase(){
   var points = [];
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
-    var isDepartArrivee = (departId!==null && poiId===departId) || (arriveeId!==null && poiId===arriveeId);
-    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: isDepartArrivee?0:qty, statut: 'a_faire' });
+    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: qty, statut: 'a_faire' });
   });
   var noMatch = tourneeStops.length - points.length;
 

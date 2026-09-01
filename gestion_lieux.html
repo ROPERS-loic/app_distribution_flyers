@@ -1111,6 +1111,41 @@ async function toggleRappelLieuFiche(id){
   updateMapMarkers();
   openFicheLieu(id);
 }
+async function deleteRappelLieuFiche(id){
+  const actif = ST.rappels[id]; if(!actif) return;
+  if(!confirm('Retirer ce rappel "à faire" (erreur de saisie) ? Cette action est définitive.')) return;
+  try{
+    await sbDelete('rappels_lieux','id=eq.'+actif.id);
+    delete ST.rappels[id];
+    showToast('🗑 Rappel retiré');
+  } catch(e){ showToast('❌ '+e.message); return; }
+  updateMapMarkers();
+  openFicheLieu(id);
+}
+async function saveSaisonManuelleFiche(id){
+  const annee = parseInt(document.getElementById('fiche-saison-annee').value,10);
+  if(!annee){ showToast('⚠ Année invalide'); return; }
+  const dateOuverture = document.getElementById('fiche-saison-ouverture').value || null;
+  const dateFermeture = document.getElementById('fiche-saison-fermeture').value || null;
+  const commentaire = document.getElementById('fiche-saison-commentaire').value.trim() || null;
+  if(!dateOuverture && !dateFermeture){ showToast('⚠ Renseigne au moins une date'); return; }
+  try{
+    const existing = await sbGet('saisons_lieux?select=id&lieu_id=eq.'+id+'&annee=eq.'+annee+'&limit=1');
+    const payload = {
+      lieu_id: id, annee,
+      date_ouverture: dateOuverture, date_fermeture: dateFermeture,
+      commentaire, source: 'admin',
+      maj_par: ST.user?.id || null,
+      maj_le: new Date().toISOString()
+    };
+    if(existing && existing[0]) await sbPatch('saisons_lieux','id=eq.'+existing[0].id,payload);
+    else await sbPost('saisons_lieux',payload);
+    showToast('✓ Saison '+annee+' enregistrée');
+    await loadSaisonsActuelles();
+    updateMapMarkers();
+    openFicheLieu(id);
+  } catch(e){ showToast('❌ '+e.message); }
+}
 
 function getSeuilMs() {
   const weeks = parseInt(document.getElementById('map-seuil')?.value) || 4;
@@ -1318,6 +1353,8 @@ async function openFicheLieu(id) {
   const rappelRows = await sbGet(`rappels_lieux?select=id,commentaire,origine,cree_le&lieu_id=eq.${id}&statut=eq.a_faire&order=cree_le.desc&limit=1`).catch(()=>[]);
   const rappelActif = rappelRows && rappelRows[0];
   ST.rappels[id] = rappelActif || undefined;
+  const anneeSaisonCourante = new Date().getFullYear();
+  const saisonCourante = saisons.find(s => s.annee === anneeSaisonCourante);
   const annee = all.filter(p=>p.heure_validation&&p.heure_validation.startsWith(yr));
   const flyAn  = annee.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const flyAll = all.filter(p=>p.statut==='distribue').reduce((s,p)=>s+(p.quantite_flyers||0),0);
@@ -1338,8 +1375,15 @@ async function openFicheLieu(id) {
         ${l.email?`<div style="font-size:13px;margin-bottom:4px">✉️ <a href="mailto:${l.email}">${esc(l.email)}</a></div>`:''}
         ${l.zone_tournee?`<div style="font-size:13px;margin-bottom:4px">🗂 Zone : ${esc(l.zone_tournee)}</div>`:''}
         ${saisons.length?`<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px">📅 Saison</div>${saisons.map(s=>`<div style="font-size:12px;margin-bottom:2px"><strong>${s.annee}</strong> — ${s.date_ouverture?'ouvre '+new Date(s.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${s.date_ouverture&&s.date_fermeture?' · ':''}${s.date_fermeture?'ferme '+new Date(s.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${!s.date_ouverture&&!s.date_fermeture?'—':''}${s.commentaire?' · '+esc(s.commentaire):''}</div>`).join('')}`:''}
+        <div style="display:flex;gap:5px;margin:6px 0 5px">
+          <div style="width:56px"><label style="font-size:9px;color:var(--grey)">Année</label><input id="fiche-saison-annee" type="number" value="${saisonCourante?saisonCourante.annee:anneeSaisonCourante}" style="width:100%;box-sizing:border-box;font-size:11px;padding:3px"></div>
+          <div style="flex:1"><label style="font-size:9px;color:var(--grey)">Ouverture</label><input id="fiche-saison-ouverture" type="date" value="${saisonCourante&&saisonCourante.date_ouverture?saisonCourante.date_ouverture:''}" style="width:100%;box-sizing:border-box;font-size:11px;padding:3px"></div>
+          <div style="flex:1"><label style="font-size:9px;color:var(--grey)">Fermeture</label><input id="fiche-saison-fermeture" type="date" value="${saisonCourante&&saisonCourante.date_fermeture?saisonCourante.date_fermeture:''}" style="width:100%;box-sizing:border-box;font-size:11px;padding:3px"></div>
+        </div>
+        <input id="fiche-saison-commentaire" type="text" placeholder="Commentaire (optionnel)" value="${saisonCourante&&saisonCourante.commentaire?esc(saisonCourante.commentaire):''}" style="width:100%;box-sizing:border-box;font-size:11px;padding:3px;margin-bottom:5px">
+        <button class="btn btn-secondary btn-sm" style="margin-bottom:6px" onclick="saveSaisonManuelleFiche(${id})">💾 Enregistrer la saison</button>
         <div style="font-size:11px;font-weight:700;color:#E53935;text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px">🔁 À faire</div>
-        ${rappelActif?`<div style="font-size:12px;margin-bottom:4px">${rappelActif.commentaire?esc(rappelActif.commentaire):'<em>(sans commentaire)</em>'}<br><span style="color:var(--grey);font-size:11px">${rappelActif.origine==='terrain'?'signalé sur le terrain':rappelActif.origine==='pointage'?'signalé au pointage':'ajouté depuis le bureau'} le ${new Date(rappelActif.cree_le).toLocaleDateString('fr-FR')}</span><br><button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="toggleRappelLieuFiche(${id})">✓ Marquer traité</button></div>`:`<button class="btn btn-secondary btn-sm" style="margin-bottom:4px" onclick="toggleRappelLieuFiche(${id})">🔁 Marquer à faire</button>`}
+        ${rappelActif?`<div style="font-size:12px;margin-bottom:4px">${rappelActif.commentaire?esc(rappelActif.commentaire):'<em>(sans commentaire)</em>'}<br><span style="color:var(--grey);font-size:11px">${rappelActif.origine==='terrain'?'signalé sur le terrain':rappelActif.origine==='pointage'?'signalé au pointage':'ajouté depuis le bureau'} le ${new Date(rappelActif.cree_le).toLocaleDateString('fr-FR')}</span><br><div style="display:flex;gap:5px;margin-top:4px"><button class="btn btn-secondary btn-sm" onclick="toggleRappelLieuFiche(${id})">✓ Marquer traité</button><button class="btn btn-secondary btn-sm" onclick="deleteRappelLieuFiche(${id})">🗑 Retirer</button></div></div>`:`<button class="btn btn-secondary btn-sm" style="margin-bottom:4px" onclick="toggleRappelLieuFiche(${id})">🔁 Marquer à faire</button>`}
         ${l.source_horaires?`<div style="font-size:12px;margin-top:4px">🔗 ${/^https?:\/\//.test(l.source_horaires)?`<a href="${esc(l.source_horaires)}" target="_blank">${esc(l.source_horaires)}</a>`:esc(l.source_horaires)}</div>`:''}
         ${l.notes?`<div style="font-size:12px;color:var(--grey);margin-top:6px">${esc(l.notes)}</div>`:''}
         ${gm?`<a href="${gm}" target="_blank" class="btn btn-secondary btn-sm" style="margin-top:8px;display:inline-flex">🗺️ Voir sur Maps</a>`:''}

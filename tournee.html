@@ -453,6 +453,17 @@ textarea.form-input{resize:vertical;min-height:60px}
                 <textarea id="pl-sheet-rappel-comment" placeholder="Pourquoi revenir ? (optionnel)"></textarea>
               </div>
             </div>
+            <div class="pl-sheet-label">📅 Infos saison (optionnel)</div>
+            <div style="padding:0 16px;display:flex;gap:8px">
+              <div style="flex:1">
+                <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
+                <input type="date" class="form-input" id="pl-sheet-date-fermeture">
+              </div>
+              <div style="flex:1">
+                <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
+                <input type="date" class="form-input" id="pl-sheet-date-ouverture">
+              </div>
+            </div>
             <div class="pl-sheet-label">Photo</div>
             <div style="padding:0 16px 16px">
               <input type="file" id="pl-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePLPhoto(this)">
@@ -631,6 +642,9 @@ async function syncPointageLibreItem(item) {
   await Promise.all(Object.keys(plSelectedData).map(async (k) => {
     const d = plSelectedData[k] || {};
     try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
+    if (d.dateOuverture || d.dateFermeture) {
+      try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
+    }
   }));
 }
 
@@ -1095,6 +1109,18 @@ async function loadSaisonInfo(lieuId) {
     }
   } catch(e) {}
 }
+async function loadSaisonInfoForPL(lieuId, k) {
+  try {
+    const annee = new Date().getFullYear();
+    const rows = await sbGet(`saisons_lieux?select=id,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+    if (rows && rows[0] && plSheetK === k) {
+      const oi = document.getElementById('pl-sheet-date-ouverture');
+      const fi = document.getElementById('pl-sheet-date-fermeture');
+      if (oi && !oi.value) oi.value = rows[0].date_ouverture || '';
+      if (fi && !fi.value) fi.value = rows[0].date_fermeture || '';
+    }
+  } catch(e) {}
+}
 
 async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture) {
   if (!lieuId) return;
@@ -1536,6 +1562,9 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-rappel').checked = !!prev.rappel;
   document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
   document.getElementById('pl-sheet-rappel-comment-wrap').style.display = prev.rappel?'block':'none';
+  document.getElementById('pl-sheet-date-fermeture').value = prev.dateFermeture||'';
+  document.getElementById('pl-sheet-date-ouverture').value = prev.dateOuverture||'';
+  if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
   // Photo
   const photoInput = document.getElementById('pl-photo-input');
   const photoPrev  = document.getElementById('pl-photo-preview');
@@ -1575,10 +1604,12 @@ function validatePLSheet() {
   const comment = document.getElementById('pl-sheet-comment').value.trim();
   const rappel = document.getElementById('pl-sheet-rappel').checked;
   const rappelComment = document.getElementById('pl-sheet-rappel-comment').value.trim();
+  const dateFermeture = document.getElementById('pl-sheet-date-fermeture').value || '';
+  const dateOuverture = document.getElementById('pl-sheet-date-ouverture').value || '';
   const photoInput2 = document.getElementById('pl-photo-input');
   const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
-  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, photoFile, photoB64: photoFile ? photoB64 : null };
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, dateFermeture, dateOuverture, photoFile, photoB64: photoFile ? photoB64 : null };
   const btn = document.getElementById('pladd-'+k);
   if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
   closePLSheet();
@@ -1687,6 +1718,9 @@ async function submitPointageLibre() {
     await Promise.all([...keysToPost, ...keysToPatch].map(async (k) => {
       const d = plSelected[k] || {};
       try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
+      if (d.dateOuverture || d.dateFermeture) {
+        try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
+      }
     }));
 
     const total = keysToPost.length + keysToPatch.length;
