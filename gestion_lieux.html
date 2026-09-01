@@ -979,7 +979,7 @@ async function deleteTournee(id){
 async function openTourneeDetail(id){
   ST.currentTourneeId=id;
   try {
-    const data=await sbGet(`points_tournee?select=*,lieu:lieux(nom,adresse,ville,categorie,latitude,longitude)&tournee_id=eq.${id}&order=ordre_passage.asc`);
+    const data=await sbGet(`points_tournee?select=*,lieu:lieux(nom,adresse,ville,categorie,latitude,longitude),commandes_livraison(*)&tournee_id=eq.${id}&order=ordre_passage.asc`);
     ST.currentTourneeStops=data||[];
   } catch(e){ showToast('❌ '+e.message); return; }
   const t=ST.tournees.find(x=>x.id===id);
@@ -988,7 +988,13 @@ async function openTourneeDetail(id){
   document.getElementById('detail-badge').textContent=statutLabel(t?.statut);
   document.getElementById('detail-infos').innerHTML=`
     <div style="font-size:12px"><strong>Date :</strong> ${fmtDate(t?.date)}</div>
-    <div style="font-size:12px"><strong>Distributeur :</strong> ${esc(t?.distributeur?.nom||'Non assigné')}</div>
+    <div style="font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <strong>Distributeur :</strong>
+      <select style="font-size:12px;padding:2px 4px;border-radius:4px;border:1px solid #ddd" onchange="reassignTourneeDistributeur(this.value)">
+        <option value="">— Non assigné —</option>
+        ${ST.distributeurs.map(d=>`<option value="${d.id}" ${t?.distributeur_id===d.id?'selected':''}>${esc(d.nom)}</option>`).join('')}
+      </select>
+    </div>
     <div style="font-size:12px"><strong>Secteur :</strong> ${esc(t?.secteur||'—')}</div>
     <div style="font-size:12px"><strong>Commentaire :</strong> ${esc(t?.commentaire||'—')}</div>`;
   renderDetailStops();
@@ -1003,14 +1009,102 @@ function renderDetailStops(){
   document.getElementById('detail-prog-text').textContent=done+'/'+stops.length+' validés';
   document.getElementById('detail-stops-list').innerHTML=stops.length===0
     ?'<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun arrêt</div>'
-    :stops.map(s=>`
-      <div class="stop-list-item">
-        <div class="stop-ord">${s.ordre_passage}</div>
-        <div class="stop-info"><div class="stop-nom">${esc(s.lieu?.nom||'?')}</div><div class="stop-addr">${esc(s.lieu?.ville||s.lieu?.adresse||'')}</div></div>
-        <span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>
-        <span class="badge b-${s.statut}">${statutLabel(s.statut)}</span>
+    :stops.map((s,idx)=>{
+      const isLivraisonOnly = s.type_arret==='livraison';
+      const cmd = s.commandes_livraison&&s.commandes_livraison[0];
+      const hasCommande = !!cmd;
+      const desc = (cmd&&cmd.description)||'';
+      const livDone = cmd && cmd.statut==='livree';
+      const livLbl = {a_faire:'À livrer',distribue:'Livré',absent:'Non livré',ferme:'Non livré',refus:'Non livré'}[s.statut]||s.statut;
+      const canEdit = s.statut==='a_faire';
+      return `
+      <div class="stop-list-item"${(isLivraisonOnly||hasCommande)?' style="background:#FBF3E7"':''}>
+        <div class="stop-ord"${isLivraisonOnly?' style="background:#C87F0A;color:#fff"':''}>${isLivraisonOnly?'📦':s.ordre_passage}</div>
+        <div class="stop-info"><div class="stop-nom">${esc(s.lieu?.nom||'?')}</div>
+          ${isLivraisonOnly
+            ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(desc||'Livraison')}</div>`
+            : `<div class="stop-addr">${esc(s.lieu?.ville||s.lieu?.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(desc||'Livraison')}${livDone?' ✓':''}</div>`:''}`}
+        </div>
+        ${isLivraisonOnly?'':`<span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>`}
+        <span class="badge b-${s.statut}">${isLivraisonOnly?livLbl:statutLabel(s.statut)}</span>
         ${s.heure_validation?`<span style="font-size:10px;color:var(--grey)">${new Date(s.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
-      </div>`).join('');
+        <span style="display:flex;flex-direction:column;gap:1px;margin-left:2px">
+          <span style="cursor:${idx>0?'pointer':'default'};font-size:9px;color:${idx>0?'var(--grey)':'#ddd'};line-height:1" onclick="${idx>0?'moveStopUp('+s.id+')':''}" title="Monter">▲</span>
+          <span style="cursor:${idx<stops.length-1?'pointer':'default'};font-size:9px;color:${idx<stops.length-1?'var(--grey)':'#ddd'};line-height:1" onclick="${idx<stops.length-1?'moveStopDown('+s.id+')':''}" title="Descendre">▼</span>
+        </span>
+        ${(!isLivraisonOnly && canEdit)?`<span style="cursor:pointer;font-size:13px;margin-left:2px" onclick="editStopQty(${s.id})" title="Modifier la quantité de flyers">✏️</span>`:''}
+        ${!isLivraisonOnly?`<span style="cursor:pointer;font-size:13px;margin-left:2px;opacity:${hasCommande?1:0.35}" onclick="toggleStopLivraison(${s.id})" title="${hasCommande?'Retirer la livraison':'Ajouter une livraison sur cet arrêt'}">📦</span>`:''}
+        ${canEdit?`<span style="cursor:pointer;font-size:14px;color:#E53935;margin-left:2px" onclick="removeDetailStop(${s.id})" title="Retirer cet arrêt">✕</span>`:''}
+      </div>`;
+    }).join('');
+}
+
+async function moveStopUp(pointId){
+  const stops = ST.currentTourneeStops;
+  const idx = stops.findIndex(s=>s.id===pointId);
+  if(idx<=0) return;
+  const a = stops[idx], b = stops[idx-1];
+  try {
+    await sbPatch('points_tournee','id=eq.'+a.id,{ordre_passage:b.ordre_passage});
+    await sbPatch('points_tournee','id=eq.'+b.id,{ordre_passage:a.ordre_passage});
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
+}
+async function moveStopDown(pointId){
+  const stops = ST.currentTourneeStops;
+  const idx = stops.findIndex(s=>s.id===pointId);
+  if(idx<0 || idx>=stops.length-1) return;
+  const a = stops[idx], b = stops[idx+1];
+  try {
+    await sbPatch('points_tournee','id=eq.'+a.id,{ordre_passage:b.ordre_passage});
+    await sbPatch('points_tournee','id=eq.'+b.id,{ordre_passage:a.ordre_passage});
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
+}
+async function editStopQty(pointId){
+  const s = ST.currentTourneeStops.find(x=>x.id===pointId); if(!s) return;
+  const val = prompt('Quantité de flyers prévue pour ce lieu :', s.quantite_flyers);
+  if(val===null) return;
+  const qty = parseFloat(val);
+  if(isNaN(qty) || qty<0){ showToast('⚠ Valeur invalide'); return; }
+  try {
+    await sbPatch('points_tournee','id=eq.'+pointId,{quantite_flyers:qty});
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
+}
+async function removeDetailStop(pointId){
+  if(!confirm('Retirer cet arrêt de la tournée ?')) return;
+  try {
+    await sbDelete('points_tournee','id=eq.'+pointId);
+    showToast('✕ Arrêt retiré');
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
+}
+async function toggleStopLivraison(pointId){
+  const s = ST.currentTourneeStops.find(x=>x.id===pointId); if(!s) return;
+  const cmd = s.commandes_livraison && s.commandes_livraison[0];
+  try {
+    if(cmd){
+      if(!confirm('Retirer la livraison de cet arrêt ?')) return;
+      await sbDelete('commandes_livraison','id=eq.'+cmd.id);
+    } else {
+      const desc = prompt('Que faut-il livrer à ce lieu ?','');
+      if(desc===null) return;
+      await sbPost('commandes_livraison',{
+        lieu_id: s.lieu_id, tournee_id: ST.currentTourneeId, point_tournee_id: pointId,
+        description: desc.trim(), statut:'a_livrer', cree_par: ST.user?.id||null
+      });
+    }
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
+}
+async function reassignTourneeDistributeur(newId){
+  try {
+    await sbPatch('tournees','id=eq.'+ST.currentTourneeId,{distributeur_id: newId||null});
+    showToast('✅ Distributeur mis à jour');
+    await loadTournees();
+    await openTourneeDetail(ST.currentTourneeId);
+  } catch(e){ showToast('❌ '+e.message); }
 }
 
 function closeTourneeDetail(){
@@ -1090,8 +1184,17 @@ function printTourneePDF(){
   // ── TABLE-FORMULAIRE (à remplir à la main) ──
   const rows = stops.map(s=>{
     const l=s.lieu||{};
+    const isLivraisonOnly = s.type_arret==='livraison';
+    const cmd = s.commandes_livraison&&s.commandes_livraison[0];
+    const hasCommande = !!cmd;
     const adresse=[l.adresse,l.ville].filter(Boolean).join(', ')||'—';
-    return [String(s.ordre_passage||''), l.nom||'—', adresse, '[  ] Distribué\n[  ] Fermé\n[  ] Refus\n[  ] Absent', '', '', '[  ]', '[  ]', ''];
+    const desc = (cmd&&cmd.description)||'';
+    let lieuCell = l.nom||'—';
+    if(isLivraisonOnly) lieuCell += '\n[LIVRAISON] '+(desc||'à préciser');
+    else if(hasCommande) lieuCell += '\n[LIVRAISON] '+(desc||'à préciser')+'\n[  ] Livré   [  ] Non livré';
+    const statutCell = isLivraisonOnly ? '[  ] Livré\n[  ] Non livré' : '[  ] Distribué\n[  ] Fermé\n[  ] Refus\n[  ] Absent';
+    return [String(s.ordre_passage||''), lieuCell, adresse, statutCell,
+      isLivraisonOnly?'—':'', isLivraisonOnly?'—':'', isLivraisonOnly?'—':'[  ]', isLivraisonOnly?'—':'[  ]', ''];
   });
 
   doc.autoTable({
@@ -1110,7 +1213,15 @@ function printTourneePDF(){
       6:{cellWidth:15,halign:'center'},
       7:{cellWidth:15,halign:'center'}
     },
-    margin:{ left:10, right:10 }
+    margin:{ left:10, right:10 },
+    didParseCell: function(data){
+      const st = stops[data.row.index];
+      const stHasLivraison = st && (st.type_arret==='livraison' || (st.commandes_livraison && st.commandes_livraison.length>0));
+      if(data.section==='body' && stHasLivraison){
+        data.cell.styles.fillColor = [251,243,231];
+        if(data.column.index===1){ data.cell.styles.textColor = [140,90,0]; data.cell.styles.fontStyle = 'bold'; }
+      }
+    }
   });
 
   doc.save('feuille_route_'+(t?.nom||'sans-nom').replace(/[^a-z0-9]+/gi,'_')+'_'+(t?.date||'').replace(/-/g,'')+'.pdf');

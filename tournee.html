@@ -41,6 +41,9 @@ input,textarea,select{font-family:'Inter',sans-serif}
 #hdr-back{background:none;border:none;color:var(--white);font-size:22px;line-height:1;padding:4px 8px 4px 0;display:none}
 #hdr-title{flex:1;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hdr-pill{background:var(--gold);color:var(--black);font-family:'Montserrat',sans-serif;font-weight:700;font-size:10px;padding:3px 10px;border-radius:20px;white-space:nowrap}
+#hdr-refresh{background:none;border:none;color:var(--white);font-size:17px;line-height:1;padding:4px 6px;display:none;cursor:pointer}
+#hdr-refresh.spin{animation:hdrSpin .7s linear}
+@keyframes hdrSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 #app-body{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h)+8px)}
 #app-body.no-nav{padding-bottom:0}
 
@@ -151,6 +154,8 @@ textarea.form-input{resize:vertical;min-height:60px}
 .stop-card.s-refus .stop-num{background:var(--red);color:var(--white)}
 .stop-card.s-ferme .stop-num{background:#B0BEC5;color:var(--white)}
 .stop-card.s-absent .stop-num{background:var(--orange);color:var(--white)}
+.stop-card.type-livraison{border-left-color:#C87F0A}
+.stop-card.type-livraison .stop-num{background:#C87F0A;color:var(--white)}
 .stop-info{flex:1;min-width:0}
 .stop-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:normal;overflow-wrap:break-word;line-height:1.3}
 .stop-addr{font-size:10px;color:var(--grey);margin-top:2px}
@@ -322,6 +327,7 @@ textarea.form-input{resize:vertical;min-height:60px}
     <div id="hdr-title">La Nougaterie du Pont d'Arc</div>
     <div id="hdr-pill">Terrain</div>
     <button id="offline-badge" onclick="syncOfflineQueue()" title="Pointages en attente de sync" style="display:none;background:#E53935;color:#fff;border:none;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">📤 0</button>
+    <button id="hdr-refresh" onclick="handleRefresh()" title="Rafraîchir">🔄</button>
   </div>
 
   <div id="app-body" class="no-nav">
@@ -616,6 +622,7 @@ async function syncOfflineQueue() {
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
       else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
       else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine);
+      else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -733,7 +740,7 @@ async function loadTournees() {
 }
 
 async function loadPoints(tourneeId) {
-  const data = await sbGet(`points_tournee?select=*,lieux(*)&tournee_id=eq.${tourneeId}&order=ordre_passage.asc`).catch(()=>[]);
+  const data = await sbGet(`points_tournee?select=*,lieux(*),commandes_livraison(*)&tournee_id=eq.${tourneeId}&order=ordre_passage.asc`).catch(()=>[]);
   ST.activePoints = data;
 }
 
@@ -787,6 +794,8 @@ function navTo(screen) {
   document.getElementById('hdr-title').textContent = TITLES[screen] || '';
   const hdrBack = document.getElementById('hdr-back');
   hdrBack.style.display = ['tournee','validation','fiche'].includes(screen) ? 'block' : 'none';
+  const hdrRefresh = document.getElementById('hdr-refresh');
+  hdrRefresh.style.display = ['accueil','tournee'].includes(screen) ? 'block' : 'none';
   document.getElementById('app-body').scrollTop = 0;
 
   if (screen === 'accueil')    renderAccueil();
@@ -804,6 +813,30 @@ function handleBack() {
   else if (ST.screen === 'validation') navTo('tournee');
   else if (ST.screen === 'tournee')    navTo('accueil');
   else navTo('accueil');
+}
+
+async function handleRefresh() {
+  const btn = document.getElementById('hdr-refresh');
+  if (btn) { btn.classList.remove('spin'); void btn.offsetWidth; btn.classList.add('spin'); btn.disabled = true; }
+  try {
+    if (ST.screen === 'tournee' && ST.activeTournee) {
+      const id = ST.activeTournee.id;
+      await loadTournees();
+      const fresh = ST.tournees.find(t => t.id === id);
+      if (fresh) ST.activeTournee = fresh;
+      await loadPoints(id);
+      renderTourneeDetail();
+      toast('🔄 Tournée mise à jour');
+    } else {
+      await loadTournees();
+      renderAccueil();
+      toast('🔄 Liste mise à jour');
+    }
+  } catch (e) {
+    toast('Erreur de rafraîchissement : ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ════════════════════════════════════════════
@@ -934,17 +967,26 @@ function renderTourneeDetail() {
 function stopCardHTML(p, i) {
   const l = p.lieux || {};
   const s = p.statut || 'a_faire';
-  const slbl = { a_faire:'À faire', distribue:'Distribué', ferme:'Fermé', refus:'Refus', absent:'Absent' }[s] || s;
+  const isLivraisonOnly = p.type_arret === 'livraison';
+  const hasCommande = p.commandes_livraison && p.commandes_livraison.length>0;
+  const cmd = hasCommande ? p.commandes_livraison[0] : null;
+  const livraisonDesc = (cmd && cmd.description) || '';
+  const livraisonDone = cmd && cmd.statut === 'livree';
+  const slbl = isLivraisonOnly
+    ? { a_faire:'À livrer', distribue:'Livré', absent:'Non livré', ferme:'Non livré', refus:'Non livré' }[s] || s
+    : { a_faire:'À faire', distribue:'Distribué', ferme:'Fermé', refus:'Refus', absent:'Absent' }[s] || s;
   const gm = l.latitude && l.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${l.latitude},${l.longitude}` : null;
   const validated = s !== 'a_faire';
   const heure = p.heure_validation ? new Date(p.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : null;
   return `
-    <div class="stop-card s-${s}" id="stop-${p.id}">
+    <div class="stop-card s-${s}${(isLivraisonOnly||hasCommande)?' type-livraison':''}" id="stop-${p.id}">
       <div class="stop-hdr" onclick="toggleStop(${p.id})">
-        <div class="stop-num">${p.ordre_passage||i+1}</div>
+        <div class="stop-num${isLivraisonOnly?' num-livraison':''}">${isLivraisonOnly?'📦':(p.ordre_passage||i+1)}</div>
         <div class="stop-info">
           <div class="stop-name">${esc(l.nom||'—')}</div>
-          <div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>
+          ${isLivraisonOnly
+            ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
+            : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
         </div>
         <span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>
         <div class="stop-chev">▾</div>
@@ -952,7 +994,7 @@ function stopCardHTML(p, i) {
       <div class="stop-body">
         ${validated ? `
           <div style="background:var(--green-lt);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px;font-size:12px;font-weight:600;color:var(--green);display:flex;align-items:center;gap:6px">
-            ✓ Validé${heure?' à '+heure:''}${p.quantite_flyers?' · '+p.quantite_flyers+' flyers':''}
+            ✓ Validé${heure?' à '+heure:''}${(!isLivraisonOnly && p.quantite_flyers)?' · '+p.quantite_flyers+' flyers':''}
           </div>
           ${p.commentaire_distributeur?`<div style="font-size:12px;color:var(--grey);margin-bottom:10px">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
         ` : ''}
@@ -981,6 +1023,7 @@ function toggleStop(id) {
 function openValidation(pointId) {
   const p = ST.activePoints.find(x => x.id===pointId);
   if (!p) return;
+  const cmd = p.commandes_livraison && p.commandes_livraison[0];
   ST.form = {
     pointId,
     statut: p.statut!=='a_faire' ? p.statut : null,
@@ -988,6 +1031,7 @@ function openValidation(pointId) {
     commentaire: p.commentaire_distributeur||'',
     dateOuverture: '', dateFermeture: '',
     rappel: false, rappelComment: '',
+    livraisonStatut: cmd ? (cmd.statut==='livree' ? 'livree' : null) : null,
     photoB64: null, photoFile: null
   };
   navTo('validation');
@@ -999,6 +1043,43 @@ function renderValidation() {
   const l = p.lieux||{};
   const f = ST.form;
   const gm = l.latitude&&l.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${l.latitude},${l.longitude}` : null;
+  const isLivraisonOnly = p.type_arret === 'livraison';
+  const cmd = p.commandes_livraison && p.commandes_livraison[0];
+  const hasCommande = !!cmd;
+  const livraisonDesc = (cmd && cmd.description) || '';
+  const showLivraisonBlock = hasCommande && !isLivraisonOnly;
+
+  const statusBlockHtml = isLivraisonOnly ? `
+      <div class="form-group">
+        <div style="background:#FBF3E7;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;font-size:13px;color:#8A5A00">
+          📦 <strong>À livrer :</strong> ${esc(livraisonDesc||'(non précisé)')}
+        </div>
+        <div class="form-label">Statut *</div>
+        <div class="status-grid" style="grid-template-columns:1fr 1fr">
+          <button class="stat-btn${f.livraisonStatut==='livree'?' sel-distribue':''}" onclick="setLivraisonStatut('livree')"><span class="icon">✅</span>Livré</button>
+          <button class="stat-btn${f.livraisonStatut==='non_livree'?' sel-absent':''}" onclick="setLivraisonStatut('non_livree')"><span class="icon">❌</span>Non livré</button>
+        </div>
+      </div>` : `
+      <div class="form-group">
+        <div class="form-label">Statut *</div>
+        <div class="status-grid">
+          <button class="stat-btn${f.statut==='distribue'?' sel-distribue':''}" onclick="setStatut('distribue')"><span class="icon">✅</span>Distribué</button>
+          <button class="stat-btn${f.statut==='ferme'?' sel-ferme':''}" onclick="setStatut('ferme')"><span class="icon">🔒</span>Fermé</button>
+          <button class="stat-btn${f.statut==='refus'?' sel-refus':''}" onclick="setStatut('refus')"><span class="icon">🚫</span>Refus</button>
+          <button class="stat-btn${f.statut==='absent'?' sel-absent':''}" onclick="setStatut('absent')"><span class="icon">👻</span>Absent</button>
+        </div>
+      </div>`;
+
+  const livraisonBlockHtml = showLivraisonBlock ? `
+      <div class="form-group">
+        <div style="background:#FBF3E7;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;font-size:13px;color:#8A5A00">
+          📦 <strong>Livraison à faire :</strong> ${esc(livraisonDesc||'(non précisé)')}
+        </div>
+        <div class="status-grid" style="grid-template-columns:1fr 1fr">
+          <button class="stat-btn${f.livraisonStatut==='livree'?' sel-distribue':''}" onclick="setLivraisonStatut('livree')"><span class="icon">✅</span>Livré</button>
+          <button class="stat-btn${f.livraisonStatut==='non_livree'?' sel-absent':''}" onclick="setLivraisonStatut('non_livree')"><span class="icon">❌</span>Non livré</button>
+        </div>
+      </div>` : '';
 
   document.getElementById('validation-content').innerHTML = `
     <div style="padding:16px">
@@ -1008,17 +1089,10 @@ function renderValidation() {
         ${gm?`<a href="${gm}" target="_blank" class="btn-maps" style="display:inline-flex;margin-top:10px">🧭 Naviguer</a>`:''}
       </div>
 
-      <div class="form-group">
-        <div class="form-label">Statut *</div>
-        <div class="status-grid">
-          <button class="stat-btn${f.statut==='distribue'?' sel-distribue':''}" onclick="setStatut('distribue')"><span class="icon">✅</span>Distribué</button>
-          <button class="stat-btn${f.statut==='ferme'?' sel-ferme':''}" onclick="setStatut('ferme')"><span class="icon">🔒</span>Fermé</button>
-          <button class="stat-btn${f.statut==='refus'?' sel-refus':''}" onclick="setStatut('refus')"><span class="icon">🚫</span>Refus</button>
-          <button class="stat-btn${f.statut==='absent'?' sel-absent':''}" onclick="setStatut('absent')"><span class="icon">👻</span>Absent</button>
-        </div>
-      </div>
+      ${statusBlockHtml}
+      ${livraisonBlockHtml}
 
-      <div class="form-group" id="flyers-group" style="display:${f.statut==='distribue'?'block':'none'}">
+      <div class="form-group" id="flyers-group" style="display:${(!isLivraisonOnly && f.statut==='distribue')?'block':'none'}">
         <label class="form-label">🍬 Paquets Nougaterie</label>
         <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseFloat(this.value)||1">
           <option value="0.5" ${f.flyers===0.5?'selected':''}>½ paquet</option>
@@ -1050,6 +1124,7 @@ function renderValidation() {
         </div>
       </div>
 
+      ${isLivraisonOnly ? '' : `
       <div class="form-group">
         <label class="form-label">📅 Infos saison (optionnel)</label>
         <div style="display:flex;gap:8px">
@@ -1062,7 +1137,7 @@ function renderValidation() {
             <input type="date" class="form-input" id="date-ouverture-input" value="${f.dateOuverture||''}" onchange="ST.form.dateOuverture=this.value">
           </div>
         </div>
-      </div>
+      </div>`}
 
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
@@ -1073,8 +1148,9 @@ function renderValidation() {
       </div>
 
       <div class="form-group">
+        ${isLivraisonOnly ? '' : `
         <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍬 Nougat dégustation offert</button>
-        <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>
+        <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>`}
         <label class="form-label">Commentaire (optionnel)</label>
         <textarea class="form-input" id="comment-input" rows="3"
           placeholder="Commentaire libre…" oninput="ST.form.commentaire=this.value">${esc(f.commentaire)}</textarea>
@@ -1093,6 +1169,14 @@ function renderValidation() {
 
 function setStatut(s) {
   ST.form.statut = s;
+  renderValidation();
+}
+function setLivraisonStatut(v) {
+  ST.form.livraisonStatut = v;
+  const p = ST.activePoints.find(x => x.id===ST.form.pointId);
+  if (p && p.type_arret === 'livraison') {
+    ST.form.statut = v==='livree' ? 'distribue' : 'absent';
+  }
   renderValidation();
 }
 
@@ -1238,6 +1322,24 @@ async function submitValidation() {
     catch(e) {
       if (!navigator.onLine || e instanceof TypeError) {
         addToOfflineQueue({ type:'rappel', lieuId:lieuIdRappel, wantOpen:ST.form.rappel, commentaire:ST.form.rappelComment||null, origine:'terrain' });
+      }
+    }
+  }
+
+  const currentPoint = ST.activePoints.find(x=>x.id===ST.form.pointId);
+  const currentCmd = currentPoint?.commandes_livraison && currentPoint.commandes_livraison[0];
+  if (currentCmd && ST.form.livraisonStatut) {
+    const delivered = ST.form.livraisonStatut === 'livree';
+    const cmdUpd = {
+      statut: delivered ? 'livree' : 'a_livrer',
+      commentaire: ST.form.commentaire||null,
+      livree_le: delivered ? new Date().toISOString() : null,
+      livree_par: delivered ? (ST.user?.id||null) : null
+    };
+    try { await sbPatch('commandes_livraison','id=eq.'+currentCmd.id,cmdUpd); }
+    catch(e) {
+      if (!navigator.onLine || e instanceof TypeError) {
+        addToOfflineQueue({ type:'livraison_commande', commandeId:currentCmd.id, upd:cmdUpd });
       }
     }
   }

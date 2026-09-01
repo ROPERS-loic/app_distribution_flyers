@@ -217,6 +217,11 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .tournee-stop-nom{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tournee-stop-sub{font-size:10px;color:#888}
 .tournee-stop-del{color:#E53935;cursor:pointer;font-size:15px;flex-shrink:0;padding:0 2px}
+.tournee-stop.is-livraison{background:#FBF3E7}
+.tournee-stop-num.is-livraison{background:#C87F0A}
+.tournee-stop-livraison-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.4;filter:grayscale(1)}
+.tournee-stop-livraison-btn.active{opacity:1;filter:none}
+.tournee-stop-desc{font-size:10px;color:#C87F0A;font-style:italic;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #tournee-route-controls{padding:8px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;background:#f9f9f9;flex-shrink:0}
 #tournee-form{padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff;flex-shrink:0}
 .tf-label{font-size:9px;font-weight:bold;color:#777;text-transform:uppercase;margin-bottom:1px}
@@ -806,6 +811,8 @@ var pointageStops = [];
 var _visitePoiId = null;
 var routeStops = [];
 var tourneeStops = [];
+var tourneeStopTypes = {};
+var tourneeStopLivraisonDesc = {};
 var tourneeDistributeurs = [];
 var saisonsMap = {};
 var saisonsLoaded = false;
@@ -2104,6 +2111,7 @@ function toggleTourneeStop(id){
   var idx = tourneeStops.indexOf(id);
   if(idx >= 0){
     tourneeStops.splice(idx, 1);
+    delete tourneeStopTypes[id]; delete tourneeStopLivraisonDesc[id];
     showToast('✕ Retiré : '+(p?p.nom:''));
   } else {
     tourneeStops.push(id);
@@ -2115,11 +2123,25 @@ function toggleTourneeStop(id){
 }
 
 function removeTourneeStop(idx){
+  var removedId = tourneeStops[idx];
   tourneeStops.splice(idx,1);
+  delete tourneeStopTypes[removedId]; delete tourneeStopLivraisonDesc[removedId];
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
   renderList(); renderTourneeList(); clearTourneeLayer();
   document.getElementById('tournee-result').style.display = 'none';
   showToast('✕ Étape retirée');
+}
+function toggleLivraisonType(id){
+  if(tourneeStopTypes[id]==='livraison'){
+    delete tourneeStopTypes[id];
+    delete tourneeStopLivraisonDesc[id];
+  } else {
+    var desc = prompt('Que faut-il livrer à ce lieu ?', tourneeStopLivraisonDesc[id]||'');
+    if(desc===null) return;
+    tourneeStopTypes[id] = 'livraison';
+    tourneeStopLivraisonDesc[id] = desc.trim();
+  }
+  renderTourneeList();
 }
 
 function renderTourneeList(){
@@ -2135,11 +2157,16 @@ function renderTourneeList(){
   var dragSrcIdx = null;
   tourneeStops.forEach(function(id, i){
     var p = POIS.find(function(p){ return p.id===id; }); if(!p) return;
+    var hasLivraison = !!tourneeStopTypes[id];
     var div = document.createElement('div');
-    div.className = 'tournee-stop'; div.draggable = true; div.dataset.idx = i;
+    div.className = 'tournee-stop'+(hasLivraison?' is-livraison':''); div.draggable = true; div.dataset.idx = i;
     div.innerHTML = '<span class="tournee-drag">⠿</span>'
       + '<div class="tournee-stop-num">'+(i+1)+'</div>'
-      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div><div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div></div>'
+      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div>'
+      + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
+      + (hasLivraison ? '<div class="tournee-stop-desc">📦 '+escHtml(tourneeStopLivraisonDesc[id]||'(à préciser)')+'</div>' : '')
+      + '</div>'
+      + '<span class="tournee-stop-livraison-btn'+(hasLivraison?' active':'')+'" onclick="toggleLivraisonType('+id+')" title="Ajouter/retirer une livraison sur cet arrêt">📦</span>'
       + '<span class="tournee-stop-del" onclick="removeTourneeStop('+i+')">✕</span>';
     div.addEventListener('dragstart', function(e){
       dragSrcIdx = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i));
@@ -2299,7 +2326,7 @@ function optimizeTournee(){
 }
 
 function clearTournee(){
-  tourneeStops = []; clearTourneeLayer();
+  tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {}; clearTourneeLayer();
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
   renderList(); renderTourneeList();
   document.getElementById('tournee-result').style.display = 'none';
@@ -2337,24 +2364,44 @@ async function saveTourneeSupabase(){
 
   // Points (p.supabase_id = UUID Supabase)
   var points = [];
+  var poiIdByLieuId = {};
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
     var isDepartArrivee = (departId!==null && poiId===departId) || (arriveeId!==null && poiId===arriveeId);
     points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: isDepartArrivee?0:qty, statut: 'a_faire' });
+    poiIdByLieuId[p.supabase_id] = poiId;
   });
   var noMatch = tourneeStops.length - points.length;
 
+  var insertedPoints = [];
   if(points.length > 0){
-    try { await sbPost('points_tournee', points); }
+    try { insertedPoints = await sbPost('points_tournee', points); }
     catch(e){ showToast('❌ Erreur points : '+e.message); return; }
   }
 
+  // Créer les commandes de livraison pour les arrêts marqués comme tels
+  var livraisonRows = [];
+  var userId = (getStoredSession()||{}).user ? getStoredSession().user.id : null;
+  (insertedPoints||[]).forEach(function(pt){
+    var poiId = poiIdByLieuId[pt.lieu_id];
+    if(poiId===undefined || tourneeStopTypes[poiId] !== 'livraison') return;
+    livraisonRows.push({
+      lieu_id: pt.lieu_id, tournee_id: tData.id, point_tournee_id: pt.id,
+      description: tourneeStopLivraisonDesc[poiId]||'', statut: 'a_livrer', cree_par: userId
+    });
+  });
+  if(livraisonRows.length > 0){
+    try { await sbPost('commandes_livraison', livraisonRows); }
+    catch(e){ showToast('⚠ Tournée créée mais erreur livraisons : '+e.message); }
+  }
+
   var msg = '✅ Tournée "'+nom+'" créée — '+points.length+' arrêts';
+  if(livraisonRows.length>0) msg += ' dont '+livraisonRows.length+' livraison(s)';
   if(noMatch > 0) msg += ' ('+noMatch+' lieux non trouvés dans Supabase)';
   showToast(msg);
 
   // Réinitialiser
-  tourneeStops = [];
+  tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
   document.getElementById('tf-nom').value = '';
   document.getElementById('tf-secteur').value = '';
   document.getElementById('tf-comment').value = '';
