@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
@@ -308,31 +309,34 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .sv-date{font-size:10px;color:#999;white-space:nowrap;flex-shrink:0}
 #stats-empty{text-align:center;padding:40px;color:#aaa;font-size:12px;font-style:italic}
 :root{--gold-dk:#DBA10E;--grey:#6B6B6B;--grey-lt:#F0F0F0;--cream:#F7F6F2;--white:#fff;--green:#27AE60;--green-lt:#E8F8EF;--red:#E53935;--red-lt:#FFEBEE;--orange:#E8870A;--orange-lt:#FFF3E0}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal-box{background:var(--white);border-radius:14px;width:780px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)}
-.modal-header{padding:16px 20px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
-.modal-header h3{font-size:15px;font-weight:800}
-.modal-close{background:none;border:none;font-size:20px;color:var(--grey);line-height:1;cursor:pointer}
-.modal-body{padding:20px}
-.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.modal-box{background:var(--white);border-radius:16px;width:1000px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:'Inter',Arial,sans-serif}
+.modal-header{padding:22px 32px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
+.modal-header h3{font-family:'Montserrat',Arial,sans-serif;font-size:23px;font-weight:800;color:#1A1A1A}
+.modal-header .fiche-subtitle{font-size:13px;color:var(--grey);margin-top:4px}
+.modal-close{background:none;border:none;font-size:20px;color:var(--grey);line-height:1;cursor:pointer;width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.modal-close:hover{background:var(--grey-lt)}
+.modal-body{padding:26px 32px 32px}
+.badge{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
 .b-distribue{background:var(--green-lt);color:var(--green)}
 .b-ferme{background:var(--red-lt);color:var(--red)}
 .b-refus{background:#F3E5F5;color:#7B1FA2}
 .b-absent{background:var(--orange-lt);color:var(--orange)}
-.fiche-stats-d{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-.fsd-tile{background:var(--cream);border-radius:8px;padding:12px;text-align:center}
-.fsd-tile .sv{font-family:Arial,sans-serif;font-size:22px;font-weight:800}
-.fsd-tile .sl{font-size:10px;color:var(--grey);margin-top:2px}
-.ftd-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--grey-lt)}
+.fed-filter-btn{padding:6px 14px;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',Arial,sans-serif}
+.fiche-stats-d{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.fsd-tile{background:var(--cream);border-radius:10px;padding:16px 10px;text-align:center}
+.fsd-tile .sv{font-family:'Montserrat',Arial,sans-serif;font-size:28px;font-weight:800}
+.fsd-tile .sl{font-size:11px;color:var(--grey);margin-top:4px}
+.ftd-item{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--grey-lt)}
 .ftd-item:last-child{border-bottom:none}
-.ftd-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;border:2px solid white}
+.ftd-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;margin-top:4px;border:2px solid white}
 .ftd-content{flex:1;min-width:0}
-.ftd-date{font-size:12px;font-weight:700;margin-bottom:3px;text-transform:capitalize}
-.ftd-comment{font-size:12px;background:var(--cream);border-radius:6px;padding:6px 10px;margin-top:5px;color:#1A1A1A}
-.ftd-photo{width:70px;height:70px;border-radius:6px;object-fit:cover;cursor:pointer;margin-top:6px;flex-shrink:0}
-.photo-grid-d{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px}
-.photo-grid-d img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:.15s}
+.ftd-date{font-size:14px;font-weight:700;margin-bottom:6px;text-transform:capitalize}
+.ftd-comment{font-size:13px;background:var(--cream);border-radius:7px;padding:8px 12px;margin-top:6px;color:#1A1A1A}
+.ftd-photo{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;flex-shrink:0}
+.photo-grid-d{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px}
+.photo-grid-d img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer;display:block;transition:.15s}
 .photo-grid-d img:hover{opacity:.8}
 .photo-lb-d{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:3000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
 .photo-lb-d img{max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain}
@@ -721,7 +725,10 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 <div class="modal-overlay" id="modal-fiche-lieu">
   <div class="modal-box">
     <div class="modal-header">
-      <h3 id="fiche-lieu-title">Fiche lieu</h3>
+      <div>
+        <h3 id="fiche-lieu-title">Fiche lieu</h3>
+        <div class="fiche-subtitle" id="fiche-lieu-subtitle"></div>
+      </div>
       <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
     </div>
     <div class="modal-body" id="fiche-lieu-body">
@@ -860,7 +867,8 @@ async function openFicheLieuEditeur(){
   var p = POIS.find(function(p){ return p.id===selectedId; });
   if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
   document.getElementById('fiche-lieu-title').textContent = p.nom;
-  document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
+  document.getElementById('fiche-lieu-subtitle').textContent = [p.type_lieu, p.zone_tournee?zoneKey(p.zone_tournee):''].filter(Boolean).join(' · ');
+  document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:60px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
   openModal('modal-fiche-lieu');
 
   var yr = new Date().getFullYear();
@@ -880,14 +888,14 @@ async function openFicheLieuEditeur(){
   var lat=parseFloat(p.lat), lon=parseFloat(p.lon);
   var gm = (!isNaN(lat)&&!isNaN(lon)) ? 'https://www.google.com/maps/search/?api=1&query='+lat+','+lon : null;
 
-  var html = '<div style="display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap">'
-    + '<div style="flex:1;min-width:200px">'
-    + (p.adresse||p.commune?'<div style="font-size:13px;margin-bottom:4px">📍 '+escHtml([p.adresse,p.code_postal,p.commune].filter(Boolean).join(', '))+'</div>':'')
-    + (p.contacts?'<div style="font-size:13px;margin-bottom:4px">📞 '+escHtml(p.contacts)+'</div>':'')
-    + (p.zone_tournee?'<div style="font-size:13px;margin-bottom:4px">🗂 Zone : '+escHtml(zoneKey(p.zone_tournee))+'</div>':'')
-    + (gm?'<a href="'+gm+'" target="_blank" style="font-size:12px;color:#1E88E5;display:inline-block;margin-top:6px">🗺️ Voir sur Maps</a>':'')
+  var html = '<div style="display:flex;gap:28px;margin-bottom:26px;flex-wrap:wrap">'
+    + '<div style="flex:1;min-width:240px">'
+    + (p.adresse||p.commune?'<div style="font-size:14px;line-height:1.5;margin-bottom:8px">📍 '+escHtml([p.adresse,p.code_postal,p.commune].filter(Boolean).join(', '))+'</div>':'')
+    + (p.contacts?'<div style="font-size:14px;margin-bottom:8px">📞 '+escHtml(p.contacts)+'</div>':'')
+    + (p.zone_tournee?'<div style="font-size:14px;margin-bottom:8px">🗂 Zone : '+escHtml(zoneKey(p.zone_tournee))+'</div>':'')
+    + (gm?'<a href="'+gm+'" target="_blank" style="font-size:13px;font-weight:600;color:#1E88E5;display:inline-block;margin-top:6px">🗺️ Voir sur Maps</a>':'')
     + '</div>'
-    + '<div style="flex:2">'
+    + '<div style="flex:1.4">'
     + '<div class="fiche-stats-d">'
     + '<div class="fsd-tile"><div class="sv">'+annee.length+'</div><div class="sl">Visites '+yr+'</div></div>'
     + '<div class="fsd-tile"><div class="sv" style="color:var(--gold-dk)">'+flyAn+'</div><div class="sl">Flyers '+yr+'</div></div>'
@@ -899,7 +907,7 @@ async function openFicheLieuEditeur(){
     + '</div></div></div>';
 
   if(photos.length){
-    html += '<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">📷 Photos ('+photos.length+')</div>'
+    html += '<div style="font-size:12px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">📷 Photos ('+photos.length+')</div>'
       + '<div class="photo-grid-d">'
       + photos.slice(0,12).map(function(pt){
           var d = pt.heure_validation ? new Date(pt.heure_validation).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) : '';
@@ -909,11 +917,11 @@ async function openFicheLieuEditeur(){
   }
 
   window._ficheEdAll = all; window._ficheEdAnnee = annee;
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-    + '<div style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px">Historique des visites</div>'
-    + '<div style="display:flex;gap:6px">'
-    + '<button id="fed-yr-btn" onclick="ficheEdFilter(true)" class="hbtn" style="background:#F5C21A">'+yr+'</button>'
-    + '<button id="fed-all-btn" onclick="ficheEdFilter(false)" class="hbtn" style="background:#eee">Tout</button>'
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px">Historique des visites</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button id="fed-yr-btn" onclick="ficheEdFilter(true)" class="fed-filter-btn" style="background:#F5C21A;color:#1A1A1A">'+yr+'</button>'
+    + '<button id="fed-all-btn" onclick="ficheEdFilter(false)" class="fed-filter-btn" style="background:#F0F0F0;color:#1A1A1A">Tout</button>'
     + '</div></div>'
     + '<div id="fed-timeline">'+ficheTimelineEditeurHTML(annee,dotC,bgC,txtC,slbls)+'</div>';
 
@@ -926,8 +934,8 @@ function ficheEdFilter(yearOnly){
   var bgC={distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
   var txtC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
   var slbls={distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
-  document.getElementById('fed-yr-btn').style.background = yearOnly ? '#F5C21A' : '#eee';
-  document.getElementById('fed-all-btn').style.background = yearOnly ? '#eee' : '#F5C21A';
+  document.getElementById('fed-yr-btn').style.background = yearOnly ? '#F5C21A' : '#F0F0F0';
+  document.getElementById('fed-all-btn').style.background = yearOnly ? '#F0F0F0' : '#F5C21A';
   document.getElementById('fed-timeline').innerHTML = ficheTimelineEditeurHTML(list,dotC,bgC,txtC,slbls);
 }
 
