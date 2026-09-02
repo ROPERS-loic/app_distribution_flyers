@@ -48,7 +48,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #total-badge{background:#E8A020;color:#2B2B2B;font-weight:bold;font-size:10px;padding:2px 7px;border-radius:10px;white-space:nowrap}
 #main{display:flex;flex:1;overflow:hidden;position:relative}
 /* LEFT PANEL */
-#panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2;overflow-y:auto}
+#panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2}
 #search-bar{padding:6px;border-bottom:1px solid #e0e0e0;display:flex;gap:5px;flex-direction:column}
 #search-input{width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:5px;font-size:12px;outline:none}
 #search-input:focus{border-color:#E8A020}

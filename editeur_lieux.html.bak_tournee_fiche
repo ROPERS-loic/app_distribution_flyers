@@ -48,7 +48,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #total-badge{background:#E8A020;color:#2B2B2B;font-weight:bold;font-size:10px;padding:2px 7px;border-radius:10px;white-space:nowrap}
 #main{display:flex;flex:1;overflow:hidden;position:relative}
 /* LEFT PANEL */
-#panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2;overflow-y:auto}
+#panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2}
 #search-bar{padding:6px;border-bottom:1px solid #e0e0e0;display:flex;gap:5px;flex-direction:column}
 #search-input{width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:5px;font-size:12px;outline:none}
 #search-input:focus{border-color:#E8A020}
@@ -729,10 +729,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <h3 id="fiche-lieu-title">Fiche lieu</h3>
         <div class="fiche-subtitle" id="fiche-lieu-subtitle"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <button id="fiche-btn-ajouter-tournee" class="btn-save" style="display:none;white-space:nowrap" onclick="confirmAjoutTournee()">➕ Ajouter à la tournée</button>
-        <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
-      </div>
+      <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
     </div>
     <div class="modal-body" id="fiche-lieu-body">
       <div style="text-align:center;padding:40px;color:var(--grey)">Chargement…</div>
@@ -866,13 +863,9 @@ function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
-async function openFicheLieuEditeur(id, forTournee){
-  var targetId = id!==undefined ? id : selectedId;
-  var p = POIS.find(function(p){ return p.id===targetId; });
+async function openFicheLieuEditeur(){
+  var p = POIS.find(function(p){ return p.id===selectedId; });
   if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
-  window._ficheForTourneeId = forTournee ? p.id : null;
-  var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
-  if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
   document.getElementById('fiche-lieu-title').textContent = p.nom;
   document.getElementById('fiche-lieu-subtitle').textContent = [p.type_lieu, p.zone_tournee?zoneKey(p.zone_tournee):''].filter(Boolean).join(' · ');
   document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:60px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
@@ -895,26 +888,11 @@ async function openFicheLieuEditeur(id, forTournee){
   var lat=parseFloat(p.lat), lon=parseFloat(p.lon);
   var gm = (!isNaN(lat)&&!isNaN(lon)) ? 'https://www.google.com/maps/search/?api=1&query='+lat+','+lon : null;
 
-  var saisonInfo = saisonsMap[p.supabase_id];
-  var saisonStat = saisonStatut(p.supabase_id);
-  var saisonLbl = {ferme:'🔴 Fermé actuellement',ferme_bientot:'🟠 Ferme bientôt',ouvert:'🟢 Ouvert'}[saisonStat] || '';
-  var saisonHtml = (saisonInfo && (saisonInfo.date_ouverture||saisonInfo.date_fermeture))
-    ? '<div style="font-size:14px;margin-bottom:8px">'+saisonLbl
-      + (saisonInfo.date_ouverture?' · Ouverture '+new Date(saisonInfo.date_ouverture).toLocaleDateString('fr-FR'):'')
-      + (saisonInfo.date_fermeture?' · Fermeture '+new Date(saisonInfo.date_fermeture).toLocaleDateString('fr-FR'):'')
-      + '</div>'
-    : '';
-  var rappelInfo = rappelsMap[p.supabase_id];
-  var rappelHtml = rappelInfo
-    ? '<div style="font-size:14px;margin-bottom:8px;color:var(--red)">🔁 À revisiter'+(rappelInfo.commentaire?' — '+escHtml(rappelInfo.commentaire):'')+'</div>'
-    : '';
-
   var html = '<div style="display:flex;gap:28px;margin-bottom:26px;flex-wrap:wrap">'
     + '<div style="flex:1;min-width:240px">'
     + (p.adresse||p.commune?'<div style="font-size:14px;line-height:1.5;margin-bottom:8px">📍 '+escHtml([p.adresse,p.code_postal,p.commune].filter(Boolean).join(', '))+'</div>':'')
     + (p.contacts?'<div style="font-size:14px;margin-bottom:8px">📞 '+escHtml(p.contacts)+'</div>':'')
     + (p.zone_tournee?'<div style="font-size:14px;margin-bottom:8px">🗂 Zone : '+escHtml(zoneKey(p.zone_tournee))+'</div>':'')
-    + saisonHtml + rappelHtml
     + (gm?'<a href="'+gm+'" target="_blank" style="font-size:13px;font-weight:600;color:#1E88E5;display:inline-block;margin-top:6px">🗺️ Voir sur Maps</a>':'')
     + '</div>'
     + '<div style="flex:1.4">'
@@ -1255,7 +1233,7 @@ function buildMarkers(){
   POIS.forEach(function(p){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
     var m=L.marker([lat,lon],{draggable:!tourneeMode,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelActif(p)),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
-    m.on('click',function(){ tourneeMode?tourneeClickLieu(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
+    m.on('click',function(){ tourneeMode?toggleTourneeStop(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
     m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
   });
@@ -1306,7 +1284,7 @@ function renderList(){
     div.innerHTML=(rn>=0?'<div class="route-num">'+(rn+1)+'</div>':'')
       +'<div class="poi-dot" style="background:'+color+'"></div>'
       +'<div class="poi-info"><div class="poi-nom">'+escHtml(p.nom)+statBadge+'</div><div class="poi-sub">'+escHtml(p.type_lieu)+' · '+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>';
-    div.onclick=function(){ tourneeMode?tourneeClickLieu(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
+    div.onclick=function(){ tourneeMode?toggleTourneeStop(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); };
     list.appendChild(div);
   });
   document.getElementById('poi-count').textContent=filteredPois.length+' lieu'+(filteredPois.length>1?'x':'');
@@ -2316,19 +2294,6 @@ function toggleTourneeStop(id){
   document.getElementById('tournee-result').style.display = 'none';
 }
 
-function tourneeClickLieu(id){
-  if(tourneeStops.indexOf(id) >= 0){ toggleTourneeStop(id); return; }
-  openFicheLieuEditeur(id, true);
-}
-
-function confirmAjoutTournee(){
-  if(window._ficheForTourneeId==null) return;
-  var id = window._ficheForTourneeId;
-  window._ficheForTourneeId = null;
-  closeModal('modal-fiche-lieu');
-  toggleTourneeStop(id);
-}
-
 function removeTourneeStop(idx){
   var removedId = tourneeStops[idx];
   tourneeStops.splice(idx,1);
@@ -2468,13 +2433,8 @@ function renderTourneeSearchResults(){
     el.addEventListener('mousedown', function(ev){
       ev.preventDefault();
       var id = parseInt(el.getAttribute('data-id'), 10);
-      if(tourneeStops.indexOf(id) >= 0){
-        toggleTourneeStop(id);
-        renderTourneeSearchResults();
-      } else {
-        box.style.display = 'none';
-        openFicheLieuEditeur(id, true);
-      }
+      toggleTourneeStop(id);
+      renderTourneeSearchResults();
     });
   });
 }
