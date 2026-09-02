@@ -436,9 +436,13 @@ textarea.form-input{resize:vertical;min-height:60px}
               </div>
             </div>
             <div class="pl-sheet-label">Offres</div>
-            <div class="pl-toggle-row">
-              <button class="pl-toggle-btn" id="pl-sheet-nougat" onclick="this.classList.toggle('active')">🍬 Nougat offert</button>
-              <button class="pl-toggle-btn entree" id="pl-sheet-entree" onclick="this.classList.toggle('active')">🎟️ Entrée offerte</button>
+            <div class="pl-qty-row">
+              <div class="pl-qty-box"><label>🍬 Nougat offert</label>
+                <select id="pl-sheet-nougat"></select>
+              </div>
+              <div class="pl-qty-box"><label>🎟️ Entrées offertes</label>
+                <select id="pl-sheet-entree"></select>
+              </div>
             </div>
             <div class="pl-sheet-label">Commentaire</div>
             <div style="padding:0 16px">
@@ -565,6 +569,14 @@ function parseQty(val, fallback = 0) {
   const n = parseFloat(val);
   return isNaN(n) ? fallback : n;
 }
+const ENTREE_QTY_OPTIONS = [0,1,2,3,4,5,6];
+function entreeOptionsHTML(selected) {
+  return ENTREE_QTY_OPTIONS.map(v => {
+    const sel = (v===6) ? (selected>=6) : (selected===v);
+    const lbl = v===0 ? 'Aucune' : (v+(v===6?'+':'')+' entrée'+(v>1?'s':''));
+    return `<option value="${v}" ${sel?'selected':''}>${lbl}</option>`;
+  }).join('');
+}
 
 function getStoredSession(){try{const r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
 function getToken(){const s=getStoredSession();return s?.access_token||SUPA_KEY;}
@@ -656,11 +668,10 @@ async function syncPointageLibreItem(item) {
   const heure = new Date(dateVal+'T12:00:00').toISOString();
   const points = Object.keys(plSelectedData).map((k,i) => {
     const d = plSelectedData[k];
-    const comment = [d.nougat?'[Nougat offert]':'', d.comment||''].filter(Boolean).join(' ')||null;
     return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
              quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
-             entree_gratuite:d.entree||false, statut:d.statut||'distribue',
-             heure_validation:heure, commentaire_distributeur:comment };
+             nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut:d.statut||'distribue',
+             heure_validation:heure, commentaire_distributeur:d.comment||null };
   });
   await sbPost('points_tournee', points);
   await Promise.all(Object.keys(plSelectedData).map(async (k) => {
@@ -991,7 +1002,7 @@ function renderTourneeDetail() {
   document.getElementById('tournee-detail-content').innerHTML = html;
 }
 
-function isRepere(p){ return p.quantite_flyers===0 && p.type_arret!=='livraison'; }
+function isRepere(p){ return p.est_repere===true; }
 
 function stopCardHTML(p, i, pts) {
   const l = p.lieux || {};
@@ -1203,6 +1214,9 @@ function openValidation(pointId) {
     pointId,
     statut: p.statut!=='a_faire' ? p.statut : null,
     flyers: p.quantite_flyers||0,
+    flyersChateau: p.quantite_flyers_chateau||0,
+    nougat: p.nb_nougat_offert||0,
+    entreeGratuite: p.entree_gratuite||0,
     commentaire: p.commentaire_distributeur||'',
     dateOuverture: '', dateFermeture: '',
     rappel: false, rappelComment: '',
@@ -1315,9 +1329,15 @@ function renderValidation() {
 
       <div class="form-group">
         ${isLivraisonOnly ? '' : `
-        <button class="btn-nougat-val${f.nougat?' active':''}" onclick="ST.form.nougat=!ST.form.nougat;renderValidation()">🍬 Nougat dégustation offert</button>
-        <button class="btn-nougat-val btn-entree${f.entreeGratuite?' active':''}" onclick="ST.form.entreeGratuite=!ST.form.entreeGratuite;renderValidation()" style="margin-top:6px">🎟️ Entrée gratuite Château offerte</button>`}
-        <label class="form-label">Commentaire (optionnel)</label>
+        <label class="form-label">🍬 Paquets dégustation nougat offerts</label>
+        <select class="form-input" id="nougat-input" onchange="ST.form.nougat=parseQty(this.value)">
+          ${paquetOptionsHTML(f.nougat)}
+        </select>
+        <label class="form-label" style="margin-top:10px">🎟️ Entrées gratuites Château offertes</label>
+        <select class="form-input" id="entree-input" onchange="ST.form.entreeGratuite=parseQty(this.value)">
+          ${entreeOptionsHTML(f.entreeGratuite)}
+        </select>`}
+        <label class="form-label" style="margin-top:10px">Commentaire (optionnel)</label>
         <textarea class="form-input" id="comment-input" rows="3"
           placeholder="Commentaire libre…" oninput="ST.form.commentaire=this.value">${esc(f.commentaire)}</textarea>
       </div>
@@ -1444,13 +1464,13 @@ async function submitValidation() {
     }
   }
 
-  const commentFinal = [ST.form.nougat?'[Nougat offert]':'', ST.form.commentaire||''].filter(Boolean).join(' ')||null;
   const upd = {
     statut: ST.form.statut,
     quantite_flyers: ST.form.statut==='distribue' ? (ST.form.flyers||0) : 0,
     quantite_flyers_chateau: ST.form.statut==='distribue' ? (ST.form.flyersChateau||0) : 0,
-    entree_gratuite: ST.form.entreeGratuite||false,
-    commentaire_distributeur: commentFinal,
+    nb_nougat_offert: ST.form.nougat||0,
+    entree_gratuite: ST.form.entreeGratuite||0,
+    commentaire_distributeur: ST.form.commentaire||null,
     heure_validation: new Date().toISOString(),
     latitude_validation: geo?.lat || null,
     longitude_validation: geo?.lon || null,
@@ -1836,10 +1856,8 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-sub').textContent = (l.categorie||'')+(l.ville?' · '+l.ville:'');
   document.getElementById('pl-sheet-qty').innerHTML = paquetOptionsHTML(prev.qty ?? 1);
   document.getElementById('pl-sheet-qtych').innerHTML = paquetOptionsHTML(prev.qtyChateau ?? 1);
-  const nBtn = document.getElementById('pl-sheet-nougat');
-  const eBtn = document.getElementById('pl-sheet-entree');
-  prev.nougat ? nBtn.classList.add('active') : nBtn.classList.remove('active');
-  prev.entree ? eBtn.classList.add('active') : eBtn.classList.remove('active');
+  document.getElementById('pl-sheet-nougat').innerHTML = paquetOptionsHTML(prev.nougat ?? 0);
+  document.getElementById('pl-sheet-entree').innerHTML = entreeOptionsHTML(prev.entree ?? 0);
   document.getElementById('pl-sheet-comment').value = prev.comment||'';
   document.getElementById('pl-sheet-rappel').checked = !!prev.rappel;
   document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
@@ -1881,8 +1899,8 @@ function validatePLSheet() {
   const statut = document.querySelector('.pl-statut-pill.active')?.dataset.s||'distribue';
   const qty = parseQty(document.getElementById('pl-sheet-qty').value, 1);
   const qtyChateau = parseQty(document.getElementById('pl-sheet-qtych').value, 1);
-  const nougat = document.getElementById('pl-sheet-nougat').classList.contains('active');
-  const entree = document.getElementById('pl-sheet-entree').classList.contains('active');
+  const nougat = parseQty(document.getElementById('pl-sheet-nougat').value, 0);
+  const entree = parseQty(document.getElementById('pl-sheet-entree').value, 0);
   const comment = document.getElementById('pl-sheet-comment').value.trim();
   const rappel = document.getElementById('pl-sheet-rappel').checked;
   const rappelComment = document.getElementById('pl-sheet-rappel-comment').value.trim();
@@ -1970,7 +1988,6 @@ async function submitPointageLibre() {
     const buildPoint = async (k, i) => {
       const d = (typeof plSelected[k]==='object') ? plSelected[k] : {};
       const statut = d.statut||'distribue';
-      const comment = [d.nougat?'[Nougat offert]':'', d.comment||''].filter(Boolean).join(' ')||null;
       let photoUrl = null;
       if (d.photoFile) {
         try {
@@ -1983,8 +2000,8 @@ async function submitPointageLibre() {
       }
       return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
                quantite_flyers:d.qty??1, quantite_flyers_chateau:d.qtyChateau??1,
-               entree_gratuite:d.entree||false, statut, heure_validation:heure,
-               commentaire_distributeur:comment, photo_preuve:photoUrl };
+               nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut, heure_validation:heure,
+               commentaire_distributeur:d.comment||null, photo_preuve:photoUrl };
     };
 
     if (keysToPost.length) {

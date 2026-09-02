@@ -846,7 +846,7 @@ async function loadLieux(){
 
 async function loadTournees(){
   try {
-    const data = await sbGet('tournees?select=*,distributeur:utilisateurs(nom,email),points:points_tournee(id,statut,quantite_flyers,type_arret)&order=date.desc');
+    const data = await sbGet('tournees?select=*,distributeur:utilisateurs(nom,email),points:points_tournee(id,statut,quantite_flyers,type_arret,est_repere)&order=date.desc');
     ST.tournees=data||[]; ST.tourneesFiltered=[...ST.tournees];
     renderTourneesTable(); renderDashboard(); updateMapTourneeFilter();
   } catch(e){ console.error('loadTournees',e); }
@@ -886,7 +886,7 @@ function loadEditeur(){
 // ══════════════════════════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════════════════════════
-function isRepere(p){ return p.quantite_flyers===0 && p.type_arret!=='livraison'; }
+function isRepere(p){ return p.est_repere===true; }
 
 function renderDashboard(){
   document.getElementById('st-lieux').textContent = ST.lieux.length;
@@ -1063,6 +1063,14 @@ async function renameTournee(){
 
 function openStopDetail(pointId){
   const s = ST.currentTourneeStops.find(x=>x.id===pointId);
+  const validated = s && s.statut && s.statut!=='a_faire';
+  if(validated){ editStopDetailForm(pointId); }
+  else { renderStopDetailView(pointId); }
+  openModal('modal-stop-detail');
+}
+
+function renderStopDetailView(pointId){
+  const s = ST.currentTourneeStops.find(x=>x.id===pointId);
   if(!s) return;
   const l = s.lieu||{};
   document.getElementById('stop-detail-title').textContent = l.nom||'Arrêt';
@@ -1087,13 +1095,250 @@ function openStopDetail(pointId){
     }
     bodyHtml += s.commentaire_distributeur
       ? `<div style="font-size:13px;margin-bottom:14px">💬 ${esc(s.commentaire_distributeur)}</div>`
-      : '';
+      : `<div style="font-size:12px;color:var(--grey);margin-bottom:14px">Aucun commentaire</div>`;
     bodyHtml += s.photo_preuve
-      ? `<img src="${s.photo_preuve}" style="width:100%;border-radius:8px;display:block" alt="Photo">`
-      : `<div style="font-size:12px;color:var(--grey)">Aucune photo</div>`;
+      ? `<img src="${s.photo_preuve}" style="width:100%;border-radius:8px;display:block;margin-bottom:14px" alt="Photo">`
+      : `<div style="font-size:12px;color:var(--grey);margin-bottom:14px">Aucune photo</div>`;
+    bodyHtml += `<button class="btn btn-secondary btn-sm" onclick="editStopDetailForm(${s.id})">✏️ Modifier</button>`;
   }
   document.getElementById('stop-detail-body').innerHTML = bodyHtml;
-  openModal('modal-stop-detail');
+}
+
+const PAQUET_QTY_OPTIONS_SD = [
+  {v:0,   l:'Aucun'},
+  {v:0.5, l:'½ paquet'},
+  {v:1,   l:'1 paquet'},
+  {v:2,   l:'2 paquets'},
+  {v:3,   l:'3 paquets'},
+  {v:4,   l:'4 paquets'}
+];
+function paquetOptionsHtmlSD(selected){
+  return PAQUET_QTY_OPTIONS_SD.map(function(o){
+    var sel = (o.v===4) ? (selected>=4) : (selected===o.v);
+    return `<option value="${o.v}" ${sel?'selected':''}>${o.l}</option>`;
+  }).join('');
+}
+const ENTREE_QTY_OPTIONS_SD = [0,1,2,3,4,5,6];
+function entreeOptionsHtmlSD(selected){
+  return ENTREE_QTY_OPTIONS_SD.map(function(v){
+    var sel = (v===6) ? (selected>=6) : (selected===v);
+    var lbl = v===0 ? 'Aucune' : (v+(v===6?'+':'')+' entrée'+(v>1?'s':''));
+    return `<option value="${v}" ${sel?'selected':''}>${lbl}</option>`;
+  }).join('');
+}
+
+let SD = null;
+
+async function editStopDetailForm(pointId){
+  const s = ST.currentTourneeStops.find(x=>x.id===pointId);
+  if(!s) return;
+  const l0 = s.lieu||{};
+  document.getElementById('stop-detail-title').textContent = l0.nom||'Arrêt';
+  SD = {
+    pointId: pointId,
+    statut: s.statut!=='a_faire' ? s.statut : null,
+    flyers: s.quantite_flyers||0,
+    flyersChateau: s.quantite_flyers_chateau||0,
+    entreeGratuite: s.entree_gratuite||0,
+    nougat: s.nb_nougat_offert||0,
+    commentaire: s.commentaire_distributeur||'',
+    dateOuverture: '', dateFermeture: '',
+    rappel: false, rappelComment: '',
+    photoB64: null, photoFile: null
+  };
+  renderStopDetailEditForm();
+  if(s.lieu_id){
+    try {
+      const annee = new Date().getFullYear();
+      const rows = await sbGet(`saisons_lieux?select=date_ouverture,date_fermeture&lieu_id=eq.${s.lieu_id}&annee=eq.${annee}&limit=1`);
+      if(rows && rows[0] && SD && SD.pointId===pointId){
+        SD.dateOuverture = rows[0].date_ouverture||'';
+        SD.dateFermeture = rows[0].date_fermeture||'';
+        const oi=document.getElementById('sd-date-ouverture'), fi=document.getElementById('sd-date-fermeture');
+        if(oi) oi.value = SD.dateOuverture;
+        if(fi) fi.value = SD.dateFermeture;
+      }
+    } catch(e){}
+  }
+}
+
+function renderStopDetailEditForm(){
+  if(!SD) return;
+  const s = ST.currentTourneeStops.find(x=>x.id===SD.pointId);
+  if(!s) return;
+  const isLivraisonOnly = s.type_arret==='livraison';
+  const f = SD;
+  const opts = isLivraisonOnly
+    ? [['distribue','✅','Livré'],['absent','❌','Non livré']]
+    : [['distribue','✅','Distribué'],['ferme','🔒','Fermé'],['refus','🚫','Refus'],['absent','👻','Absent']];
+  let html = `
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">Statut *</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${opts.map(function(o){ return `<button type="button" onclick="sdSetStatut('${o[0]}')" style="padding:14px 8px;border-radius:10px;border:2px solid ${f.statut===o[0]?'var(--gold-dk)':'#e5e5e5'};background:${f.statut===o[0]?'#FFF8E1':'#fff'};text-align:center;cursor:pointer">
+          <div style="font-size:20px">${o[1]}</div><div style="font-size:12px;font-weight:600;margin-top:4px">${o[2]}</div>
+        </button>`; }).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">Photo (optionnel)</label>
+      <div style="border:2px dashed #ddd;border-radius:10px;padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('sd-photo-input').click()">
+        <div style="font-size:22px">📷</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:4px">Cliquer pour ajouter une photo</div>
+        <input type="file" id="sd-photo-input" accept="image/*" style="display:none" onchange="sdHandlePhoto(this)">
+        ${f.photoB64?`<img src="${f.photoB64}" style="width:100%;border-radius:8px;margin-top:10px" alt="Photo">`
+          : (s.photo_preuve?`<img src="${s.photo_preuve}" style="width:100%;border-radius:8px;margin-top:10px" alt="Photo existante">`:'')}
+      </div>
+    </div>`;
+  if(!isLivraisonOnly){
+    html += `
+    <div style="margin-bottom:14px;display:${f.statut==='distribue'?'block':'none'}">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">🍬 Paquets Nougaterie</label>
+      <select id="sd-flyers" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyers=parseFloat(this.value)||0">
+        ${paquetOptionsHtmlSD(f.flyers)}
+      </select>
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin:10px 0 6px">🎟️ Paquets Château des Roure</label>
+      <select id="sd-flyers-chateau" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyersChateau=parseFloat(this.value)||0">
+        ${paquetOptionsHtmlSD(f.flyersChateau)}
+      </select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">📅 Infos saison (optionnel)</label>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
+          <input type="date" id="sd-date-fermeture" value="${f.dateFermeture||''}" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.dateFermeture=this.value">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
+          <input type="date" id="sd-date-ouverture" value="${f.dateOuverture||''}" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.dateOuverture=this.value">
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="checkbox" ${f.rappel?'checked':''} onchange="SD.rappel=this.checked;renderStopDetailEditForm()">
+        🔁 Prévoir un nouveau passage
+      </label>
+      ${f.rappel?`<textarea rows="2" placeholder="Pourquoi revenir ? (optionnel)" style="width:100%;margin-top:6px;padding:6px;border-radius:6px;border:1px solid #ddd;font-size:13px;font-family:inherit" oninput="SD.rappelComment=this.value">${esc(f.rappelComment||'')}</textarea>`:''}
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">🍬 Paquets dégustation nougat offerts</label>
+      <select id="sd-nougat" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.nougat=parseFloat(this.value)||0">
+        ${paquetOptionsHtmlSD(f.nougat)}
+      </select>
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin:10px 0 6px">🎟️ Entrées gratuites Château offertes</label>
+      <select id="sd-entree" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.entreeGratuite=parseFloat(this.value)||0">
+        ${entreeOptionsHtmlSD(f.entreeGratuite)}
+      </select>
+    </div>`;
+  }
+  html += `
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">Commentaire (optionnel)</label>
+      <textarea id="sd-comment" rows="3" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px;font-family:inherit" oninput="SD.commentaire=this.value">${esc(f.commentaire||'')}</textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="renderStopDetailView(${SD.pointId})">Annuler</button>
+      <button class="btn btn-primary btn-sm" style="flex:1" id="sd-save-btn" onclick="saveStopDetailForm()" ${f.statut?'':'disabled'}>💾 Enregistrer</button>
+    </div>`;
+  document.getElementById('stop-detail-body').innerHTML = html;
+}
+
+function sdSetStatut(v){ if(SD){ SD.statut=v; renderStopDetailEditForm(); } }
+
+function sdHandlePhoto(input){
+  const file = input.files[0]; if(!file || !SD) return;
+  SD.photoFile = file;
+  const r = new FileReader();
+  r.onload = function(e){ SD.photoB64 = e.target.result; renderStopDetailEditForm(); };
+  r.readAsDataURL(file);
+}
+
+async function saveStopDetailForm(){
+  if(!SD || !SD.statut){ showToast('⚠ Choisissez un statut'); return; }
+  const pointId = SD.pointId;
+  const s = ST.currentTourneeStops.find(x=>x.id===pointId);
+  if(!s) return;
+  const isLivraisonOnly = s.type_arret==='livraison';
+  const btn = document.getElementById('sd-save-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+
+  let photoUrl = s.photo_preuve || null;
+  if(SD.photoFile){
+    try {
+      const ext = SD.photoFile.name.split('.').pop()||'jpg';
+      const path = `tournee_${ST.currentTourneeId}/p${pointId}_${Date.now()}.${ext}`;
+      photoUrl = await uploadPhotoGestion(SD.photoFile, path);
+    } catch(e){ showToast('⚠ Photo non envoyée : '+e.message); }
+  }
+
+  const patch = { statut: SD.statut, commentaire_distributeur: SD.commentaire||null, photo_preuve: photoUrl };
+  if(!isLivraisonOnly){
+    patch.quantite_flyers = SD.statut==='distribue' ? (SD.flyers||0) : 0;
+    patch.quantite_flyers_chateau = SD.statut==='distribue' ? (SD.flyersChateau||0) : 0;
+    patch.nb_nougat_offert = SD.nougat||0;
+    patch.entree_gratuite = SD.entreeGratuite||0;
+  }
+
+  try {
+    await sbPatch('points_tournee','id=eq.'+pointId, patch);
+    Object.assign(s, patch);
+  } catch(e){
+    showToast('❌ '+e.message);
+    if(btn){ btn.disabled=false; btn.textContent='💾 Enregistrer'; }
+    return;
+  }
+
+  if(!isLivraisonOnly && s.lieu_id && (SD.dateOuverture || SD.dateFermeture)){
+    try { await saveSaisonLieuGestion(s.lieu_id, SD.dateOuverture||null, SD.dateFermeture||null); } catch(e){}
+  }
+  if(!isLivraisonOnly && s.lieu_id){
+    try { await applyRappelUpdateGestion(s.lieu_id, SD.rappel, SD.rappelComment||null); } catch(e){}
+  }
+
+  renderDetailStops();
+  renderStopDetailView(pointId);
+  showToast('✅ Arrêt mis à jour');
+}
+
+async function uploadPhotoGestion(file, path){
+  const doUp = function(tok){
+    return fetch(`${SUPABASE_URL}/storage/v1/object/photos-distribution/${path}`, {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+tok,'Content-Type':file.type||'image/jpeg','x-upsert':'true'},
+      body:file
+    });
+  };
+  let r = await doUp(getToken());
+  if(r.status===401){
+    const ok = await refreshSession();
+    if(ok) r = await doUp(getToken());
+  }
+  if(!r.ok){ const e = await r.json().catch(function(){return {};}); throw new Error(e.message||'HTTP '+r.status); }
+  return `${SUPABASE_URL}/storage/v1/object/public/photos-distribution/${path}`;
+}
+
+async function saveSaisonLieuGestion(lieuId, dateOuverture, dateFermeture){
+  const annee = new Date().getFullYear();
+  const payload = { lieu_id: lieuId, annee: annee, date_ouverture: dateOuverture||null, date_fermeture: dateFermeture||null, source:'admin', maj_par: ST.user?.id||null, maj_le: new Date().toISOString() };
+  const existing = await sbGet(`saisons_lieux?select=id&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+  if(existing && existing[0]) await sbPatch('saisons_lieux','id=eq.'+existing[0].id, payload);
+  else await sbPost('saisons_lieux', payload);
+  await loadSaisonsActuelles();
+  updateMapMarkers();
+}
+
+async function applyRappelUpdateGestion(lieuId, wantOpen, commentaire){
+  const existing = await sbGet(`rappels_lieux?select=id&lieu_id=eq.${lieuId}&statut=eq.a_faire&limit=1`);
+  if(existing && existing[0]){
+    await sbPatch('rappels_lieux','id=eq.'+existing[0].id, {statut:'traite', traite_le:new Date().toISOString(), traite_par: ST.user?.id||null});
+  }
+  if(wantOpen){
+    await sbPost('rappels_lieux', {lieu_id:lieuId, commentaire: commentaire||null, origine:'bureau', statut:'a_faire', cree_par: ST.user?.id||null});
+  }
+  await loadRappelsActuels();
+  updateMapMarkers();
 }
 
 function renderDetailStops(){
@@ -1959,7 +2204,7 @@ let _gsData = [];
 async function loadGStats(){
   document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>';
   try {
-    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,entree_gratuite,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
+    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,nb_nougat_offert,entree_gratuite,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
     _gsData = data || [];
     applyGStats();
   } catch(e){
@@ -2007,8 +2252,8 @@ function applyGStats(){
 
   let filtered = _gsData.filter(p => {
     if(statut && p.statut !== statut) return false;
-    if(nougat === '1' && !(p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
-    if(nougat === '0' && (p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(nougat === '1' && !((p.nb_nougat_offert||0) > 0)) return false;
+    if(nougat === '0' && (p.nb_nougat_offert||0) > 0) return false;
     if(p.heure_validation){
       const d = p.heure_validation.slice(0,10);
       if(from && d < from) return false;
@@ -2029,8 +2274,8 @@ function applyGStats(){
   const paquets = dist.reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const paquetsChateau = dist.reduce((s,p)=>s+(p.quantite_flyers_chateau||0),0);
   const taux    = filtered.length ? Math.round(dist.length/filtered.length*100)+'%' : '—';
-  const nougats = filtered.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]')).length;
-  const entrees = filtered.filter(p=>p.entree_gratuite).length;
+  const nougats = filtered.reduce((s,p)=>s+(p.nb_nougat_offert||0),0);
+  const entrees = filtered.reduce((s,p)=>s+(p.entree_gratuite||0),0);
   document.getElementById('gs-total').textContent   = filtered.length;
   document.getElementById('gs-paquets').textContent = paquets;
   document.getElementById('gs-paquets-chateau').textContent = paquetsChateau;
@@ -2051,7 +2296,8 @@ function applyGStats(){
     const t = p.tournees||{};
     const d = p.heure_validation ? new Date(p.heure_validation) : null;
     const dateStr = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-    const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    const nougatQty = p.nb_nougat_offert||0;
+    const entreeQty = p.entree_gratuite||0;
     const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
     const col = colors[p.statut]||'#999';
     const lbl = labels[p.statut]||p.statut;
@@ -2063,8 +2309,8 @@ function applyGStats(){
       <td><span style="color:${col};font-weight:bold;font-size:11px">${lbl}</span></td>
       <td style="font-weight:600">${qty}</td>
       <td style="font-weight:600">${qtyCh}</td>
-      <td style="text-align:center">${isNougat?'🍬':''}</td>
-      <td style="text-align:center">${p.entree_gratuite?'🎟️':''}</td>
+      <td style="text-align:center">${nougatQty>0?'🍬×'+nougatQty:''}</td>
+      <td style="text-align:center">${entreeQty>0?'🎟️×'+entreeQty:''}</td>
       <td style="font-size:11px;color:var(--grey)">${dateStr}</td>
       <td style="font-size:11px">${t.distributeur?.nom||'—'}</td>
       <td style="font-size:11px;color:var(--grey);font-style:italic">${comment}</td>
@@ -2151,8 +2397,8 @@ function _getStatsFilteredData() {
   if(from) data = data.filter(p=>p.heure_validation && p.heure_validation >= from);
   if(to)   data = data.filter(p=>p.heure_validation && p.heure_validation <= to+'T23:59:59');
   if(stat) data = data.filter(p=>p.statut===stat);
-  if(ngt==='1') data = data.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]'));
-  if(ngt==='0') data = data.filter(p=>!(p.commentaire_distributeur||'').includes('[Nougat offert]'));
+  if(ngt==='1') data = data.filter(p=>(p.nb_nougat_offert||0) > 0);
+  if(ngt==='0') data = data.filter(p=>!((p.nb_nougat_offert||0) > 0));
   return data;
 }
 
@@ -2215,8 +2461,8 @@ function exportStatsPDF() {
   const paquets = dist.reduce((s,p)=>s+(p.quantite_flyers||0),0);
   const paquetsCh = dist.reduce((s,p)=>s+(p.quantite_flyers_chateau||0),0);
   const taux = filtered.length ? Math.round(dist.length/filtered.length*100)+'%' : '—';
-  const nougats = filtered.filter(p=>(p.commentaire_distributeur||'').includes('[Nougat offert]')).length;
-  const entrees = filtered.filter(p=>p.entree_gratuite).length;
+  const nougats = filtered.reduce((s,p)=>s+(p.nb_nougat_offert||0),0);
+  const entrees = filtered.reduce((s,p)=>s+(p.entree_gratuite||0),0);
 
   const kpis = [
     { val: String(filtered.length), lbl: 'Visites totales' },
@@ -2247,13 +2493,12 @@ function exportStatsPDF() {
     const l = p.lieux||{};
     const t = p.tournees||{};
     const d = p.heure_validation ? new Date(p.heure_validation).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-    const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
     const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
     const qty   = p.statut==='distribue' ? String(p.quantite_flyers||0) : '—';
     const qtyCh = p.statut==='distribue' ? String(p.quantite_flyers_chateau||0) : '—';
     return [
       l.nom||'—', l.ville||'—', labels[p.statut]||p.statut,
-      qty, qtyCh, isNougat?'Oui':'', p.entree_gratuite?'Oui':'',
+      qty, qtyCh, String(p.nb_nougat_offert||0), String(p.entree_gratuite||0),
       d, t.distributeur?.nom||'—', comment
     ];
   });
@@ -2307,19 +2552,18 @@ function exportStatsExcel() {
     ['La Nougaterie du Pont d\'Arc — Export Statistiques'],
     ['Période :',period,'Statut :',statut,'Total :',filtered.length+' visites'],
     [],
-    ['Lieu','Ville','Statut','Paquets Nougaterie','Paquets Château','Nougat offert','Entrée gratuite','Date','Distributeur','Commentaire'],
+    ['Lieu','Ville','Statut','Paquets Nougaterie','Paquets Château','Paquets nougat offerts','Entrées gratuites','Date','Distributeur','Commentaire'],
     ...filtered.map(p => {
       const l = p.lieux||{};
       const t = p.tournees||{};
       const d = p.heure_validation ? new Date(p.heure_validation).toLocaleDateString('fr-FR') : '';
-      const isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
       const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
       return [
         l.nom||'', l.ville||'', labels[p.statut]||p.statut,
         p.statut==='distribue' ? (p.quantite_flyers||0) : '',
         p.statut==='distribue' ? (p.quantite_flyers_chateau||0) : '',
-        isNougat ? 'Oui' : 'Non',
-        p.entree_gratuite ? 'Oui' : 'Non',
+        p.nb_nougat_offert||0,
+        p.entree_gratuite||0,
         d, t.distributeur?.nom||'', comment
       ];
     })

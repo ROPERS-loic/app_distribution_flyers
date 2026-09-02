@@ -642,8 +642,26 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <option value="4">4 paquets</option>
       </select>
     </div>
-    <button id="visite-nougat" class="btn-nougat" onclick="this.classList.toggle('active')">🍬 Nougat dégustation offert</button>
-    <button id="visite-entree" class="btn-nougat" style="border-color:#1A73E8;color:#1A73E8" onclick="this.classList.toggle('active');this.style.background=this.classList.contains('active')?'#E8F0FE':'';this.style.color=this.classList.contains('active')?'#1A73E8':'#888'">🎟️ Entrée gratuite Château offerte</button>
+    <div class="visite-row"><label>🍬 Paquets nougat offerts</label>
+      <select id="visite-nougat">
+        <option value="0" selected>Aucun</option>
+        <option value="1">1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>🎟️ Entrées gratuites Château offertes</label>
+      <select id="visite-entree">
+        <option value="0" selected>Aucune</option>
+        <option value="1">1 entrée</option>
+        <option value="2">2 entrées</option>
+        <option value="3">3 entrées</option>
+        <option value="4">4 entrées</option>
+        <option value="5">5 entrées</option>
+        <option value="6">6 entrées</option>
+      </select>
+    </div>
     <div class="visite-row"><label>Remarque</label>
       <textarea id="visite-comment" placeholder="Optionnel..."></textarea>
     </div>
@@ -2308,16 +2326,15 @@ async function saveVisiteRapide(){
   var qty=parseInt(document.getElementById('visite-qty').value)||0;
   var qtyChateau=parseInt(document.getElementById('visite-qty-chateau').value)||0;
   var comment=document.getElementById('visite-comment').value.trim();
-  var nougat=document.getElementById('visite-nougat').classList.contains('active');
-  var entree=document.getElementById('visite-entree').classList.contains('active');
-  if(nougat) comment=(comment?'[Nougat offert] '+comment:'[Nougat offert]');
+  var nougat=parseInt(document.getElementById('visite-nougat').value)||0;
+  var entree=parseInt(document.getElementById('visite-entree').value)||0;
   showToast('Enregistrement...');
   try{
     var tId=await getOrCreateJournalTournee('Visite_rapide');
     await sbPost('points_tournee',[{
       tournee_id:tId,lieu_id:p.supabase_id,ordre_passage:1,
       quantite_flyers:qty,quantite_flyers_chateau:qtyChateau,
-      entree_gratuite:entree,statut:statut,
+      nb_nougat_offert:nougat,entree_gratuite:entree,statut:statut,
       heure_validation:new Date().toISOString(),
       commentaire_distributeur:comment||null
     }]);
@@ -2396,8 +2413,10 @@ function renderPointageList(){
       +'<option value="3">3 paquets</option>'
       +'<option value="4">4 paquets</option>'
       +'</select>'
-      +'<button id="ps-nougat-'+id+'" class="btn-nougat" onclick="this.classList.toggle(\'active\')" style="margin-top:4px">🍬 Nougat dégustation offert</button>'
-      +'<button id="ps-entree-'+id+'" class="btn-nougat" onclick="this.classList.toggle(\'active\')" style="margin-top:4px;border-color:#1A73E8;color:#1A73E8">🎟️ Entrée gratuite Château offerte</button>'
+      +'<div style="font-size:10px;font-weight:bold;color:#888;margin:6px 0 2px">🍬 Nougat offert</div>'
+      +'<select id="ps-nougat-'+id+'"><option value="0" selected>Aucun</option><option value="1">1 paquet</option><option value="2">2 paquets</option><option value="3">3 paquets</option><option value="4">4 paquets</option></select>'
+      +'<div style="font-size:10px;font-weight:bold;color:#888;margin:6px 0 2px">🎟️ Entrées gratuites</div>'
+      +'<select id="ps-entree-'+id+'"><option value="0" selected>Aucune</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>'
       +'<textarea id="ps-comment-'+id+'" placeholder="Remarque..."></textarea>'
       +'<button onclick="togglePointageStop('+id+')" style="margin-top:4px;font-size:10px;background:#eee;border:none;border-radius:4px;cursor:pointer;padding:2px 6px">Retirer</button>';
     list.appendChild(div);
@@ -2415,12 +2434,11 @@ async function savePointageSupabase(){
       var statut=document.getElementById('ps-statut-'+id).value;
       var qty=parseInt(document.getElementById('ps-qty-'+id).value)||0;
       var qtyChateau=parseInt(document.getElementById('ps-qtyc-'+id)?.value)||0;
-      var nougat=document.getElementById('ps-nougat-'+id)&&document.getElementById('ps-nougat-'+id).classList.contains('active');
-      var entree=document.getElementById('ps-entree-'+id)?.classList.contains('active')||false;
+      var nougat=parseInt(document.getElementById('ps-nougat-'+id)?.value)||0;
+      var entree=parseInt(document.getElementById('ps-entree-'+id)?.value)||0;
       var comment=document.getElementById('ps-comment-'+id).value.trim();
-      if(nougat) comment=(comment?'[Nougat offert] '+comment:'[Nougat offert]');
       points.push({tournee_id:tId,lieu_id:p.supabase_id,ordre_passage:i+1,
-        quantite_flyers:qty,quantite_flyers_chateau:qtyChateau,entree_gratuite:entree,statut:statut,
+        quantite_flyers:qty,quantite_flyers_chateau:qtyChateau,nb_nougat_offert:nougat,entree_gratuite:entree,statut:statut,
         heure_validation:pDate+'T12:00:00.000Z',
         commentaire_distributeur:comment||null});
     });
@@ -2732,7 +2750,7 @@ async function loadTourneeForEdit(id){
 
   tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
   var noMatch = 0;
-  var isBoucle = pts && pts.length>1 && pts[0].lieu_id===pts[pts.length-1].lieu_id && pts[0].quantite_flyers===0 && pts[pts.length-1].quantite_flyers===0;
+  var isBoucle = pts && pts.length>1 && pts[0].lieu_id===pts[pts.length-1].lieu_id && pts[0].est_repere===true && pts[pts.length-1].est_repere===true;
   var ptsToLoad = isBoucle ? pts.slice(0, pts.length-1) : (pts||[]);
   ptsToLoad.forEach(function(pt){
     var p = POIS.find(function(p){ return p.supabase_id === pt.lieu_id; });
@@ -2753,11 +2771,11 @@ async function loadTourneeForEdit(id){
 
   if(pts && pts.length>0){
     var first = pts[0], last = pts[pts.length-1];
-    if(first.quantite_flyers===0){
+    if(first.est_repere===true){
       var fp = POIS.find(function(p){ return p.supabase_id===first.lieu_id; });
       if(fp) document.getElementById('tf-depart').value = fp.id;
     }
-    if(pts.length>1 && last.quantite_flyers===0){
+    if(pts.length>1 && last.est_repere===true){
       var lp = POIS.find(function(p){ return p.supabase_id===last.lieu_id; });
       if(lp) document.getElementById('tf-arrivee').value = lp.id;
     }
@@ -2812,7 +2830,7 @@ async function saveTourneeSupabase(){
   tourneeStops.forEach(function(poiId, i){
     var p = POIS.find(function(p){ return p.id===poiId; }); if(!p) return;
     var isDepartArrivee = (departId!==null && poiId===departId) || (arriveeId!==null && poiId===arriveeId);
-    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: isDepartArrivee?0:qty, statut: 'a_faire' });
+    points.push({ tournee_id: tData.id, lieu_id: p.supabase_id, ordre_passage: i+1, quantite_flyers: isDepartArrivee?0:qty, statut: 'a_faire', est_repere: isDepartArrivee });
     poiIdByLieuId[p.supabase_id] = poiId;
   });
   var noMatch = tourneeStops.length - points.length;
@@ -2820,7 +2838,7 @@ async function saveTourneeSupabase(){
   if(departId!==null && arriveeId!==null && departId===arriveeId){
     var loopPoi = POIS.find(function(p){ return p.id===departId; });
     if(loopPoi && loopPoi.supabase_id){
-      points.push({ tournee_id: tData.id, lieu_id: loopPoi.supabase_id, ordre_passage: points.length+1, quantite_flyers: 0, statut: 'a_faire' });
+      points.push({ tournee_id: tData.id, lieu_id: loopPoi.supabase_id, ordre_passage: points.length+1, quantite_flyers: 0, statut: 'a_faire', est_repere: true });
     }
   }
 
@@ -2993,7 +3011,7 @@ async function openStats(){
   document.getElementById('stats-empty').textContent = 'Chargement…';
   document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Chargement…</div>';
   try {
-    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,nb_nougat_offert,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
     _statsData = data || [];
     applyStatsFilters();
   } catch(e) {
@@ -3014,8 +3032,8 @@ function applyStatsFilters(){
   var now = new Date();
   var filtered = _statsData.filter(function(p){
     if(statut && p.statut !== statut) return false;
-    if(nougat === '1' && !(p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
-    if(nougat === '0' && (p.commentaire_distributeur||'').includes('[Nougat offert]')) return false;
+    if(nougat === '1' && !((p.nb_nougat_offert||0) > 0)) return false;
+    if(nougat === '0' && (p.nb_nougat_offert||0) > 0) return false;
     if(periode !== 'all' && p.heure_validation){
       var d = new Date(p.heure_validation);
       if(periode === 'month' && (d.getMonth()!==now.getMonth()||d.getFullYear()!==now.getFullYear())) return false;
@@ -3037,7 +3055,7 @@ function applyStatsFilters(){
   var dist    = filtered.filter(function(p){return p.statut==='distribue';});
   var paquets = dist.reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
   var taux    = total ? Math.round(dist.length/total*100)+'%' : '—';
-  var nougats = filtered.filter(function(p){return (p.commentaire_distributeur||'').includes('[Nougat offert]');}).length;
+  var nougats = filtered.reduce(function(s,p){return s+(p.nb_nougat_offert||0);},0);
   document.getElementById('sc-total').textContent   = total;
   document.getElementById('sc-paquets').textContent = paquets;
   document.getElementById('sc-taux').textContent    = taux;
@@ -3054,7 +3072,7 @@ function applyStatsFilters(){
     var t = p.tournees || {};
     var d = p.heure_validation ? new Date(p.heure_validation) : null;
     var dateStr = d ? d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-    var isNougat = (p.commentaire_distributeur||'').includes('[Nougat offert]');
+    var nougatQty = p.nb_nougat_offert||0;
     var comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
     var bc = badgeClass[p.statut]||'sv-b-other';
     var bl = badgeLabel[p.statut]||p.statut;
@@ -3067,7 +3085,7 @@ function applyStatsFilters(){
       +'</div>'
       +'<span class="sv-badge '+bc+'">'+bl+'</span>'
       +(qtyStr?'<span class="sv-qty">'+qtyStr+'</span>':'')
-      +(isNougat?'<span class="sv-nougat" title="Nougat offert">🍬</span>':'')
+      +(nougatQty>0?'<span class="sv-nougat" title="Nougat offert">🍬×'+nougatQty+'</span>':'')
       +'<span class="sv-date">'+dateStr+'</span>'
     +'</div>';
   }).join('');
