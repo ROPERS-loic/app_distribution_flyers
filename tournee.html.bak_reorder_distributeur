@@ -161,10 +161,6 @@ textarea.form-input{resize:vertical;min-height:60px}
 .stop-addr{font-size:10px;color:var(--grey);margin-top:2px}
 .stop-chev{color:var(--grey);font-size:16px;transition:transform .2s;flex-shrink:0}
 .stop-card.expanded .stop-chev{transform:rotate(180deg)}
-.stop-reorder{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
-.btn-reorder{width:26px;height:22px;border:1px solid #ddd;border-radius:5px;background:#fff;font-size:11px;line-height:1;color:var(--grey);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
-.btn-reorder:active{background:var(--cream)}
-.btn-reorder:disabled{opacity:.25;pointer-events:none}
 .stop-body{display:none;padding:13px;border-top:1px solid #F0EFE9}
 .stop-card.expanded .stop-body{display:block}
 
@@ -591,7 +587,6 @@ const ST = {
   ficheFrom: 'lieux',
   geoPos: null,
   rtChannel: null,
-  rappels: {},
   form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false }
 };
 
@@ -759,15 +754,6 @@ async function loadPoints(tourneeId) {
   ST.activePoints = data;
 }
 
-async function loadRappels() {
-  try {
-    const rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
-    const map = {};
-    (rows||[]).forEach(r => { if (!map[r.lieu_id]) map[r.lieu_id] = r; });
-    ST.rappels = map;
-  } catch(e) { ST.rappels = {}; }
-}
-
 async function loadAllLieux() {
   try {
     const data = await sbGet('lieux?select=*&order=nom');
@@ -848,7 +834,7 @@ async function handleRefresh() {
       await loadTournees();
       const fresh = ST.tournees.find(t => t.id === id);
       if (fresh) ST.activeTournee = fresh;
-      await Promise.all([loadPoints(id), loadRappels()]);
+      await loadPoints(id);
       renderTourneeDetail();
       toast('🔄 Tournée mise à jour');
     } else {
@@ -928,7 +914,7 @@ async function openTournee(id) {
   ST.activeTournee = ST.tournees.find(t => t.id===id);
   document.getElementById('tournee-detail-content').innerHTML = `<div class="loading-sc"><div class="spinner"></div><span>Chargement…</span></div>`;
   navTo('tournee');
-  await Promise.all([loadPoints(id), loadRappels()]);
+  await loadPoints(id);
   subscribeRealtime(id);
   renderTourneeDetail();
 }
@@ -980,17 +966,15 @@ function renderTourneeDetail() {
 
   if (isEnd) {
     html += `<button class="btn-pdf" onclick="genPDF()" style="margin-bottom:12px">📄 Éditer le récap de tournée</button>`;
-  } else if (t.statut !== 'annulee' && total > 0) {
-    html += `<div id="terminer-zone"><button class="btn-secondary" style="margin-bottom:12px;color:var(--red);border-color:var(--red)" onclick="askTerminerTournee()">🏁 Terminer la tournée</button></div>`;
   }
 
   html += `<div class="section-title">Arrêts (${total})</div>`;
-  html += pts.length ? pts.map((p,i) => stopCardHTML(p,i,pts)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`;
+  html += pts.length ? pts.map((p,i) => stopCardHTML(p,i)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`;
   html += `<button class="btn-secondary" style="margin-top:12px" onclick="navTo('accueil')">← Retour aux tournées</button>`;
   document.getElementById('tournee-detail-content').innerHTML = html;
 }
 
-function stopCardHTML(p, i, pts) {
+function stopCardHTML(p, i) {
   const l = p.lieux || {};
   const s = p.statut || 'a_faire';
   const isLivraisonOnly = p.type_arret === 'livraison';
@@ -1009,21 +993,12 @@ function stopCardHTML(p, i, pts) {
       <div class="stop-hdr" onclick="toggleStop(${p.id})">
         <div class="stop-num${isLivraisonOnly?' num-livraison':''}">${isLivraisonOnly?'📦':(p.ordre_passage||i+1)}</div>
         <div class="stop-info">
-          <div class="stop-name">${ST.rappels[l.id]?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':''}${esc(l.nom||'—')}</div>
+          <div class="stop-name">${esc(l.nom||'—')}</div>
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
         </div>
         <span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>
-        ${!validated ? (() => {
-          let pj = i-1; while (pj>=0 && pts[pj].statut!=='a_faire') pj--;
-          let nj = i+1; while (nj<pts.length && pts[nj].statut!=='a_faire') nj++;
-          const canUp = pj>=0, canDown = nj<pts.length;
-          return `<div class="stop-reorder" onclick="event.stopPropagation()">
-            <button class="btn-reorder" ${canUp?'':'disabled'} onclick="moveStop(${p.id},-1)">▲</button>
-            <button class="btn-reorder" ${canDown?'':'disabled'} onclick="moveStop(${p.id},1)">▼</button>
-          </div>`;
-        })() : ''}
         <div class="stop-chev">▾</div>
       </div>
       <div class="stop-body">
@@ -1046,63 +1021,6 @@ function stopCardHTML(p, i, pts) {
         </div>
       </div>
     </div>`;
-}
-
-async function moveStop(pointId, direction) {
-  const pts = ST.activePoints;
-  const idx = pts.findIndex(p => p.id === pointId);
-  if (idx === -1) return;
-  let j = idx + direction;
-  while (j >= 0 && j < pts.length && pts[j].statut !== 'a_faire') j += direction;
-  if (j < 0 || j >= pts.length) return;
-  const a = pts[idx], b = pts[j];
-  const oa = a.ordre_passage, ob = b.ordre_passage;
-  try {
-    await sbPatch('points_tournee', 'id=eq.'+a.id, {ordre_passage: ob});
-    await sbPatch('points_tournee', 'id=eq.'+b.id, {ordre_passage: oa});
-  } catch(e) {
-    toast('⚠️ Réseau requis pour réorganiser la tournée');
-    return;
-  }
-  a.ordre_passage = ob; b.ordre_passage = oa;
-  ST.activePoints = pts.slice().sort((x,y) => (x.ordre_passage||0)-(y.ordre_passage||0));
-  renderTourneeDetail();
-}
-
-function askTerminerTournee() {
-  const restant = ST.activePoints.filter(p => p.statut === 'a_faire').length;
-  const zone = document.getElementById('terminer-zone');
-  if (!zone) return;
-  zone.innerHTML = `
-    <div style="background:var(--orange-lt);border:1px solid var(--orange);border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">${restant} lieu${restant>1?'x':''} n'${restant>1?'ont':'a'} pas été visité${restant>1?'s':''}. Terminer quand même ?</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-secondary" style="flex:1" onclick="renderTourneeDetail()">Annuler</button>
-        <button class="btn-primary" style="flex:1;background:var(--red)" onclick="confirmerTerminerTournee()">Confirmer</button>
-      </div>
-    </div>`;
-}
-
-async function confirmerTerminerTournee() {
-  const t = ST.activeTournee; if (!t) return;
-  const restants = ST.activePoints.filter(p => p.statut === 'a_faire');
-  try {
-    await sbPatch('tournees', 'id=eq.'+t.id, {statut:'terminee'});
-  } catch(e) {
-    toast('⚠️ Réseau requis pour terminer la tournée');
-    return;
-  }
-  t.statut = 'terminee';
-  const ti = ST.tournees.findIndex(x => x.id === t.id);
-  if (ti >= 0) ST.tournees[ti].statut = 'terminee';
-  for (const p of restants) {
-    if (!p.lieu_id) continue;
-    const commentaire = `Non visité — tournée "${t.nom||''}" clôturée le ${new Date().toLocaleDateString('fr-FR')}`;
-    try { await applyRappelUpdate(p.lieu_id, true, commentaire, 'terrain'); } catch(e) {}
-  }
-  await loadRappels();
-  toast('✅ Tournée terminée');
-  renderTourneeDetail();
 }
 
 function toggleStop(id) {
@@ -1686,7 +1604,6 @@ async function renderPointageLibre() {
   const dateEl = document.getElementById('pl-date');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
   if (!ST.allLieux.length) await loadAllLieux();
-  await loadRappels();
   plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   const searchEl = document.getElementById('pl-search');
@@ -1706,40 +1623,30 @@ function filterPL() {
   renderPLBrowse(items);
 }
 
-function plBrowseItemHTML(l) {
-  const k = String(l.id);
-  const added = !!plSelected[k];
-  const hasRappel = !!ST.rappels[l.id];
-  return `<div class="pl-browse-item">
-    <div style="flex:1;min-width:0">
-      <div class="pl-browse-name">${hasRappel?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':''}${esc(l.nom||'—')}</div>
-      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
-    </div>
-    <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="${added?'removePL':'openPLSheet'}('${k}')">
-      ${added?'✓':'+'}
-    </button>
-  </div>`;
-}
-
 function renderPLBrowse(items) {
   const el = document.getElementById('pl-browse'); if (!el) return;
   if (!items.length) {
     const q = (document.getElementById('pl-search')?.value||'').trim();
-    const placeholder = '<div style="padding:32px 16px;text-align:center;color:var(--grey);font-size:13px">🔍 Recherche un lieu pour commencer</div>';
-    if (q) {
-      el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun résultat</div>';
-      return;
-    }
-    const priority = plAllLieux.filter(l => ST.rappels[l.id]);
-    if (!priority.length) { el.innerHTML = placeholder; return; }
-    el.innerHTML = '<div style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase">🔁 À visiter en priorité</div>'
-      + priority.map(l => plBrowseItemHTML(l)).join('')
-      + placeholder;
+    el.innerHTML = q
+      ? '<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun résultat</div>'
+      : '<div style="padding:32px 16px;text-align:center;color:var(--grey);font-size:13px">🔍 Recherche un lieu pour commencer</div>';
     return;
   }
   const visible = items.slice(0, plBrowseLimit);
   const rest = items.length - plBrowseLimit;
-  el.innerHTML = visible.map(l => plBrowseItemHTML(l)).join('')
+  el.innerHTML = visible.map(l => {
+    const k = String(l.id);
+    const added = !!plSelected[k];
+    return `<div class="pl-browse-item">
+      <div style="flex:1;min-width:0">
+        <div class="pl-browse-name">${esc(l.nom||'—')}</div>
+        <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
+      </div>
+      <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="${added?'removePL':'openPLSheet'}('${k}')">
+        ${added?'✓':'+'}
+      </button>
+    </div>`;
+  }).join('')
   + (rest > 0 ? `<div onclick="plBrowseLimit+=5;filterPL()" style="padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--purple);cursor:pointer;border-top:1px solid #f0f0f0">Voir ${rest} résultat${rest>1?'s':''} de plus ↓</div>` : '');
 }
 
