@@ -1,0 +1,8 @@
+.git/
+.wrangler/
+*.sql
+*.docx
+*.xlsx
+*.csv
+*.bak_*
+node_modules/
