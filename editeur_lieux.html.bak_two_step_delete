@@ -207,7 +207,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #tournee-resize-handle{height:9px;flex-shrink:0;cursor:ns-resize;background:#eee;display:flex;align-items:center;justify-content:center}
 #tournee-resize-handle::after{content:'';width:32px;height:3px;border-radius:2px;background:#bbb}
 #tournee-resize-handle:hover{background:#e0e0e0}
-#tournee-list{padding:5px;min-height:60px;max-height:260px;overflow-y:auto;border-bottom:1px solid #ddd;box-shadow:inset 0 -6px 6px -6px rgba(0,0,0,.08)}
+#tournee-list{padding:5px;min-height:60px}
 #tournee-empty{text-align:center;padding:14px;color:#aaa;font-size:11px;font-style:italic}
 .tournee-stop{display:flex;align-items:center;gap:7px;padding:6px 5px;border-bottom:1px solid #f0f0f0;font-size:12px;cursor:default;transition:background .1s}
 .tournee-stop.drag-over{border-top:2px solid #27AE60;background:#E8F8EF}
@@ -390,7 +390,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 
   <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
-  <button class="hbtn" id="btn-goto-gestion" onclick="window.location.href='gestion_lieux.html'" style="background:#5E35B1;color:#fff;margin-left:auto" title="Ouvrir l'application de gestion des tournées">📋 Gestion →</button>
 </div>
 
 <!-- Login Supabase -->
@@ -479,7 +478,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="btn-cancel" onclick="closeEdit()">✕</button>
         <button class="btn-save btn-fiche" onclick="openFicheLieuEditeur()" style="margin-top:4px">👁️ Fiche complète</button>
         <button class="btn-save" onclick="openVisiteRapide()" style="background:#27AE60;margin-top:4px">Visite rapide</button>
-        <button class="btn-save" onclick="deletePoiSupabase()" style="background:#C62828;margin-top:4px;font-size:10px">🗑 Supprimer définitivement (base)</button>
       </div>
     </div>
     <!-- SAISON -->
@@ -579,7 +577,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       <div><div class="tf-label">Commentaire</div><input class="tf-input" id="tf-comment" type="text" placeholder="Instructions…"></div>
     </div>
     <div id="tournee-save-wrap">
-      <button class="tbtn tbtn-save" id="btn-save-tournee" onclick="saveTourneeSupabase()">☁️ Créer la tournée dans Supabase</button>
+      <button class="tbtn tbtn-save" onclick="saveTourneeSupabase()">☁️ Créer la tournée dans Supabase</button>
     </div>
   </div>
 
@@ -887,9 +885,6 @@ async function openFicheLieuEditeur(id, forTournee){
   var targetId = id!==undefined ? id : selectedId;
   var p = POIS.find(function(p){ return p.id===targetId; });
   if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
-  if(!saisonsLoaded || !rappelsLoaded){
-    try { await Promise.all([saisonsLoaded?Promise.resolve():loadSaisonsActuelles(), rappelsLoaded?Promise.resolve():loadRappelsActuels()]); } catch(e){}
-  }
   window._ficheForTourneeId = forTournee ? p.id : null;
   var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
   if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
@@ -923,7 +918,7 @@ async function openFicheLieuEditeur(id, forTournee){
       + (saisonInfo.date_ouverture?' · Ouverture '+new Date(saisonInfo.date_ouverture).toLocaleDateString('fr-FR'):'')
       + (saisonInfo.date_fermeture?' · Fermeture '+new Date(saisonInfo.date_fermeture).toLocaleDateString('fr-FR'):'')
       + '</div>'
-    : '<div style="font-size:14px;margin-bottom:8px;color:var(--grey)">📅 Dates de saison non renseignées</div>';
+    : '';
   var rappelInfo = rappelsMap[p.supabase_id];
   var rappelHtml = rappelInfo
     ? '<div style="font-size:14px;margin-bottom:8px;color:var(--red)">🔁 À revisiter'+(rappelInfo.commentaire?' — '+escHtml(rappelInfo.commentaire):'')+'</div>'
@@ -1020,7 +1015,6 @@ function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLower
 var addMode    = false;
 var routeMode  = false;
 var tourneeMode = false;
-var editingTourneeId = null;
 var pointageMode = false;
 var pointageStops = [];
 var _visitePoiId = null;
@@ -1380,43 +1374,29 @@ function saveEdit(){
   document.getElementById('edit-title').textContent='✏️ '+p.nom;
   applyFilters(); pushHistory(); saveState(); savePOIToSupabase(p); showToast('✓ Modifié : '+p.nom);
 }
-function deletePoi(){
+async function deletePoi(){
   var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
   if(p.type_lieu==='Point de départ'){showToast('⚠ Impossible de supprimer le point de départ');return;}
-  if(!confirm('Retirer "'+p.nom+'" de la carte (localement, sans toucher à la base) ?')) return;
-  if(markers[p.id]){map.removeLayer(markers[p.id]);delete markers[p.id];}
-  POIS.splice(POIS.indexOf(p),1);
-  routeStops=routeStops.filter(function(id){return id!==p.id;});
-  selectedId=null;
-  document.getElementById('edit-panel').classList.add('hidden');
-  applyFilters(); renderRouteList(); pushHistory(); saveState(); showToast('🗑 Retiré de la carte : '+p.nom);
-}
-
-async function deletePoiSupabase(){
-  var p=POIS.find(function(p){return p.id===selectedId;}); if(!p) return;
-  if(p.type_lieu==='Point de départ'){showToast('⚠ Impossible de supprimer le point de départ');return;}
-  if(!p.supabase_id){ showToast('⚠ Ce lieu n\'est pas encore synchronisé avec Supabase — utilisez le bouton 🗑 pour le retirer localement'); return; }
-  var saisie = prompt('Suppression DÉFINITIVE et IRRÉVERSIBLE dans la base (aucune sauvegarde disponible). Tapez le nom exact du lieu pour confirmer :\n\n'+p.nom);
-  if(saisie === null) return;
-  if(saisie.trim() !== p.nom.trim()){ showToast('⚠ Le nom saisi ne correspond pas — suppression annulée'); return; }
-  try{
-    await sbDelete('lieux','id=eq.'+p.supabase_id);
-  } catch(e){
-    var msg = (e && e.message) || '';
-    if(/foreign key|violates|update or delete/i.test(msg)){
-      showToast('⚠ Impossible : ce lieu a un historique de tournées. Utilisez plutôt le statut "Fermé définitivement".');
-    } else {
-      showToast('❌ '+msg);
+  if(!confirm('Supprimer "'+p.nom+'" ?')) return;
+  if(p.supabase_id){
+    try{
+      await sbDelete('lieux','id=eq.'+p.supabase_id);
+    } catch(e){
+      var msg = (e && e.message) || '';
+      if(/foreign key|violates|update or delete/i.test(msg)){
+        showToast('⚠ Impossible : ce lieu a un historique de tournées. Utilisez plutôt le statut "Fermé définitivement".');
+      } else {
+        showToast('❌ '+msg);
+      }
+      return;
     }
-    return;
   }
   if(markers[p.id]){map.removeLayer(markers[p.id]);delete markers[p.id];}
   POIS.splice(POIS.indexOf(p),1);
   routeStops=routeStops.filter(function(id){return id!==p.id;});
   selectedId=null;
   document.getElementById('edit-panel').classList.add('hidden');
-  applyFilters(); renderRouteList(); pushHistory(); saveState();
-  showToast('🗑 Supprimé définitivement (base) : '+p.nom);
+  applyFilters(); renderRouteList(); pushHistory(); saveState(); showToast('🗑 Supprimé : '+p.nom);
 }
 function closeEdit(){
   if(selectedId!==null){selectedId=null; POIS.forEach(function(p){refreshMarkerIcon(p.id);});}
@@ -1534,7 +1514,7 @@ function renderRouteList(){
     div.className='route-stop';
     div.draggable=true;
     div.dataset.idx=i;
-    div.innerHTML='<span class="route-drag" title="Glisser pour réordonner">⋮⋮</span>'
+    div.innerHTML='<span class="route-drag" title="Glisser pour réordonner">⠿</span>'
       +'<div class="route-stop-num">'+(i+1)+'</div>'
       +'<div class="route-stop-info"><div class="route-stop-nom">'+escHtml(p.nom)+'</div><div class="route-stop-sub">'+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>'
       +'<span class="route-stop-del" onclick="removeRouteStop('+i+')">✕</span>';
@@ -2447,9 +2427,6 @@ function toggleTourneeMode(){
     loadTourneeDistributeurs();
   } else {
     clearTourneeLayer();
-    editingTourneeId = null;
-    var saveBtn = document.getElementById('btn-save-tournee');
-    if(saveBtn) saveBtn.textContent = '☁️ Créer la tournée dans Supabase';
   }
 }
 
@@ -2520,7 +2497,7 @@ function renderTourneeList(){
     var hasLivraison = !!tourneeStopTypes[id];
     var div = document.createElement('div');
     div.className = 'tournee-stop'+(hasLivraison?' is-livraison':''); div.draggable = true; div.dataset.idx = i;
-    div.innerHTML = '<span class="tournee-drag">⋮⋮</span>'
+    div.innerHTML = '<span class="tournee-drag">⠿</span>'
       + '<div class="tournee-stop-num">'+(i+1)+'</div>'
       + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div>'
       + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
@@ -2574,6 +2551,8 @@ function onDepartChange(){
   var sel = document.getElementById('tf-depart').value;
   if(!sel){ renderTourneeList(); return; }
   var id = parseInt(sel,10);
+  var arriveeVal = document.getElementById('tf-arrivee').value;
+  if(arriveeVal && parseInt(arriveeVal,10)===id){ showToast('⚠ Le départ et l\'arrivée doivent être différents'); renderDepartArriveeSelects(); return; }
   var idx = tourneeStops.indexOf(id); if(idx<0) return;
   tourneeStops.splice(idx,1); tourneeStops.unshift(id);
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
@@ -2585,11 +2564,7 @@ function onArriveeChange(){
   if(!sel){ renderTourneeList(); return; }
   var id = parseInt(sel,10);
   var departVal = document.getElementById('tf-depart').value;
-  if(departVal && parseInt(departVal,10)===id){
-    // Boucle : même lieu en départ et arrivée, on ne le déplace pas dans la liste
-    renderTourneeList();
-    return;
-  }
+  if(departVal && parseInt(departVal,10)===id){ showToast('⚠ Le départ et l\'arrivée doivent être différents'); renderDepartArriveeSelects(); return; }
   var idx = tourneeStops.indexOf(id); if(idx<0) return;
   tourneeStops.splice(idx,1); tourneeStops.push(id);
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
@@ -2640,12 +2615,6 @@ async function calcTournee(){
     var p = POIS.find(function(p){ return p.id===id; });
     return p ? [parseFloat(p.lat), parseFloat(p.lon)] : null;
   }).filter(function(w){ return w && !isNaN(w[0]); });
-  var departValCalc = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
-  var arriveeValCalc = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
-  if(departValCalc && arriveeValCalc && departValCalc===arriveeValCalc){
-    var loopP = POIS.find(function(p){ return p.id===parseInt(departValCalc,10); });
-    if(loopP && !isNaN(parseFloat(loopP.lat))) wps.push([parseFloat(loopP.lat), parseFloat(loopP.lon)]);
-  }
   if(wps.length < 2){ showToast('⚠ Coordonnées manquantes'); return; }
   showToast('⏳ Calcul…'); clearTourneeLayer();
   var allCoords = [], totalDist = 0, totalDur = 0, MAX = 25;
@@ -2689,7 +2658,7 @@ function optimizeTournee(){
     if(!best) break;
     ordered.push(best); rem.splice(rem.indexOf(best), 1); curId = best;
   }
-  if(endId && endId!==startId) ordered.push(endId);
+  if(endId) ordered.push(endId);
   tourneeStops = ordered;
   POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
   renderList(); renderTourneeList(); clearTourneeLayer();
@@ -2707,68 +2676,6 @@ function clearTournee(){
 
 function clearTourneeLayer(){
   if(tourneeRouteLayer){ map.removeLayer(tourneeRouteLayer); tourneeRouteLayer = null; }
-}
-
-async function loadTourneeForEdit(id){
-  var tArr, pts;
-  try{
-    tArr = await sbGet('tournees?select=*&id=eq.'+id);
-    pts = await sbGet('points_tournee?select=*,commandes_livraison(*)&tournee_id=eq.'+id+'&order=ordre_passage.asc');
-  } catch(e){ showToast('❌ Erreur chargement tournée : '+e.message); return; }
-  var t = Array.isArray(tArr)?tArr[0]:tArr;
-  if(!t){ showToast('⚠ Tournée introuvable'); return; }
-  if(t.statut !== 'planifiee'){ showToast('⚠ Cette tournée n\'est plus modifiable (statut : '+t.statut+')'); return; }
-
-  editingTourneeId = t.id;
-  if(!tourneeMode) toggleTourneeMode();
-  await loadTourneeDistributeurs();
-
-  document.getElementById('tf-nom').value = t.nom||'';
-  document.getElementById('tf-date').value = t.date||'';
-  document.getElementById('tf-secteur').value = t.secteur||'';
-  document.getElementById('tf-comment').value = t.commentaire||'';
-  var distSel = document.getElementById('tf-distributeur');
-  if(distSel) distSel.value = t.distributeur_id||'';
-
-  tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
-  var noMatch = 0;
-  var isBoucle = pts && pts.length>1 && pts[0].lieu_id===pts[pts.length-1].lieu_id && pts[0].quantite_flyers===0 && pts[pts.length-1].quantite_flyers===0;
-  var ptsToLoad = isBoucle ? pts.slice(0, pts.length-1) : (pts||[]);
-  ptsToLoad.forEach(function(pt){
-    var p = POIS.find(function(p){ return p.supabase_id === pt.lieu_id; });
-    if(!p){ noMatch++; return; }
-    tourneeStops.push(p.id);
-    if(pt.commandes_livraison && pt.commandes_livraison.length>0){
-      tourneeStopTypes[p.id] = 'livraison';
-      tourneeStopLivraisonDesc[p.id] = pt.commandes_livraison[0].description||'';
-    }
-  });
-
-  var refPt = (pts||[]).find(function(pt){ return pt.quantite_flyers>0; });
-  if(refPt) document.getElementById('tf-qty').value = refPt.quantite_flyers;
-
-  POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
-  renderList(); renderTourneeList(); clearTourneeLayer();
-  renderDepartArriveeSelects();
-
-  if(pts && pts.length>0){
-    var first = pts[0], last = pts[pts.length-1];
-    if(first.quantite_flyers===0){
-      var fp = POIS.find(function(p){ return p.supabase_id===first.lieu_id; });
-      if(fp) document.getElementById('tf-depart').value = fp.id;
-    }
-    if(pts.length>1 && last.quantite_flyers===0){
-      var lp = POIS.find(function(p){ return p.supabase_id===last.lieu_id; });
-      if(lp) document.getElementById('tf-arrivee').value = lp.id;
-    }
-  }
-
-  var saveBtn = document.getElementById('btn-save-tournee');
-  if(saveBtn) saveBtn.textContent = '☁️ Mettre à jour la tournée';
-
-  var msg = '✏️ Modification de "'+t.nom+'" — '+tourneeStops.length+' arrêt(s)';
-  if(noMatch>0) msg += ' ('+noMatch+' lieu(x) introuvable(s) dans l\'éditeur)';
-  showToast(msg);
 }
 
 async function saveTourneeSupabase(){
@@ -2789,22 +2696,13 @@ async function saveTourneeSupabase(){
   var departId = departVal ? parseInt(departVal,10) : null;
   var arriveeId = arriveeVal ? parseInt(arriveeVal,10) : null;
 
-  showToast(editingTourneeId ? '⏳ Mise à jour en cours…' : '⏳ Création en cours…');
+  showToast('⏳ Création en cours…');
 
-  // Creer ou mettre a jour la tournee
-  var tData;
-  if(editingTourneeId){
-    try {
-      await sbPatch('tournees','id=eq.'+editingTourneeId, {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null});
-      await sbDelete('points_tournee','tournee_id=eq.'+editingTourneeId);
-    } catch(e){ showToast('❌ Erreur mise à jour : '+e.message); return; }
-    tData = {id: editingTourneeId};
-  } else {
-    var tArr;
-    try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
-    catch(e){ showToast('❌ Erreur création : '+e.message); return; }
-    tData = Array.isArray(tArr) ? tArr[0] : tArr;
-  }
+  // Creer la tournee
+  var tArr;
+  try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
+  catch(e){ showToast('❌ Erreur création : '+e.message); return; }
+  var tData = Array.isArray(tArr) ? tArr[0] : tArr;
 
   // Points (p.supabase_id = UUID Supabase)
   var points = [];
@@ -2816,13 +2714,6 @@ async function saveTourneeSupabase(){
     poiIdByLieuId[p.supabase_id] = poiId;
   });
   var noMatch = tourneeStops.length - points.length;
-
-  if(departId!==null && arriveeId!==null && departId===arriveeId){
-    var loopPoi = POIS.find(function(p){ return p.id===departId; });
-    if(loopPoi && loopPoi.supabase_id){
-      points.push({ tournee_id: tData.id, lieu_id: loopPoi.supabase_id, ordre_passage: points.length+1, quantite_flyers: 0, statut: 'a_faire' });
-    }
-  }
 
   var insertedPoints = [];
   if(points.length > 0){
@@ -2846,7 +2737,7 @@ async function saveTourneeSupabase(){
     catch(e){ showToast('⚠ Tournée créée mais erreur livraisons : '+e.message); }
   }
 
-  var msg = editingTourneeId ? ('✅ Tournée "'+nom+'" mise à jour — '+points.length+' arrêts') : ('✅ Tournée "'+nom+'" créée — '+points.length+' arrêts');
+  var msg = '✅ Tournée "'+nom+'" créée — '+points.length+' arrêts';
   if(livraisonRows.length>0) msg += ' dont '+livraisonRows.length+' livraison(s)';
   if(noMatch > 0) msg += ' ('+noMatch+' lieux non trouvés dans Supabase)';
   showToast(msg);
@@ -3228,13 +3119,6 @@ function resetToOriginal(){
 buildMarkers();
 applyFilters();
 restoreState();
-loadSaisonsActuelles();
-loadRappelsActuels();
-(function(){
-  var params = new URLSearchParams(window.location.search);
-  var editId = params.get('edit_tournee');
-  if(editId) loadTourneeForEdit(parseInt(editId,10));
-})();
 checkStoredHandle();
 (function(){
   var ind = document.getElementById('save-indicator');

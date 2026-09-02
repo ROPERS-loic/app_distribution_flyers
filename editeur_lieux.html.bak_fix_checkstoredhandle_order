@@ -207,7 +207,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #tournee-resize-handle{height:9px;flex-shrink:0;cursor:ns-resize;background:#eee;display:flex;align-items:center;justify-content:center}
 #tournee-resize-handle::after{content:'';width:32px;height:3px;border-radius:2px;background:#bbb}
 #tournee-resize-handle:hover{background:#e0e0e0}
-#tournee-list{padding:5px;min-height:60px;max-height:260px;overflow-y:auto;border-bottom:1px solid #ddd;box-shadow:inset 0 -6px 6px -6px rgba(0,0,0,.08)}
+#tournee-list{padding:5px;min-height:60px}
 #tournee-empty{text-align:center;padding:14px;color:#aaa;font-size:11px;font-style:italic}
 .tournee-stop{display:flex;align-items:center;gap:7px;padding:6px 5px;border-bottom:1px solid #f0f0f0;font-size:12px;cursor:default;transition:background .1s}
 .tournee-stop.drag-over{border-top:2px solid #27AE60;background:#E8F8EF}
@@ -390,7 +390,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 
   <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
   <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
-  <button class="hbtn" id="btn-goto-gestion" onclick="window.location.href='gestion_lieux.html'" style="background:#5E35B1;color:#fff;margin-left:auto" title="Ouvrir l'application de gestion des tournées">📋 Gestion →</button>
 </div>
 
 <!-- Login Supabase -->
@@ -887,9 +886,6 @@ async function openFicheLieuEditeur(id, forTournee){
   var targetId = id!==undefined ? id : selectedId;
   var p = POIS.find(function(p){ return p.id===targetId; });
   if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
-  if(!saisonsLoaded || !rappelsLoaded){
-    try { await Promise.all([saisonsLoaded?Promise.resolve():loadSaisonsActuelles(), rappelsLoaded?Promise.resolve():loadRappelsActuels()]); } catch(e){}
-  }
   window._ficheForTourneeId = forTournee ? p.id : null;
   var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
   if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
@@ -923,7 +919,7 @@ async function openFicheLieuEditeur(id, forTournee){
       + (saisonInfo.date_ouverture?' · Ouverture '+new Date(saisonInfo.date_ouverture).toLocaleDateString('fr-FR'):'')
       + (saisonInfo.date_fermeture?' · Fermeture '+new Date(saisonInfo.date_fermeture).toLocaleDateString('fr-FR'):'')
       + '</div>'
-    : '<div style="font-size:14px;margin-bottom:8px;color:var(--grey)">📅 Dates de saison non renseignées</div>';
+    : '';
   var rappelInfo = rappelsMap[p.supabase_id];
   var rappelHtml = rappelInfo
     ? '<div style="font-size:14px;margin-bottom:8px;color:var(--red)">🔁 À revisiter'+(rappelInfo.commentaire?' — '+escHtml(rappelInfo.commentaire):'')+'</div>'
@@ -1534,7 +1530,7 @@ function renderRouteList(){
     div.className='route-stop';
     div.draggable=true;
     div.dataset.idx=i;
-    div.innerHTML='<span class="route-drag" title="Glisser pour réordonner">⋮⋮</span>'
+    div.innerHTML='<span class="route-drag" title="Glisser pour réordonner">⠿</span>'
       +'<div class="route-stop-num">'+(i+1)+'</div>'
       +'<div class="route-stop-info"><div class="route-stop-nom">'+escHtml(p.nom)+'</div><div class="route-stop-sub">'+escHtml(p.commune)+' · '+escHtml(zoneKey(p.zone_tournee))+'</div></div>'
       +'<span class="route-stop-del" onclick="removeRouteStop('+i+')">✕</span>';
@@ -2520,7 +2516,7 @@ function renderTourneeList(){
     var hasLivraison = !!tourneeStopTypes[id];
     var div = document.createElement('div');
     div.className = 'tournee-stop'+(hasLivraison?' is-livraison':''); div.draggable = true; div.dataset.idx = i;
-    div.innerHTML = '<span class="tournee-drag">⋮⋮</span>'
+    div.innerHTML = '<span class="tournee-drag">⠿</span>'
       + '<div class="tournee-stop-num">'+(i+1)+'</div>'
       + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div>'
       + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
@@ -3228,14 +3224,12 @@ function resetToOriginal(){
 buildMarkers();
 applyFilters();
 restoreState();
-loadSaisonsActuelles();
-loadRappelsActuels();
+checkStoredHandle();
 (function(){
   var params = new URLSearchParams(window.location.search);
   var editId = params.get('edit_tournee');
   if(editId) loadTourneeForEdit(parseInt(editId,10));
 })();
-checkStoredHandle();
 (function(){
   var ind = document.getElementById('save-indicator');
   if(ind && !localStorage.getItem(POIS_STORE_KEY)){

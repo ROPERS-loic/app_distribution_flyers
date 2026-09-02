@@ -161,10 +161,10 @@ textarea.form-input{resize:vertical;min-height:60px}
 .stop-addr{font-size:10px;color:var(--grey);margin-top:2px}
 .stop-chev{color:var(--grey);font-size:16px;transition:transform .2s;flex-shrink:0}
 .stop-card.expanded .stop-chev{transform:rotate(180deg)}
-.stop-drag{width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--grey);font-size:17px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.stop-drag:active{cursor:grabbing;color:var(--black)}
-.stop-card.stop-dragging{box-shadow:var(--shadow-lg);opacity:.97}
-.stop-placeholder{background:var(--cream);border:2px dashed #ddd;border-radius:var(--radius);margin-bottom:10px}
+.stop-reorder{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.btn-reorder{width:26px;height:22px;border:1px solid #ddd;border-radius:5px;background:#fff;font-size:11px;line-height:1;color:var(--grey);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.btn-reorder:active{background:var(--cream)}
+.btn-reorder:disabled{opacity:.25;pointer-events:none}
 .stop-body{display:none;padding:13px;border-top:1px solid #F0EFE9}
 .stop-card.expanded .stop-body{display:block}
 
@@ -940,20 +940,19 @@ function renderTourneeDetail() {
   const t = ST.activeTournee; if (!t) return;
   document.getElementById('hdr-title').textContent = esc(t.nom);
   const pts = ST.activePoints;
-  const realPts = pts.filter(p => !isRepere(p));
-  const total = realPts.length;
-  const done  = realPts.filter(p => p.statut!=='a_faire').length;
-  const dist  = realPts.filter(p => p.statut==='distribue').length;
-  const ferm  = realPts.filter(p => p.statut==='ferme').length;
-  const refu  = realPts.filter(p => p.statut==='refus').length;
-  const abs   = realPts.filter(p => p.statut==='absent').length;
-  const todo  = realPts.filter(p => p.statut==='a_faire').length;
+  const total = pts.length;
+  const done  = pts.filter(p => p.statut!=='a_faire').length;
+  const dist  = pts.filter(p => p.statut==='distribue').length;
+  const ferm  = pts.filter(p => p.statut==='ferme').length;
+  const refu  = pts.filter(p => p.statut==='refus').length;
+  const abs   = pts.filter(p => p.statut==='absent').length;
+  const todo  = pts.filter(p => p.statut==='a_faire').length;
   const pct   = total ? Math.round(done/total*100) : 0;
   const isEnd = t.statut==='terminee' || (total>0 && done===total);
 
   // Google Maps URLs
   const wayPts = pts.filter(p => p.lieux?.latitude && p.lieux?.longitude);
-  const nextPt = pts.find(p => p.statut==='a_faire' && !isRepere(p) && p.lieux?.latitude);
+  const nextPt = pts.find(p => p.statut==='a_faire' && p.lieux?.latitude);
   const gmFull = wayPts.length>=2
     ? 'https://www.google.com/maps/dir/'+wayPts.slice(0,25).map(p=>`${p.lieux.latitude},${p.lieux.longitude}`).join('/')
     : null;
@@ -985,19 +984,16 @@ function renderTourneeDetail() {
     html += `<div id="terminer-zone"><button class="btn-secondary" style="margin-bottom:12px;color:var(--red);border-color:var(--red)" onclick="askTerminerTournee()">🏁 Terminer la tournée</button></div>`;
   }
 
-  html += `<div class="section-title">Arrêts (${pts.length})</div>`;
-  html += `<div id="stops-list">` + (pts.length ? pts.map((p,i) => stopCardHTML(p,i,pts)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`) + `</div>`;
+  html += `<div class="section-title">Arrêts (${total})</div>`;
+  html += pts.length ? pts.map((p,i) => stopCardHTML(p,i,pts)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`;
   html += `<button class="btn-secondary" style="margin-top:12px" onclick="navTo('accueil')">← Retour aux tournées</button>`;
   document.getElementById('tournee-detail-content').innerHTML = html;
 }
-
-function isRepere(p){ return p.quantite_flyers===0 && p.type_arret!=='livraison'; }
 
 function stopCardHTML(p, i, pts) {
   const l = p.lieux || {};
   const s = p.statut || 'a_faire';
   const isLivraisonOnly = p.type_arret === 'livraison';
-  const repere = isRepere(p);
   const hasCommande = p.commandes_livraison && p.commandes_livraison.length>0;
   const cmd = hasCommande ? p.commandes_livraison[0] : null;
   const livraisonDesc = (cmd && cmd.description) || '';
@@ -1018,10 +1014,16 @@ function stopCardHTML(p, i, pts) {
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
         </div>
-        ${repere
-          ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
-          : `<span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>`}
-        ${!validated ? `<span class="stop-drag" onpointerdown="startStopDrag(event)" onclick="event.stopPropagation()">⋮⋮</span>` : ''}
+        <span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>
+        ${!validated ? (() => {
+          let pj = i-1; while (pj>=0 && pts[pj].statut!=='a_faire') pj--;
+          let nj = i+1; while (nj<pts.length && pts[nj].statut!=='a_faire') nj++;
+          const canUp = pj>=0, canDown = nj<pts.length;
+          return `<div class="stop-reorder" onclick="event.stopPropagation()">
+            <button class="btn-reorder" ${canUp?'':'disabled'} onclick="moveStop(${p.id},-1)">▲</button>
+            <button class="btn-reorder" ${canDown?'':'disabled'} onclick="moveStop(${p.id},1)">▼</button>
+          </div>`;
+        })() : ''}
         <div class="stop-chev">▾</div>
       </div>
       <div class="stop-body">
@@ -1031,12 +1033,11 @@ function stopCardHTML(p, i, pts) {
           </div>
           ${p.commentaire_distributeur?`<div style="font-size:12px;color:var(--grey);margin-bottom:10px">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
         ` : ''}
-        ${repere ? `<div style="font-size:12px;color:var(--grey);margin-bottom:10px">🚩 Point de repère (départ/arrivée) — non soumis à validation</div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${gm?`<a href="${gm}" target="_blank" class="btn-maps" style="flex:1">🧭 Naviguer</a>`:''}
-          ${repere ? '' : `<button class="btn-primary" style="flex:1;padding:10px" onclick="openValidation(${p.id})">
+          <button class="btn-primary" style="flex:1;padding:10px" onclick="openValidation(${p.id})">
             ${validated?'✏️ Modifier':'✅ Valider'}
-          </button>`}
+          </button>
         </div>
         <div style="text-align:center;margin-top:10px">
           <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer" onclick="openFicheFromStop(${l.id})">
@@ -1047,127 +1048,44 @@ function stopCardHTML(p, i, pts) {
     </div>`;
 }
 
-let dragState = null;
-
-function startStopDrag(e) {
-  if (e.pointerType === 'mouse' && e.button !== 0) return;
-  e.preventDefault();
-  const handle = e.currentTarget;
-  const card = handle.closest('.stop-card');
-  const list = document.getElementById('stops-list');
-  if (!card || !list) return;
-  const rect = card.getBoundingClientRect();
-  const placeholder = document.createElement('div');
-  placeholder.className = 'stop-placeholder';
-  placeholder.style.height = rect.height + 'px';
-  card.parentNode.insertBefore(placeholder, card);
-  card.classList.add('stop-dragging');
-  card.style.position = 'fixed';
-  card.style.top = rect.top + 'px';
-  card.style.left = rect.left + 'px';
-  card.style.width = rect.width + 'px';
-  card.style.zIndex = '9999';
-  document.body.appendChild(card);
-  dragState = { card, placeholder, list, startY: e.clientY, baseTop: rect.top };
-  try { handle.setPointerCapture(e.pointerId); } catch(err) {}
-  handle.addEventListener('pointermove', onStopDragMove);
-  handle.addEventListener('pointerup', onStopDragEnd);
-  handle.addEventListener('pointercancel', onStopDragEnd);
-}
-
-function onStopDragMove(e) {
-  if (!dragState) return;
-  e.preventDefault();
-  const { card, placeholder, list, startY, baseTop } = dragState;
-  const newTop = baseTop + (e.clientY - startY);
-  card.style.top = newTop + 'px';
-  const cardCenter = newTop + card.offsetHeight / 2;
-  const siblings = Array.from(list.children).filter(function(el){
-    return el !== placeholder && el.classList.contains('stop-card') && el.querySelector('.stop-drag');
-  });
-  let target = null;
-  for (const sib of siblings) {
-    const r = sib.getBoundingClientRect();
-    if (cardCenter < r.top + r.height / 2) { target = sib; break; }
-  }
-  if (target) {
-    if (target.previousElementSibling !== placeholder) list.insertBefore(placeholder, target);
-  } else if (list.lastElementChild !== placeholder) {
-    list.appendChild(placeholder);
-  }
-}
-
-async function onStopDragEnd(e) {
-  const handle = e.currentTarget;
-  handle.removeEventListener('pointermove', onStopDragMove);
-  handle.removeEventListener('pointerup', onStopDragEnd);
-  handle.removeEventListener('pointercancel', onStopDragEnd);
-  if (!dragState) return;
-  const { card, placeholder, list } = dragState;
-  list.insertBefore(card, placeholder);
-  placeholder.remove();
-  card.classList.remove('stop-dragging');
-  card.style.position = ''; card.style.top = ''; card.style.left = ''; card.style.width = ''; card.style.zIndex = '';
-  dragState = null;
-
-  const orderedIds = Array.from(list.children)
-    .filter(function(el){ return el.classList.contains('stop-card'); })
-    .map(function(el){ return parseInt(el.id.replace('stop-', ''), 10); });
-  await persistStopOrder(orderedIds);
-}
-
-async function persistStopOrder(orderedIds) {
+async function moveStop(pointId, direction) {
   const pts = ST.activePoints;
-  const byId = {};
-  pts.forEach(function(p){ byId[p.id] = p; });
-  const movableSlots = pts.filter(function(p){ return p.statut === 'a_faire'; })
-    .map(function(p){ return p.ordre_passage; }).sort(function(a,b){ return a - b; });
-  const newMovableOrder = orderedIds.filter(function(id){ return byId[id] && byId[id].statut === 'a_faire'; });
-  if (newMovableOrder.length !== movableSlots.length) { renderTourneeDetail(); return; }
-  const updates = [];
-  newMovableOrder.forEach(function(id, i){
-    const p = byId[id], newSlot = movableSlots[i];
-    if (p.ordre_passage !== newSlot) updates.push({ p: p, newSlot: newSlot });
-  });
-  if (updates.length === 0) return;
+  const idx = pts.findIndex(p => p.id === pointId);
+  if (idx === -1) return;
+  let j = idx + direction;
+  while (j >= 0 && j < pts.length && pts[j].statut !== 'a_faire') j += direction;
+  if (j < 0 || j >= pts.length) return;
+  const a = pts[idx], b = pts[j];
+  const oa = a.ordre_passage, ob = b.ordre_passage;
   try {
-    for (const u of updates) {
-      await sbPatch('points_tournee', 'id=eq.' + u.p.id, { ordre_passage: u.newSlot });
-      u.p.ordre_passage = u.newSlot;
-    }
-  } catch (e) {
+    await sbPatch('points_tournee', 'id=eq.'+a.id, {ordre_passage: ob});
+    await sbPatch('points_tournee', 'id=eq.'+b.id, {ordre_passage: oa});
+  } catch(e) {
     toast('⚠️ Réseau requis pour réorganiser la tournée');
+    return;
   }
-  ST.activePoints = pts.slice().sort(function(x,y){ return (x.ordre_passage||0)-(y.ordre_passage||0); });
+  a.ordre_passage = ob; b.ordre_passage = oa;
+  ST.activePoints = pts.slice().sort((x,y) => (x.ordre_passage||0)-(y.ordre_passage||0));
   renderTourneeDetail();
 }
 
 function askTerminerTournee() {
-  const restants = ST.activePoints.filter(p => p.statut === 'a_faire' && !isRepere(p));
+  const restant = ST.activePoints.filter(p => p.statut === 'a_faire').length;
   const zone = document.getElementById('terminer-zone');
   if (!zone) return;
-  if (!restants.length) { confirmerTerminerTournee(); return; }
-  const rows = restants.map(p => `
-    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid #f0d9b5">
-      <input type="checkbox" class="terminer-rappel-chk" data-point-id="${p.id}" checked>
-      ${esc(p.lieux?.nom||'—')}
-    </label>`).join('');
   zone.innerHTML = `
     <div style="background:var(--orange-lt);border:1px solid var(--orange);border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">${restants.length} lieu${restants.length>1?'x':''} n'${restants.length>1?'ont':'a'} pas été visité${restants.length>1?'s':''}. À marquer "à faire plus tard" :</div>
-      <div style="max-height:220px;overflow-y:auto;margin-bottom:10px">${rows}</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">${restant} lieu${restant>1?'x':''} n'${restant>1?'ont':'a'} pas été visité${restant>1?'s':''}. Terminer quand même ?</div>
       <div style="display:flex;gap:8px">
         <button class="btn-secondary" style="flex:1" onclick="renderTourneeDetail()">Annuler</button>
-        <button class="btn-primary" style="flex:1;background:var(--red)" onclick="confirmerTerminerTournee()">Terminer la tournée</button>
+        <button class="btn-primary" style="flex:1;background:var(--red)" onclick="confirmerTerminerTournee()">Confirmer</button>
       </div>
     </div>`;
 }
 
 async function confirmerTerminerTournee() {
   const t = ST.activeTournee; if (!t) return;
-  const checks = document.querySelectorAll('.terminer-rappel-chk');
-  const toRappel = [];
-  checks.forEach(c => { if (c.checked) toRappel.push(parseInt(c.getAttribute('data-point-id'),10)); });
+  const restants = ST.activePoints.filter(p => p.statut === 'a_faire');
   try {
     await sbPatch('tournees', 'id=eq.'+t.id, {statut:'terminee'});
   } catch(e) {
@@ -1177,9 +1095,8 @@ async function confirmerTerminerTournee() {
   t.statut = 'terminee';
   const ti = ST.tournees.findIndex(x => x.id === t.id);
   if (ti >= 0) ST.tournees[ti].statut = 'terminee';
-  for (const pointId of toRappel) {
-    const p = ST.activePoints.find(x => x.id === pointId);
-    if (!p || !p.lieu_id) continue;
+  for (const p of restants) {
+    if (!p.lieu_id) continue;
     const commentaire = `Non visité — tournée "${t.nom||''}" clôturée le ${new Date().toLocaleDateString('fr-FR')}`;
     try { await applyRappelUpdate(p.lieu_id, true, commentaire, 'terrain'); } catch(e) {}
   }
@@ -1512,7 +1429,7 @@ async function submitValidation() {
   const idx = ST.activePoints.findIndex(x=>x.id===ST.form.pointId);
   if (idx>=0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...upd };
 
-  const allDone = ST.activePoints.filter(p => !isRepere(p)).every(p => p.statut!=='a_faire');
+  const allDone = ST.activePoints.every(p => p.statut!=='a_faire');
   if (allDone && ST.activeTournee.statut!=='terminee') {
     await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'terminee'}).catch(()=>{});
     ST.activeTournee.statut = 'terminee';

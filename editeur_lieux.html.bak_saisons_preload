@@ -887,9 +887,6 @@ async function openFicheLieuEditeur(id, forTournee){
   var targetId = id!==undefined ? id : selectedId;
   var p = POIS.find(function(p){ return p.id===targetId; });
   if(!p || !p.supabase_id){ showToast('⚠ Lieu non synchronisé avec Supabase'); return; }
-  if(!saisonsLoaded || !rappelsLoaded){
-    try { await Promise.all([saisonsLoaded?Promise.resolve():loadSaisonsActuelles(), rappelsLoaded?Promise.resolve():loadRappelsActuels()]); } catch(e){}
-  }
   window._ficheForTourneeId = forTournee ? p.id : null;
   var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
   if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
@@ -923,7 +920,7 @@ async function openFicheLieuEditeur(id, forTournee){
       + (saisonInfo.date_ouverture?' · Ouverture '+new Date(saisonInfo.date_ouverture).toLocaleDateString('fr-FR'):'')
       + (saisonInfo.date_fermeture?' · Fermeture '+new Date(saisonInfo.date_fermeture).toLocaleDateString('fr-FR'):'')
       + '</div>'
-    : '<div style="font-size:14px;margin-bottom:8px;color:var(--grey)">📅 Dates de saison non renseignées</div>';
+    : '';
   var rappelInfo = rappelsMap[p.supabase_id];
   var rappelHtml = rappelInfo
     ? '<div style="font-size:14px;margin-bottom:8px;color:var(--red)">🔁 À revisiter'+(rappelInfo.commentaire?' — '+escHtml(rappelInfo.commentaire):'')+'</div>'
@@ -3228,8 +3225,6 @@ function resetToOriginal(){
 buildMarkers();
 applyFilters();
 restoreState();
-loadSaisonsActuelles();
-loadRappelsActuels();
 (function(){
   var params = new URLSearchParams(window.location.search);
   var editId = params.get('edit_tournee');

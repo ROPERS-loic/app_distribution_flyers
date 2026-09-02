@@ -923,7 +923,7 @@ async function openFicheLieuEditeur(id, forTournee){
       + (saisonInfo.date_ouverture?' · Ouverture '+new Date(saisonInfo.date_ouverture).toLocaleDateString('fr-FR'):'')
       + (saisonInfo.date_fermeture?' · Fermeture '+new Date(saisonInfo.date_fermeture).toLocaleDateString('fr-FR'):'')
       + '</div>'
-    : '<div style="font-size:14px;margin-bottom:8px;color:var(--grey)">📅 Dates de saison non renseignées</div>';
+    : '';
   var rappelInfo = rappelsMap[p.supabase_id];
   var rappelHtml = rappelInfo
     ? '<div style="font-size:14px;margin-bottom:8px;color:var(--red)">🔁 À revisiter'+(rappelInfo.commentaire?' — '+escHtml(rappelInfo.commentaire):'')+'</div>'

@@ -414,7 +414,6 @@ textarea.form-input{resize:vertical;min-height:70px}
         <div class="detail-header">
           <button class="btn btn-secondary btn-sm" onclick="closeTourneeDetail()">← Retour</button>
           <h2 id="detail-title">Tournée</h2>
-          <span style="cursor:pointer;font-size:15px" onclick="renameTournee()" title="Renommer la tournée">✏️</span>
           <span class="badge" id="detail-badge"></span>
           <div style="flex:1"></div>
           <button class="btn btn-primary btn-sm" onclick="openAddStopModal()">+ Ajouter des lieux</button>
@@ -642,17 +641,6 @@ textarea.form-input{resize:vertical;min-height:70px}
   </div>
 </div>
 
-<!-- Modal détail arrêt (ce qu'a fait le distributeur) -->
-<div class="modal-overlay" id="modal-stop-detail">
-  <div class="modal-box" style="width:480px;max-width:95vw">
-    <div class="modal-header">
-      <h3 id="stop-detail-title">Arrêt</h3>
-      <button class="modal-close" onclick="closeModal('modal-stop-detail')">✕</button>
-    </div>
-    <div class="modal-body" id="stop-detail-body"></div>
-  </div>
-</div>
-
 <!-- Modal distributeur -->
 <div class="modal-overlay" id="modal-distributeur">
   <div class="modal-box" style="width:480px">
@@ -846,7 +834,7 @@ async function loadLieux(){
 
 async function loadTournees(){
   try {
-    const data = await sbGet('tournees?select=*,distributeur:utilisateurs(nom,email),points:points_tournee(id,statut,quantite_flyers,type_arret)&order=date.desc');
+    const data = await sbGet('tournees?select=*,distributeur:utilisateurs(nom,email),points:points_tournee(id,statut,quantite_flyers)&order=date.desc');
     ST.tournees=data||[]; ST.tourneesFiltered=[...ST.tournees];
     renderTourneesTable(); renderDashboard(); updateMapTourneeFilter();
   } catch(e){ console.error('loadTournees',e); }
@@ -886,13 +874,11 @@ function loadEditeur(){
 // ══════════════════════════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════════════════════════
-function isRepere(p){ return p.quantite_flyers===0 && p.type_arret!=='livraison'; }
-
 function renderDashboard(){
   document.getElementById('st-lieux').textContent = ST.lieux.length;
   document.getElementById('st-tournees').textContent = ST.tournees.length;
-  const totalPts  = ST.tournees.reduce((s,t)=>s+(t.points?.filter(p=>!isRepere(p)).length||0),0);
-  const donePts   = ST.tournees.reduce((s,t)=>s+(t.points?.filter(p=>p.statut!=='a_faire'&&!isRepere(p)).length||0),0);
+  const totalPts  = ST.tournees.reduce((s,t)=>s+(t.points?.length||0),0);
+  const donePts   = ST.tournees.reduce((s,t)=>s+(t.points?.filter(p=>p.statut!=='a_faire').length||0),0);
   const totalFly  = ST.tournees.reduce((s,t)=>s+(t.points?.filter(p=>p.statut==='distribue').reduce((a,p)=>a+(p.quantite_flyers||0),0)||0),0);
   document.getElementById('st-distribues').textContent = donePts+' / '+totalPts;
   document.getElementById('st-flyers').textContent = totalFly;
@@ -901,7 +887,7 @@ function renderDashboard(){
   const recent = ST.tournees.slice(0,6);
   if(!recent.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucune tournée</div>'; return; }
   el.innerHTML = recent.map(t=>{
-    const pts=(t.points||[]).filter(p=>!isRepere(p)), done=pts.filter(p=>p.statut!=='a_faire').length, pct=pts.length?Math.round(done/pts.length*100):0;
+    const pts=t.points||[], done=pts.filter(p=>p.statut!=='a_faire').length, pct=pts.length?Math.round(done/pts.length*100):0;
     return `<div class="tournee-row" onclick="openTourneeDetail(${t.id})">
       <div class="tr-icon">${statutEmoji(t.statut)}</div>
       <div class="tr-info">
@@ -921,7 +907,7 @@ function renderTourneesTable(){
   const tbody=document.getElementById('tournees-tbody'),data=ST.tourneesFiltered;
   if(!data.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--grey)">Aucune tournée</td></tr>';return;}
   tbody.innerHTML=data.map(t=>{
-    const pts=(t.points||[]).filter(p=>!isRepere(p)),done=pts.filter(p=>p.statut!=='a_faire').length,pct=pts.length?Math.round(done/pts.length*100):0;
+    const pts=t.points||[],done=pts.filter(p=>p.statut!=='a_faire').length,pct=pts.length?Math.round(done/pts.length*100):0;
     return `<tr>
       <td><strong style="cursor:pointer;color:var(--blue)" onclick="openTourneeDetail(${t.id})">${esc(t.nom)}</strong></td>
       <td>${fmtDate(t.date)}</td><td>${esc(t.distributeur?.nom||'—')}</td><td>${esc(t.secteur||'—')}</td>
@@ -1045,68 +1031,14 @@ async function openTourneeDetail(id){
   showSection('tournees');
 }
 
-async function renameTournee(){
-  if(!ST.currentTourneeId) return;
-  const t = ST.tournees.find(x=>x.id===ST.currentTourneeId);
-  const nom = prompt('Nouveau nom de la tournée :', t?.nom||'');
-  if(nom===null) return;
-  const trimmed = nom.trim();
-  if(!trimmed){ showToast('⚠ Le nom ne peut pas être vide'); return; }
-  try {
-    await sbPatch('tournees','id=eq.'+ST.currentTourneeId,{nom:trimmed});
-    if(t) t.nom = trimmed;
-    document.getElementById('detail-title').textContent = trimmed;
-    renderTourneesTable(); renderDashboard();
-    showToast('✅ Tournée renommée');
-  } catch(e){ showToast('❌ '+e.message); }
-}
-
-function openStopDetail(pointId){
-  const s = ST.currentTourneeStops.find(x=>x.id===pointId);
-  if(!s) return;
-  const l = s.lieu||{};
-  document.getElementById('stop-detail-title').textContent = l.nom||'Arrêt';
-  const isLivraisonOnly = s.type_arret==='livraison';
-  const repere = isRepere(s);
-  const cmd = s.commandes_livraison && s.commandes_livraison[0];
-  const validated = s.statut && s.statut!=='a_faire';
-  const adresseHtml = (l.adresse||l.ville) ? `<div style="font-size:12px;color:var(--grey);margin-bottom:14px">📍 ${esc([l.adresse,l.ville].filter(Boolean).join(', '))}</div>` : '';
-  let bodyHtml = adresseHtml;
-  if(repere && !validated){
-    bodyHtml += `<div style="text-align:center;padding:30px 10px;color:var(--grey);font-size:13px">🚩 Point de repère (départ/arrivée) — sert uniquement au calcul de l'itinéraire, non soumis à validation</div>`;
-  } else if(!validated){
-    bodyHtml += `<div style="text-align:center;padding:30px 10px;color:var(--grey);font-size:13px">⏳ Pas encore réalisé par le distributeur</div>`;
-  } else {
-    const slbl = isLivraisonOnly
-      ? ({distribue:'Livré',absent:'Non livré',ferme:'Non livré',refus:'Non livré'}[s.statut]||s.statut)
-      : statutLabel(s.statut);
-    const heure = s.heure_validation ? new Date(s.heure_validation).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '';
-    bodyHtml += `<div style="margin-bottom:12px"><span class="badge b-${s.statut}">${esc(slbl)}</span>${heure?` <span style="font-size:11px;color:var(--grey);margin-left:6px">${heure}</span>`:''}${(!isLivraisonOnly && s.statut==='distribue' && s.quantite_flyers)?` <span style="font-size:12px;color:var(--grey);margin-left:6px">· ${s.quantite_flyers} flyers</span>`:''}</div>`;
-    if(cmd){
-      bodyHtml += `<div style="font-size:13px;margin-bottom:12px;color:#8A5A00">📦 ${esc(cmd.description||'Livraison')}${cmd.statut==='livree'?' ✓':''}</div>`;
-    }
-    bodyHtml += s.commentaire_distributeur
-      ? `<div style="font-size:13px;margin-bottom:14px">💬 ${esc(s.commentaire_distributeur)}</div>`
-      : '';
-    bodyHtml += s.photo_preuve
-      ? `<img src="${s.photo_preuve}" style="width:100%;border-radius:8px;display:block" alt="Photo">`
-      : `<div style="font-size:12px;color:var(--grey)">Aucune photo</div>`;
-  }
-  document.getElementById('stop-detail-body').innerHTML = bodyHtml;
-  openModal('modal-stop-detail');
-}
-
 function renderDetailStops(){
-  const stops=ST.currentTourneeStops;
-  const realStops=stops.filter(s=>!isRepere(s));
-  const done=realStops.filter(s=>s.statut!=='a_faire').length;
+  const stops=ST.currentTourneeStops, done=stops.filter(s=>s.statut!=='a_faire').length;
   document.getElementById('detail-stops-title').textContent=stops.length+' arrêts';
-  document.getElementById('detail-prog-text').textContent=done+'/'+realStops.length+' validés';
+  document.getElementById('detail-prog-text').textContent=done+'/'+stops.length+' validés';
   document.getElementById('detail-stops-list').innerHTML=stops.length===0
     ?'<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun arrêt</div>'
     :stops.map((s,idx)=>{
       const isLivraisonOnly = s.type_arret==='livraison';
-      const repere = isRepere(s);
       const cmd = s.commandes_livraison&&s.commandes_livraison[0];
       const hasCommande = !!cmd;
       const desc = (cmd&&cmd.description)||'';
@@ -1116,18 +1048,16 @@ function renderDetailStops(){
       return `
       <div class="stop-list-item" draggable="true" ondragstart="stopDragStart(event,${idx})" ondragover="stopDragOver(event,${idx})" ondrop="stopDrop(event,${idx})" ondragend="stopDragEnd(event)"${(isLivraisonOnly||hasCommande)?' style="background:#FBF3E7"':''}>
         <div class="stop-ord"${isLivraisonOnly?' style="background:#C87F0A;color:#fff"':''}>${isLivraisonOnly?'📦':s.ordre_passage}</div>
-        <div class="stop-info" style="cursor:pointer" onclick="openStopDetail(${s.id})" title="Voir ce qui a été réalisé"><div class="stop-nom">${esc(s.lieu?.nom||'?')}</div>
+        <div class="stop-info"><div class="stop-nom">${esc(s.lieu?.nom||'?')}</div>
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(desc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(s.lieu?.ville||s.lieu?.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(desc||'Livraison')}${livDone?' ✓':''}</div>`:''}`}
         </div>
-        ${(isLivraisonOnly||repere)?'':`<span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>`}
-        ${repere
-          ? `<span class="badge" style="background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
-          : `<span class="badge b-${s.statut}">${isLivraisonOnly?livLbl:statutLabel(s.statut)}</span>`}
+        ${isLivraisonOnly?'':`<span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>`}
+        <span class="badge b-${s.statut}">${isLivraisonOnly?livLbl:statutLabel(s.statut)}</span>
         ${s.heure_validation?`<span style="font-size:10px;color:var(--grey)">${new Date(s.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
         <span class="stop-drag-handle" title="Glisser pour réordonner">⋮⋮</span>
-        ${(!isLivraisonOnly && !repere && canEdit)?`<span style="cursor:pointer;font-size:13px;margin-left:2px" onclick="editStopQty(${s.id})" title="Modifier la quantité de flyers">✏️</span>`:''}
+        ${(!isLivraisonOnly && canEdit)?`<span style="cursor:pointer;font-size:13px;margin-left:2px" onclick="editStopQty(${s.id})" title="Modifier la quantité de flyers">✏️</span>`:''}
         ${!isLivraisonOnly?`<span style="cursor:pointer;font-size:13px;margin-left:2px;opacity:${hasCommande?1:0.35}" onclick="toggleStopLivraison(${s.id})" title="${hasCommande?'Retirer la livraison':'Ajouter une livraison sur cet arrêt'}">📦</span>`:''}
         ${canEdit?`<span style="cursor:pointer;font-size:14px;color:#E53935;margin-left:2px" onclick="removeDetailStop(${s.id})" title="Retirer cet arrêt">✕</span>`:''}
       </div>`;
@@ -1636,7 +1566,7 @@ async function renderSuivi(){
   const el=document.getElementById('suivi-tournees-grid');
   if(!actives.length){el.innerHTML='<div style="color:var(--grey);font-size:13px;padding:20px">Aucune tournée en cours</div>';return;}
   el.innerHTML=actives.map(t=>{
-    const pts=(t.points||[]).filter(p=>!isRepere(p)),done=pts.filter(p=>p.statut!=='a_faire').length,pct=pts.length?Math.round(done/pts.length*100):0;
+    const pts=t.points||[],done=pts.filter(p=>p.statut!=='a_faire').length,pct=pts.length?Math.round(done/pts.length*100):0;
     return `<div class="card">
       <div class="card-header"><h3>${esc(t.nom)}</h3><span class="badge b-${t.statut}">${statutLabel(t.statut)}</span></div>
       <div style="padding:14px">

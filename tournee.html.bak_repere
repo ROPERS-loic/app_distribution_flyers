@@ -940,20 +940,19 @@ function renderTourneeDetail() {
   const t = ST.activeTournee; if (!t) return;
   document.getElementById('hdr-title').textContent = esc(t.nom);
   const pts = ST.activePoints;
-  const realPts = pts.filter(p => !isRepere(p));
-  const total = realPts.length;
-  const done  = realPts.filter(p => p.statut!=='a_faire').length;
-  const dist  = realPts.filter(p => p.statut==='distribue').length;
-  const ferm  = realPts.filter(p => p.statut==='ferme').length;
-  const refu  = realPts.filter(p => p.statut==='refus').length;
-  const abs   = realPts.filter(p => p.statut==='absent').length;
-  const todo  = realPts.filter(p => p.statut==='a_faire').length;
+  const total = pts.length;
+  const done  = pts.filter(p => p.statut!=='a_faire').length;
+  const dist  = pts.filter(p => p.statut==='distribue').length;
+  const ferm  = pts.filter(p => p.statut==='ferme').length;
+  const refu  = pts.filter(p => p.statut==='refus').length;
+  const abs   = pts.filter(p => p.statut==='absent').length;
+  const todo  = pts.filter(p => p.statut==='a_faire').length;
   const pct   = total ? Math.round(done/total*100) : 0;
   const isEnd = t.statut==='terminee' || (total>0 && done===total);
 
   // Google Maps URLs
   const wayPts = pts.filter(p => p.lieux?.latitude && p.lieux?.longitude);
-  const nextPt = pts.find(p => p.statut==='a_faire' && !isRepere(p) && p.lieux?.latitude);
+  const nextPt = pts.find(p => p.statut==='a_faire' && p.lieux?.latitude);
   const gmFull = wayPts.length>=2
     ? 'https://www.google.com/maps/dir/'+wayPts.slice(0,25).map(p=>`${p.lieux.latitude},${p.lieux.longitude}`).join('/')
     : null;
@@ -985,19 +984,16 @@ function renderTourneeDetail() {
     html += `<div id="terminer-zone"><button class="btn-secondary" style="margin-bottom:12px;color:var(--red);border-color:var(--red)" onclick="askTerminerTournee()">🏁 Terminer la tournée</button></div>`;
   }
 
-  html += `<div class="section-title">Arrêts (${pts.length})</div>`;
+  html += `<div class="section-title">Arrêts (${total})</div>`;
   html += `<div id="stops-list">` + (pts.length ? pts.map((p,i) => stopCardHTML(p,i,pts)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`) + `</div>`;
   html += `<button class="btn-secondary" style="margin-top:12px" onclick="navTo('accueil')">← Retour aux tournées</button>`;
   document.getElementById('tournee-detail-content').innerHTML = html;
 }
 
-function isRepere(p){ return p.quantite_flyers===0 && p.type_arret!=='livraison'; }
-
 function stopCardHTML(p, i, pts) {
   const l = p.lieux || {};
   const s = p.statut || 'a_faire';
   const isLivraisonOnly = p.type_arret === 'livraison';
-  const repere = isRepere(p);
   const hasCommande = p.commandes_livraison && p.commandes_livraison.length>0;
   const cmd = hasCommande ? p.commandes_livraison[0] : null;
   const livraisonDesc = (cmd && cmd.description) || '';
@@ -1018,9 +1014,7 @@ function stopCardHTML(p, i, pts) {
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
         </div>
-        ${repere
-          ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
-          : `<span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>`}
+        <span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>
         ${!validated ? `<span class="stop-drag" onpointerdown="startStopDrag(event)" onclick="event.stopPropagation()">⋮⋮</span>` : ''}
         <div class="stop-chev">▾</div>
       </div>
@@ -1031,12 +1025,11 @@ function stopCardHTML(p, i, pts) {
           </div>
           ${p.commentaire_distributeur?`<div style="font-size:12px;color:var(--grey);margin-bottom:10px">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
         ` : ''}
-        ${repere ? `<div style="font-size:12px;color:var(--grey);margin-bottom:10px">🚩 Point de repère (départ/arrivée) — non soumis à validation</div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${gm?`<a href="${gm}" target="_blank" class="btn-maps" style="flex:1">🧭 Naviguer</a>`:''}
-          ${repere ? '' : `<button class="btn-primary" style="flex:1;padding:10px" onclick="openValidation(${p.id})">
+          <button class="btn-primary" style="flex:1;padding:10px" onclick="openValidation(${p.id})">
             ${validated?'✏️ Modifier':'✅ Valider'}
-          </button>`}
+          </button>
         </div>
         <div style="text-align:center;margin-top:10px">
           <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer" onclick="openFicheFromStop(${l.id})">
@@ -1143,7 +1136,7 @@ async function persistStopOrder(orderedIds) {
 }
 
 function askTerminerTournee() {
-  const restants = ST.activePoints.filter(p => p.statut === 'a_faire' && !isRepere(p));
+  const restants = ST.activePoints.filter(p => p.statut === 'a_faire');
   const zone = document.getElementById('terminer-zone');
   if (!zone) return;
   if (!restants.length) { confirmerTerminerTournee(); return; }
@@ -1512,7 +1505,7 @@ async function submitValidation() {
   const idx = ST.activePoints.findIndex(x=>x.id===ST.form.pointId);
   if (idx>=0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...upd };
 
-  const allDone = ST.activePoints.filter(p => !isRepere(p)).every(p => p.statut!=='a_faire');
+  const allDone = ST.activePoints.every(p => p.statut!=='a_faire');
   if (allDone && ST.activeTournee.statut!=='terminee') {
     await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'terminee'}).catch(()=>{});
     ST.activeTournee.statut = 'terminee';
