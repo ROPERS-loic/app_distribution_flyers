@@ -620,7 +620,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     <h3>Visite rapide &mdash; <span id="visite-nom"></span></h3>
     <div class="visite-row"><label>Resultat</label>
       <select id="visite-statut">
-        <option value="distribue">Fait</option>
+        <option value="distribue">Distribue</option>
         <option value="ferme">Ferme</option>
         <option value="refus">Refus</option>
         <option value="absent">Absent</option>
@@ -719,7 +719,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     </select>
     <select id="sf-statut" onchange="applyStatsFilters()">
       <option value="">Tous statuts</option>
-      <option value="distribue">Fait</option>
+      <option value="distribue">Distribué</option>
       <option value="ferme">Fermé</option>
       <option value="refus">Refus</option>
       <option value="absent">Absent</option>
@@ -929,7 +929,7 @@ async function openFicheLieuEditeur(id, forTournee){
   var dotC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
   var bgC    = {distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
   var txtC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
-  var slbls  = {distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  var slbls  = {distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
   var lat=parseFloat(p.lat), lon=parseFloat(p.lon);
   var gm = (!isNaN(lat)&&!isNaN(lon)) ? 'https://www.google.com/maps/search/?api=1&query='+lat+','+lon : null;
 
@@ -993,7 +993,7 @@ function ficheEdFilter(yearOnly){
   var dotC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
   var bgC={distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
   var txtC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
-  var slbls={distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  var slbls={distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
   document.getElementById('fed-yr-btn').style.background = yearOnly ? '#F5C21A' : '#F0F0F0';
   document.getElementById('fed-all-btn').style.background = yearOnly ? '#F0F0F0' : '#F5C21A';
   document.getElementById('fed-timeline').innerHTML = ficheTimelineEditeurHTML(list,dotC,bgC,txtC,slbls);
@@ -2227,7 +2227,7 @@ async function loadHistPanelForPoi(nomPoi) {
     }
 
     var dotC={distribue:'#27AE60',ferme:'#888',refus:'#E53935',absent:'#E8870A'};
-    var slbls={distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+    var slbls={distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
 
     var html = '<div class="hp-stats">'
       + (flyTotal?'<span class="hp-stat">🗞 '+flyTotal+' flyers</span>':'')
@@ -2394,7 +2394,7 @@ function renderPointageList(){
     var div=document.createElement('div');div.className='pointage-item';
     div.innerHTML='<div class="pointage-item-name">'+escHtml(p.nom)+'</div>'
       +'<select id="ps-statut-'+id+'">'
-      +'<option value="distribue">Fait</option>'
+      +'<option value="distribue">Distribue</option>'
       +'<option value="ferme">Ferme</option>'
       +'<option value="refus">Refus</option>'
       +'<option value="absent">Absent</option>'
@@ -3066,7 +3066,7 @@ function applyStatsFilters(){
   if(!filtered.length){ el.innerHTML='<div id="stats-empty">Aucun résultat</div>'; return; }
 
   var badgeClass = {distribue:'sv-b-distribue',ferme:'sv-b-ferme',refus:'sv-b-refus',absent:'sv-b-absent'};
-  var badgeLabel = {distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  var badgeLabel = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
   el.innerHTML = filtered.map(function(p){
     var l = p.lieux || {};
     var t = p.tournees || {};

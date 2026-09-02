@@ -569,14 +569,6 @@ function parseQty(val, fallback = 0) {
   const n = parseFloat(val);
   return isNaN(n) ? fallback : n;
 }
-const NOUGAT_QTY_OPTIONS = [0,1,2,3,4];
-function nougatOptionsHTML(selected) {
-  return NOUGAT_QTY_OPTIONS.map(v => {
-    const sel = (v===4) ? (selected>=4) : (selected===v);
-    const lbl = v===0 ? 'Aucun' : (v+' paquet'+(v>1?'s':''));
-    return `<option value="${v}" ${sel?'selected':''}>${lbl}</option>`;
-  }).join('');
-}
 const ENTREE_QTY_OPTIONS = [0,1,2,3,4,5,6];
 function entreeOptionsHTML(selected) {
   return ENTREE_QTY_OPTIONS.map(v => {
@@ -1339,7 +1331,7 @@ function renderValidation() {
         ${isLivraisonOnly ? '' : `
         <label class="form-label">🍬 Paquets dégustation nougat offerts</label>
         <select class="form-input" id="nougat-input" onchange="ST.form.nougat=parseQty(this.value)">
-          ${nougatOptionsHTML(f.nougat)}
+          ${paquetOptionsHTML(f.nougat)}
         </select>
         <label class="form-label" style="margin-top:10px">🎟️ Entrées gratuites Château offertes</label>
         <select class="form-input" id="entree-input" onchange="ST.form.entreeGratuite=parseQty(this.value)">
@@ -1864,7 +1856,7 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-sub').textContent = (l.categorie||'')+(l.ville?' · '+l.ville:'');
   document.getElementById('pl-sheet-qty').innerHTML = paquetOptionsHTML(prev.qty ?? 1);
   document.getElementById('pl-sheet-qtych').innerHTML = paquetOptionsHTML(prev.qtyChateau ?? 1);
-  document.getElementById('pl-sheet-nougat').innerHTML = nougatOptionsHTML(prev.nougat ?? 0);
+  document.getElementById('pl-sheet-nougat').innerHTML = paquetOptionsHTML(prev.nougat ?? 0);
   document.getElementById('pl-sheet-entree').innerHTML = entreeOptionsHTML(prev.entree ?? 0);
   document.getElementById('pl-sheet-comment').value = prev.comment||'';
   document.getElementById('pl-sheet-rappel').checked = !!prev.rappel;

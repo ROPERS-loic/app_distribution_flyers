@@ -1118,14 +1118,6 @@ function paquetOptionsHtmlSD(selected){
     return `<option value="${o.v}" ${sel?'selected':''}>${o.l}</option>`;
   }).join('');
 }
-const NOUGAT_QTY_OPTIONS_SD = [0,1,2,3,4];
-function nougatOptionsHtmlSD(selected){
-  return NOUGAT_QTY_OPTIONS_SD.map(function(v){
-    var sel = (v===4) ? (selected>=4) : (selected===v);
-    var lbl = v===0 ? 'Aucun' : (v+' paquet'+(v>1?'s':''));
-    return `<option value="${v}" ${sel?'selected':''}>${lbl}</option>`;
-  }).join('');
-}
 const ENTREE_QTY_OPTIONS_SD = [0,1,2,3,4,5,6];
 function entreeOptionsHtmlSD(selected){
   return ENTREE_QTY_OPTIONS_SD.map(function(v){
@@ -1233,7 +1225,7 @@ function renderStopDetailEditForm(){
     <div style="margin-bottom:10px">
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">🍬 Paquets dégustation nougat offerts</label>
       <select id="sd-nougat" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.nougat=parseFloat(this.value)||0">
-        ${nougatOptionsHtmlSD(f.nougat)}
+        ${paquetOptionsHtmlSD(f.nougat)}
       </select>
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin:10px 0 6px">🎟️ Entrées gratuites Château offertes</label>
       <select id="sd-entree" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.entreeGratuite=parseFloat(this.value)||0">

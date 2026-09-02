@@ -358,7 +358,7 @@ textarea.form-input{resize:vertical;min-height:70px}
       <div class="search-row" style="margin-bottom:16px">
         <select class="filter-select" id="gs-statut" onchange="applyGStats()">
           <option value="">Tous statuts</option>
-          <option value="distribue">Fait</option>
+          <option value="distribue">Distribué</option>
           <option value="ferme">Fermé</option>
           <option value="refus">Refus</option>
           <option value="absent">Absent</option>
@@ -1118,14 +1118,6 @@ function paquetOptionsHtmlSD(selected){
     return `<option value="${o.v}" ${sel?'selected':''}>${o.l}</option>`;
   }).join('');
 }
-const NOUGAT_QTY_OPTIONS_SD = [0,1,2,3,4];
-function nougatOptionsHtmlSD(selected){
-  return NOUGAT_QTY_OPTIONS_SD.map(function(v){
-    var sel = (v===4) ? (selected>=4) : (selected===v);
-    var lbl = v===0 ? 'Aucun' : (v+' paquet'+(v>1?'s':''));
-    return `<option value="${v}" ${sel?'selected':''}>${lbl}</option>`;
-  }).join('');
-}
 const ENTREE_QTY_OPTIONS_SD = [0,1,2,3,4,5,6];
 function entreeOptionsHtmlSD(selected){
   return ENTREE_QTY_OPTIONS_SD.map(function(v){
@@ -1178,7 +1170,7 @@ function renderStopDetailEditForm(){
   const f = SD;
   const opts = isLivraisonOnly
     ? [['distribue','✅','Livré'],['absent','❌','Non livré']]
-    : [['distribue','✅','Fait'],['ferme','🔒','Fermé'],['refus','🚫','Refus'],['absent','👻','Absent']];
+    : [['distribue','✅','Distribué'],['ferme','🔒','Fermé'],['refus','🚫','Refus'],['absent','👻','Absent']];
   let html = `
     <div style="margin-bottom:14px">
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">Statut *</label>
@@ -1233,7 +1225,7 @@ function renderStopDetailEditForm(){
     <div style="margin-bottom:10px">
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">🍬 Paquets dégustation nougat offerts</label>
       <select id="sd-nougat" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.nougat=parseFloat(this.value)||0">
-        ${nougatOptionsHtmlSD(f.nougat)}
+        ${paquetOptionsHtmlSD(f.nougat)}
       </select>
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin:10px 0 6px">🎟️ Entrées gratuites Château offertes</label>
       <select id="sd-entree" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.entreeGratuite=parseFloat(this.value)||0">
@@ -1592,7 +1584,7 @@ function printTourneePDF(){
     let lieuCell = l.nom||'—';
     if(isLivraisonOnly) lieuCell += '\n[LIVRAISON] '+(desc||'à préciser');
     else if(hasCommande) lieuCell += '\n[LIVRAISON] '+(desc||'à préciser')+'\n[  ] Livré   [  ] Non livré';
-    const statutCell = isLivraisonOnly ? '[  ] Livré\n[  ] Non livré' : '[  ] Fait\n[  ] Fermé\n[  ] Refus\n[  ] Absent';
+    const statutCell = isLivraisonOnly ? '[  ] Livré\n[  ] Non livré' : '[  ] Distribué\n[  ] Fermé\n[  ] Refus\n[  ] Absent';
     return [String(s.ordre_passage||''), lieuCell, adresse, statutCell,
       isLivraisonOnly?'—':'', isLivraisonOnly?'—':'', isLivraisonOnly?'—':'[  ]', isLivraisonOnly?'—':'[  ]', ''];
   });
@@ -1796,7 +1788,7 @@ function updateMapMarkers(){
     const v = ST.lastVisits[l.id];
     const lastStr = v
       ? new Date(v.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) + ' — ' +
-        ({distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'}[v.statut]||v.statut)
+        ({distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'}[v.statut]||v.statut)
       : '⚫ Jamais visité';
     const s = ST.saisons[l.id];
     const saisonStr = statutSaison==='ferme'
@@ -1954,7 +1946,7 @@ function showToast(msg, dur=2400){
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){ return d; } }
-function statutLabel(s){ return {planifiee:'Planifiée',en_cours:'En cours',terminee:'Terminée',annulee:'Annulée',a_faire:'À faire',distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'}[s]||s||''; }
+function statutLabel(s){ return {planifiee:'Planifiée',en_cours:'En cours',terminee:'Terminée',annulee:'Annulée',a_faire:'À faire',distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'}[s]||s||''; }
 function statutEmoji(s){ return {planifiee:'📋',en_cours:'🏃',terminee:'✅',annulee:'❌'}[s]||'📋'; }
 function statutColor(s){ return {distribue:'var(--green)',ferme:'var(--red)',refus:'#7B1FA2',absent:'var(--orange)'}[s]||'var(--grey)'; }
 
@@ -1983,7 +1975,7 @@ async function openFicheLieu(id) {
   const dotC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
   const bgC    = {distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
   const txtC   = {distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
-  const slbls  = {distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  const slbls  = {distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
   const gm = l.latitude&&l.longitude ? `https://www.google.com/maps/search/?api=1&query=${l.latitude},${l.longitude}` : null;
 
   // Infos + stats
@@ -2053,7 +2045,7 @@ function ficheAdminFilter(yearOnly){
   const dotC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
   const bgC={distribue:'var(--green-lt)',ferme:'#ECEFF1',refus:'var(--red-lt)',absent:'var(--orange-lt)'};
   const txtC={distribue:'var(--green)',ferme:'var(--grey)',refus:'var(--red)',absent:'var(--orange)'};
-  const slbls={distribue:'✅ Fait',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
+  const slbls={distribue:'✅ Distribué',ferme:'🔒 Fermé',refus:'🚫 Refus',absent:'👻 Absent'};
   document.getElementById('fad-yr-btn').className = yearOnly ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
   document.getElementById('fad-all-btn').className = yearOnly ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
   document.getElementById('fad-timeline').innerHTML = ficheTimelineDesktopHTML(list,dotC,bgC,txtC,slbls);
@@ -2292,7 +2284,7 @@ function applyGStats(){
   document.getElementById('gs-entrees-count').textContent = entrees;
 
   const colors = {distribue:'#27AE60',ferme:'#E53935',refus:'#E8A020',absent:'#8E24AA'};
-  const labels = {distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
 
   if(!filtered.length){
     document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Aucun résultat</td></tr>';
@@ -2416,7 +2408,7 @@ function _statsFiltersLabel() {
   const stat = document.getElementById('gs-statut').value;
   const fmt = v => v ? new Date(v).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : null;
   const period = (from||to) ? [(fmt(from)||'…'),(fmt(to)||'aujourd\'hui')].join(' — ') : 'Toute la période';
-  const labels = {distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
   return { period, statut: stat ? (labels[stat]||stat) : 'Tous' };
 }
 
@@ -2496,7 +2488,7 @@ function exportStatsPDF() {
   });
 
   // ── TABLE ──
-  const labels = {distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
   const rows = filtered.map(p => {
     const l = p.lieux||{};
     const t = p.tournees||{};
@@ -2553,7 +2545,7 @@ function exportStatsPDF() {
 function exportStatsExcel() {
   const filtered = _getStatsFilteredData();
   const { period, statut } = _statsFiltersLabel();
-  const labels = {distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'};
+  const labels = {distribue:'Distribué',ferme:'Fermé',refus:'Refus',absent:'Absent'};
   const BOM = '﻿';
   const sep = ';';
   const rows = [
