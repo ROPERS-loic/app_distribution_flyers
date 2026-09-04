@@ -1984,7 +1984,7 @@ function updateMapMarkers(){
     const livraisonDot = livraison ? '<div class="map-badge-pulse" style="position:absolute;bottom:-4px;left:-4px;width:16px;height:16px;border-radius:50%;background:#C87F0A;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:9px">📦</div>' : '';
     const rappelStr = rappel ? '<br><span style="color:'+(isRdvCommercial?'#7B1FA2':'#E53935')+';font-weight:600">'+(isRdvCommercial?'📅 RDV commercial':'🔁 À faire')+(rappel.commentaire?' — '+esc(rappel.commentaire):'')+'</span>' : '';
     const livraisonStr = livraison ? '<br><span style="color:#C87F0A;font-weight:600">📦 Livraison à faire'+(livraison.description?' — '+esc(livraison.description):'')+'</span>' : '';
-    const isDepart = l.type_lieu === 'Point de départ';
+    const isDepart = l.categorie === 'Point de départ';
     const icon = isDepart
       ? L.divIcon({
           html:`<div style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:20px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))">🏠${rappelDot}${livraisonDot}</div>`,
