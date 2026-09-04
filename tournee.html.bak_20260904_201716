@@ -478,7 +478,6 @@ textarea.form-input{resize:vertical;min-height:60px}
               <button id="pl-photo-btn" onclick="document.getElementById('pl-photo-input').click()">📷 Ajouter une photo</button>
               <img id="pl-photo-preview" alt="Photo preuve">
             </div>
-            <div id="pl-sheet-hist" style="padding:0 16px 16px"></div>
           </div>
           <div id="pl-sheet-footer">
             <button class="pl-sheet-validate" onclick="validatePLSheet()">Valider la visite</button>
@@ -512,7 +511,7 @@ textarea.form-input{resize:vertical;min-height:60px}
     <button class="nav-item" onclick="navTo('historique')" id="nav-historique">
       <span class="nav-icon">📋</span><span class="nav-label">Historique</span>
     </button>
-    <button class="nav-item" onclick="openPointageLibreTab()" id="nav-pointage-libre">
+    <button class="nav-item" onclick="navTo('pointage-libre')" id="nav-pointage-libre">
       <span class="nav-icon">✅</span><span class="nav-label">Pointage</span>
     </button>
     <button class="nav-item" onclick="navTo('notes')" id="nav-notes">
@@ -635,7 +634,6 @@ const ST = {
   geoPos: null,
   rtChannel: null,
   rappels: {},
-  livraisons: {},
   form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false }
 };
 
@@ -652,17 +650,6 @@ function getOfflineQueue() {
 }
 function pendingSyncPointIds() {
   return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>String(i.pointId)));
-}
-function pendingPhotoPointIds() {
-  return new Set(getOfflineQueue().filter(i=>i.type==='photo_upload').map(i=>String(i.pointId)));
-}
-function dataURLtoBlob(dataURL) {
-  const parts = dataURL.split(',');
-  const mime = (parts[0].match(/:(.*?);/)||[])[1] || 'image/jpeg';
-  const bin = atob(parts[1]);
-  const arr = new Uint8Array(bin.length);
-  for (let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
 }
 function saveOfflineQueue(q) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
@@ -689,9 +676,7 @@ async function syncOfflineQueue() {
   if (!q.length || !navigator.onLine) return;
   toast('⏳ Sync en cours...');
   let synced = 0; const remaining = [];
-  const photoItems = q.filter(i => i.type === 'photo_upload');
-  const otherItems = q.filter(i => i.type !== 'photo_upload');
-  for (const item of otherItems) {
+  for (const item of q) {
     try {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
@@ -699,15 +684,6 @@ async function syncOfflineQueue() {
       else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine);
       else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
       else if (item.type === 'ajout_lieu') await syncAjoutLieuItem(item);
-      synced++;
-    } catch(e) { remaining.push(item); }
-  }
-  // Photo uploads sync last, so a stale queued validation patch never overwrites a fresh photo URL
-  for (const item of photoItems) {
-    try {
-      const path = `tournee_${item.tourneeId}/p${item.pointId}_${Date.now()}.${item.ext}`;
-      const url = await uploadPhoto(dataURLtoBlob(item.photoB64), path);
-      await sbPatch('points_tournee','id=eq.'+item.pointId, { photo_preuve: url });
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -844,20 +820,11 @@ async function loadPoints(tourneeId) {
 
 async function loadRappels() {
   try {
-    const rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,type,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
+    const rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
     const map = {};
     (rows||[]).forEach(r => { if (!map[r.lieu_id]) map[r.lieu_id] = r; });
     ST.rappels = map;
   } catch(e) { ST.rappels = {}; }
-}
-
-async function loadLivraisons() {
-  try {
-    const rows = await sbGet('commandes_livraison?select=id,lieu_id,description,cree_le&statut=eq.a_livrer&point_tournee_id=is.null&order=lieu_id.asc,cree_le.desc');
-    const map = {};
-    (rows||[]).forEach(r => { if (!map[r.lieu_id]) map[r.lieu_id] = r; });
-    ST.livraisons = map;
-  } catch(e) { ST.livraisons = {}; }
 }
 
 async function loadAllLieux() {
@@ -940,7 +907,7 @@ async function handleRefresh() {
       await loadTournees();
       const fresh = ST.tournees.find(t => t.id === id);
       if (fresh) ST.activeTournee = fresh;
-      await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
+      await Promise.all([loadPoints(id), loadRappels()]);
       renderTourneeDetail();
       toast('🔄 Tournée mise à jour');
     } else {
@@ -1020,7 +987,7 @@ async function openTournee(id) {
   ST.activeTournee = ST.tournees.find(t => t.id===id);
   document.getElementById('tournee-detail-content').innerHTML = `<div class="loading-sc"><div class="spinner"></div><span>Chargement…</span></div>`;
   navTo('tournee');
-  await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
+  await Promise.all([loadPoints(id), loadRappels()]);
   subscribeRealtime(id);
   renderTourneeDetail();
 }
@@ -1105,17 +1072,14 @@ function stopCardHTML(p, i, pts) {
       <div class="stop-hdr" onclick="toggleStop(${p.id})">
         <div class="stop-num${isLivraisonOnly?' num-livraison':''}">${isLivraisonOnly?'📦':(p.ordre_passage||i+1)}</div>
         <div class="stop-info">
-          <div class="stop-name">${(ST.rappels[l.id]&&ST.rappels[l.id].type==='rdv_commercial')?'<span style="color:#7B1FA2" title="RDV commercial">📅</span> ':(ST.rappels[l.id]?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':'')}${ST.livraisons[l.id]?'<span style="color:#C87F0A" title="Livraison à faire">📦</span> ':''}${esc(l.nom||'—')}</div>
+          <div class="stop-name">${ST.rappels[l.id]?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':''}${esc(l.nom||'—')}</div>
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
-          ${ST.livraisons[l.id]?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(ST.livraisons[l.id].description||'Livraison à faire')}</div>`:''}
-          ${p.commentaire_distributeur?`<div class="stop-addr" style="font-style:italic">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
           ${pendingSyncPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
-          ${pendingPhotoPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--red);font-weight:600;margin-top:1px">📷 Photo en attente d\'envoi</div>':''}
         </div>
         ${repere
-          ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🏠 Repère</span>`
+          ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
           : `<span class="badge badge-${s}" style="margin-right:4px;flex-shrink:0">${slbl}</span>`}
         ${!validated ? `<span class="stop-drag" onpointerdown="startStopDrag(event)" onclick="event.stopPropagation()">⋮⋮</span>` : ''}
         <div class="stop-chev">▾</div>
@@ -1125,8 +1089,9 @@ function stopCardHTML(p, i, pts) {
           <div style="background:var(--green-lt);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px;font-size:12px;font-weight:600;color:var(--green);display:flex;align-items:center;gap:6px">
             ✓ Validé${heure?' à '+heure:''}${(!isLivraisonOnly && p.quantite_flyers)?' · '+p.quantite_flyers+' flyers':''}
           </div>
+          ${p.commentaire_distributeur?`<div style="font-size:12px;color:var(--grey);margin-bottom:10px">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
         ` : ''}
-        ${repere ? `<div style="font-size:12px;color:var(--grey);margin-bottom:10px">🏠 Point de repère (départ/arrivée) — non soumis à validation</div>` : ''}
+        ${repere ? `<div style="font-size:12px;color:var(--grey);margin-bottom:10px">🚩 Point de repère (départ/arrivée) — non soumis à validation</div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${gm?`<a href="${gm}" target="_blank" class="btn-maps" style="flex:1">🧭 Naviguer</a>`:''}
           ${repere ? '' : `<button class="btn-primary" style="flex:1;padding:10px" onclick="openValidation(${p.id})">
@@ -1278,7 +1243,7 @@ async function confirmerTerminerTournee() {
     const commentaire = `Non visité — tournée "${t.nom||''}" clôturée le ${new Date().toLocaleDateString('fr-FR')}`;
     try { await applyRappelUpdate(p.lieu_id, true, commentaire, 'terrain'); } catch(e) {}
   }
-  await Promise.all([loadRappels(), loadLivraisons()]);
+  await loadRappels();
   toast('✅ Tournée terminée');
   renderTourneeDetail();
 }
@@ -1538,16 +1503,13 @@ async function submitValidation() {
   const geo = await refreshGeo();
 
   let photoUrl = ST.activePoints.find(x=>x.id===ST.form.pointId)?.photo_preuve || null;
-  let photoQueued = false;
   if (ST.form.photoFile) {
     try {
       const ext = ST.form.photoFile.name.split('.').pop()||'jpg';
       const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.${ext}`;
       photoUrl = await uploadPhoto(ST.form.photoFile, path);
     } catch(e) {
-      addToOfflineQueue({ type:'photo_upload', pointId: ST.form.pointId, tourneeId: ST.activeTournee.id, photoB64: ST.form.photoB64, ext: (ST.form.photoFile.name.split('.').pop()||'jpg') });
-      photoQueued = true;
-      toast('📤 Photo mise en attente, sera envoyée dès que possible', 5000);
+      toast('⚠️ Photo non envoyée : ' + e.message);
     }
   }
 
@@ -1693,36 +1655,11 @@ function openFicheFromLieux(lieuId) {
   navTo('fiche');
 }
 
-function openFicheFromPL(lieuId) {
-  const l = ST.allLieux.find(x=>x.id===parseInt(lieuId)); if (!l) return;
-  ST.activeFiche = l; ST.ficheFrom = 'pointage-libre';
-  navTo('fiche');
-}
-
-function visiterDepuisFiche() {
-  const l = ST.activeFiche; if (!l) return;
-  navTo('pointage-libre');
-  openPLSheet(String(l.id));
-}
-
-function openPointageLibreTab() {
-  plSelected = {};
-  navTo('pointage-libre');
-}
-
 async function renderFiche() {
   const l = ST.activeFiche; if (!l) return;
   document.getElementById('hdr-title').textContent = esc(l.nom);
   const gm = l.latitude&&l.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${l.latitude},${l.longitude}` : null;
   const icon = catIcon(l.categorie);
-  const saisonRows = await sbGet(`saisons_lieux?select=date_ouverture,date_fermeture&lieu_id=eq.${l.id}&annee=eq.${new Date().getFullYear()}&limit=1`).catch(()=>[]);
-  const saison = saisonRows && saisonRows[0];
-  const saisonHtml = (saison && (saison.date_ouverture || saison.date_fermeture))
-    ? `<div class="fiche-info-row"><span class="fiche-info-icon">📅</span><span>${saison.date_fermeture?'Ouvert jusqu\'au '+new Date(saison.date_fermeture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}${saison.date_fermeture&&saison.date_ouverture?' · ':''}${saison.date_ouverture?'Réouvre le '+new Date(saison.date_ouverture).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}</span></div>`
-    : `<div class="fiche-info-row"><span class="fiche-info-icon">📅</span><span style="color:var(--grey)">Pas d'info saison</span></div>`;
-  const visiteBtn = ST.ficheFrom === 'pointage-libre'
-    ? `<button class="btn-primary" style="width:100%;margin-top:10px" onclick="visiterDepuisFiche()">📍 Visite</button>`
-    : '';
 
   document.getElementById('fiche-content').innerHTML = `
     <div class="fiche-hero">
@@ -1735,9 +1672,7 @@ async function renderFiche() {
       ${l.telephone?`<div class="fiche-info-row"><span class="fiche-info-icon">📞</span><a href="tel:${l.telephone}">${esc(l.telephone)}</a></div>`:''}
       ${l.email?`<div class="fiche-info-row"><span class="fiche-info-icon">✉️</span><a href="mailto:${l.email}">${esc(l.email)}</a></div>`:''}
       ${l.notes?`<div class="fiche-info-row"><span class="fiche-info-icon">📝</span><span>${esc(l.notes)}</span></div>`:''}
-      ${saisonHtml}
       ${gm?`<a href="${gm}" target="_blank" class="btn-maps" style="display:flex;margin-top:12px;margin-bottom:4px">🧭 Naviguer vers ce lieu</a>`:''}
-      ${visiteBtn}
       <div id="fiche-hist-zone" style="margin-top:16px"><div class="loading-sc"><div class="spinner"></div></div></div>
     </div>`;
 
@@ -1898,14 +1833,13 @@ async function renderPointageLibre() {
   const dateEl = document.getElementById('pl-date');
   if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
   if (!ST.allLieux.length) await loadAllLieux();
-  await Promise.all([loadRappels(), loadLivraisons()]);
+  await loadRappels();
+  plSelected = {};
   plAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   const searchEl = document.getElementById('pl-search');
   if (searchEl) searchEl.value = '';
   renderPLBrowse([]);
   updatePLSendBar();
-  await refreshGeo();
-  if (!searchEl || !searchEl.value.trim()) renderPLBrowse([]);
 }
 
 let plBrowseLimit = 5;
@@ -1916,23 +1850,19 @@ function filterPL() {
   if (q !== plLastQuery) { plBrowseLimit = 5; plLastQuery = q; }
   if (!q) { renderPLBrowse([]); return; }
   const items = plAllLieux.filter(l=>norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q));
-  renderPLBrowse(sortByProximity(items));
+  renderPLBrowse(items);
 }
 
 function plBrowseItemHTML(l) {
   const k = String(l.id);
   const added = !!plSelected[k];
-  const rappel = ST.rappels[l.id];
-  const hasRappel = !!rappel;
-  const isCommercial = hasRappel && rappel.type==='rdv_commercial';
-  const hasLivraison = !!ST.livraisons[l.id];
-  const distStr = (l._dist!=null) ? (' · 📍 '+fmtDist(l._dist)) : '';
+  const hasRappel = !!ST.rappels[l.id];
   return `<div class="pl-browse-item">
-    <div style="flex:1;min-width:0;cursor:pointer" onclick="openFicheFromPL(${l.id})">
-      <div class="pl-browse-name">${isCommercial?'<span style="color:#7B1FA2" title="RDV commercial">📅</span> ':(hasRappel?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':'')}${hasLivraison?'<span style="color:#C87F0A" title="Livraison à faire">📦</span> ':''}${esc(l.nom||'—')}</div>
-      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}${distStr}</div>
+    <div style="flex:1;min-width:0">
+      <div class="pl-browse-name">${hasRappel?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':''}${esc(l.nom||'—')}</div>
+      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
     </div>
-    <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="event.stopPropagation();${added?'removePL':'openPLSheet'}('${k}')">
+    <button class="btn-pl-add${added?' added':''}" id="pladd-${k}" onclick="${added?'removePL':'openPLSheet'}('${k}')">
       ${added?'✓':'+'}
     </button>
   </div>`;
@@ -1947,18 +1877,11 @@ function renderPLBrowse(items) {
       el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--grey);font-size:13px">Aucun résultat</div>';
       return;
     }
-    const priority = plAllLieux.filter(l => ST.rappels[l.id] || ST.livraisons[l.id]);
-    const nearby = ST.geoPos ? sortByProximity(plAllLieux.filter(l => !priority.includes(l))).slice(0,5) : [];
-    let html = '';
-    if (priority.length) {
-      html += '<div style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase">🔁 À visiter en priorité</div>'
-        + priority.map(l => plBrowseItemHTML(l)).join('');
-    }
-    if (nearby.length) {
-      html += '<div style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase">📍 Lieux proches</div>'
-        + nearby.map(l => plBrowseItemHTML(l)).join('');
-    }
-    el.innerHTML = html ? (html + placeholder) : placeholder;
+    const priority = plAllLieux.filter(l => ST.rappels[l.id]);
+    if (!priority.length) { el.innerHTML = placeholder; return; }
+    el.innerHTML = '<div style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase">🔁 À visiter en priorité</div>'
+      + priority.map(l => plBrowseItemHTML(l)).join('')
+      + placeholder;
     return;
   }
   const visible = items.slice(0, plBrowseLimit);
@@ -1986,9 +1909,6 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-date-fermeture').value = prev.dateFermeture||'';
   document.getElementById('pl-sheet-date-ouverture').value = prev.dateOuverture||'';
   if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
-  const histEl = document.getElementById('pl-sheet-hist');
-  if (histEl) histEl.innerHTML = '';
-  if (l.id) loadAndRenderHistInline(l.id, 'pl-sheet-hist');
   // Photo
   const photoInput = document.getElementById('pl-photo-input');
   const photoPrev  = document.getElementById('pl-photo-preview');
@@ -2168,40 +2088,13 @@ async function submitPointageLibre() {
 // ════════════════════════════════════════════
 let addStopAllLieux = [];
 
-function distMeters(lat1,lon1,lat2,lon2){
-  const R=6371000, toRad=x=>x*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function fmtDist(m){
-  if(m==null) return '';
-  return m<1000 ? (Math.round(m/10)*10)+' m' : (m/1000).toFixed(1).replace('.',',')+' km';
-}
-function withProximity(list){
-  if(!ST.geoPos) return list.map(l=>({...l,_dist:null}));
-  return list.map(l=>({...l,_dist:(l.latitude&&l.longitude)?distMeters(ST.geoPos.lat,ST.geoPos.lon,l.latitude,l.longitude):null}));
-}
-function sortByProximity(list){
-  return withProximity(list).sort((a,b)=>{
-    if(a._dist==null&&b._dist==null) return 0;
-    if(a._dist==null) return 1;
-    if(b._dist==null) return -1;
-    return a._dist-b._dist;
-  });
-}
-
 async function openAddStopSheet() {
   if (!ST.allLieux.length) await loadAllLieux();
   addStopAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
   const searchEl = document.getElementById('add-stop-search');
   if (searchEl) searchEl.value = '';
+  renderAddStopBrowse([]);
   document.getElementById('add-stop-overlay').classList.add('open');
-  renderAddStopBrowse([], true);
-  await refreshGeo();
-  if (!searchEl || !searchEl.value.trim()) {
-    renderAddStopBrowse(ST.geoPos ? sortByProximity(addStopAllLieux).slice(0,5) : [], true);
-  }
 }
 
 function closeAddStopSheet() {
@@ -2210,21 +2103,17 @@ function closeAddStopSheet() {
 
 function filterAddStop() {
   const q = norm(document.getElementById('add-stop-search')?.value||'');
-  if (!q) { renderAddStopBrowse(ST.geoPos ? sortByProximity(addStopAllLieux).slice(0,5) : [], true); return; }
+  if (!q) { renderAddStopBrowse([]); return; }
   const items = addStopAllLieux.filter(l=>norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q));
-  renderAddStopBrowse(sortByProximity(items), false);
+  renderAddStopBrowse(items);
 }
 
 function addStopItemHTML(l) {
   const already = ST.activePoints.some(p=>p.lieu_id===l.id);
-  const rappel = ST.rappels[l.id];
-  const isCommercial = rappel && rappel.type==='rdv_commercial';
-  const hasLivraison = !!ST.livraisons[l.id];
-  const distStr = (l._dist!=null) ? (' · 📍 '+fmtDist(l._dist)) : '';
   return `<div class="pl-browse-item">
     <div style="flex:1;min-width:0">
-      <div class="pl-browse-name">${isCommercial?'<span style="color:#7B1FA2" title="RDV commercial">📅</span> ':(rappel?'<span style="color:var(--red)" title="À revisiter">🔁</span> ':'')}${hasLivraison?'<span style="color:#C87F0A" title="Livraison à faire">📦</span> ':''}${esc(l.nom||'—')}</div>
-      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}${distStr}</div>
+      <div class="pl-browse-name">${esc(l.nom||'—')}</div>
+      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
     </div>
     <button class="btn-pl-add${already?' added':''}" ${already?'disabled':''} onclick="confirmAddStop(${l.id})">
       ${already?'✓':'+'}
@@ -2232,15 +2121,14 @@ function addStopItemHTML(l) {
   </div>`;
 }
 
-function renderAddStopBrowse(items, isNearbyDefault) {
+function renderAddStopBrowse(items) {
   const el = document.getElementById('add-stop-browse'); if (!el) return;
   if (!items.length) {
     const q = (document.getElementById('add-stop-search')?.value||'').trim();
     el.innerHTML = `<div class="empty-sc" style="padding:30px 16px"><div class="ei">🔍</div><div class="et">${q?'Aucun résultat':'Tapez pour rechercher un lieu'}</div></div>`;
     return;
   }
-  const header = isNearbyDefault ? '<div style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase">📍 Lieux proches</div>' : '';
-  el.innerHTML = header + items.slice(0,30).map(addStopItemHTML).join('');
+  el.innerHTML = items.slice(0,30).map(addStopItemHTML).join('');
 }
 
 async function confirmAddStop(lieuId) {

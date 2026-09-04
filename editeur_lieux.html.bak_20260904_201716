@@ -1294,7 +1294,7 @@ document.querySelectorAll('.hbtn-dropdown-menu').forEach(function(menu){
   });
 });
 
-function makeIcon(color,selected,routeNum,badge,saisonRing,rappelActif,isDepart){
+function makeIcon(color,selected,routeNum,badge,saisonRing,rappelActif){
   var sz=selected?30:22;
   var brd=selected?'3px solid #fff':'2px solid rgba(255,255,255,0.6)';
   var sh=selected?'0 0 0 3px '+color+',0 2px 6px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.3)';
@@ -1302,12 +1302,6 @@ function makeIcon(color,selected,routeNum,badge,saisonRing,rappelActif,isDepart)
   var label=routeNum?String(routeNum):badge?badge:'';
   var ringStyle=saisonRing?'outline:2px dashed #2B2B2B;outline-offset:2px;':'';
   var rappelDot=rappelActif?'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#E53935;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>':'';
-  if(isDepart){
-    var dsz=selected?32:26;
-    var labelBadge=label?'<div style="position:absolute;bottom:-3px;right:-3px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:'+color+';border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:9px">'+label+'</div>':'';
-    var inner2='<div style="position:relative;width:'+dsz+'px;height:'+dsz+'px;display:flex;align-items:center;justify-content:center;font-size:'+(dsz-4)+'px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))">🏠'+rappelDot+labelBadge+'</div>';
-    return L.divIcon({html:inner2,iconSize:[dsz,dsz],iconAnchor:[dsz/2,dsz/2],popupAnchor:[0,-dsz/2],className:''});
-  }
   var inner='<div style="position:relative;width:'+sz+'px;height:'+sz+'px">'
     +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px;'+ringStyle+'">'+label+'</div>'
     +rappelDot+'</div>';
@@ -1320,12 +1314,12 @@ function refreshMarkerIcon(id){
   var badge=null;
   if(tourneeStops.indexOf(id)>=0){badge='T';color='#27AE60';}
   if(pointageStops.indexOf(id)>=0){badge='P';color='#8E24AA';}
-  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelActif(p),p.type_lieu==='Point de départ'));
+  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelActif(p)));
 }
 function buildMarkers(){
   POIS.forEach(function(p){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
-    var m=L.marker([lat,lon],{draggable:!tourneeMode,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelActif(p),p.type_lieu==='Point de départ'),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
+    var m=L.marker([lat,lon],{draggable:!tourneeMode,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelActif(p)),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
     m.on('click',function(){ tourneeMode?tourneeClickLieu(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
     m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
