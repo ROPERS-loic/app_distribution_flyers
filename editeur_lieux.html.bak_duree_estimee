@@ -1073,10 +1073,6 @@ var tourneeStopTypes = {};
 var tourneeStopLivraisonDesc = {};
 var tourneeSnapshot = null;
 var tourneeDistributeurs = [];
-var TEMPS_ARRET_MIN = 8;
-var MARGE_TRAJET_PCT = 0.03;
-var tourneeCalcResult = null;
-function fmtDureeMin(min){ var h=Math.floor(min/60), m=Math.round(min%60); return h>0?h+'h '+m+'min':m+' min'; }
 var saisonsMap = {};
 var saisonsLoaded = false;
 var saisonsAffichage = false;
@@ -2707,27 +2703,20 @@ function renderTourneeSearchResults(){
   });
 }
 
-function tourneeCalcSignature(){
-  var departValCalc = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
-  var arriveeValCalc = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
-  return JSON.stringify([tourneeStops, departValCalc, arriveeValCalc]);
-}
-
-async function computeTourneeEstimate(){
-  if(tourneeStops.length < 2) return null;
+async function calcTournee(){
+  if(tourneeStops.length < 2){ showToast('⚠ Ajoutez au moins 2 lieux'); return; }
   var wps = tourneeStops.map(function(id){
     var p = POIS.find(function(p){ return p.id===id; });
     return p ? [parseFloat(p.lat), parseFloat(p.lon)] : null;
   }).filter(function(w){ return w && !isNaN(w[0]); });
   var departValCalc = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
   var arriveeValCalc = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
-  var departIdCalc = departValCalc ? parseInt(departValCalc,10) : null;
-  var arriveeIdCalc = arriveeValCalc ? parseInt(arriveeValCalc,10) : null;
-  if(departIdCalc!==null && arriveeIdCalc!==null && departIdCalc===arriveeIdCalc){
-    var loopP = POIS.find(function(p){ return p.id===departIdCalc; });
+  if(departValCalc && arriveeValCalc && departValCalc===arriveeValCalc){
+    var loopP = POIS.find(function(p){ return p.id===parseInt(departValCalc,10); });
     if(loopP && !isNaN(parseFloat(loopP.lat))) wps.push([parseFloat(loopP.lat), parseFloat(loopP.lon)]);
   }
-  if(wps.length < 2) return null;
+  if(wps.length < 2){ showToast('⚠ Coordonnées manquantes'); return; }
+  showToast('⏳ Calcul…'); clearTourneeLayer();
   var allCoords = [], totalDist = 0, totalDur = 0, MAX = 25;
   for(var s = 0; s < wps.length-1; s += MAX-1){
     var batch = wps.slice(s, Math.min(s+MAX, wps.length));
@@ -2738,31 +2727,16 @@ async function computeTourneeEstimate(){
       if(d.routes&&d.routes[0]){ totalDist+=d.routes[0].distance; totalDur+=d.routes[0].duration; d.routes[0].geometry.coordinates.forEach(function(c){ allCoords.push([c[1],c[0]]); }); }
     } catch(e){ break; }
   }
-  var nbVisite = tourneeStops.filter(function(id){
-    return !((departIdCalc!==null && id===departIdCalc) || (arriveeIdCalc!==null && id===arriveeIdCalc));
-  }).length;
-  var distanceKm = totalDist/1000;
-  var dureeRouteMin = Math.round((totalDur*(1+MARGE_TRAJET_PCT))/60);
-  var dureeVisiteMin = nbVisite*TEMPS_ARRET_MIN;
-  var dureeTotaleMin = dureeRouteMin+dureeVisiteMin;
-  return {distanceKm:distanceKm, dureeRouteMin:dureeRouteMin, dureeVisiteMin:dureeVisiteMin, dureeTotaleMin:dureeTotaleMin, coords:allCoords, sig:tourneeCalcSignature()};
-}
-
-async function calcTournee(){
-  if(tourneeStops.length < 2){ showToast('⚠ Ajoutez au moins 2 lieux'); return; }
-  showToast('⏳ Calcul…'); clearTourneeLayer();
-  var res = await computeTourneeEstimate();
-  if(!res){ showToast('⚠ Coordonnées manquantes'); return; }
-  tourneeCalcResult = res;
-  if(res.coords.length > 0){
-    tourneeRouteLayer = L.polyline(res.coords, {color:'#27AE60', weight:4, opacity:.85}).addTo(map);
+  if(allCoords.length > 0){
+    tourneeRouteLayer = L.polyline(allCoords, {color:'#27AE60', weight:4, opacity:.85}).addTo(map);
     map.fitBounds(tourneeRouteLayer.getBounds(), {padding:[30,30]});
   }
-  var km = res.distanceKm.toFixed(1);
-  document.getElementById('tournee-result-main').textContent = km+' km · '+fmtDureeMin(res.dureeTotaleMin)+' au total';
-  document.getElementById('tournee-result-sub').textContent = tourneeStops.length+' arrêts · route '+fmtDureeMin(res.dureeRouteMin)+' + visites '+fmtDureeMin(res.dureeVisiteMin);
+  var km = (totalDist/1000).toFixed(1), h = Math.floor(totalDur/3600), m = Math.round((totalDur%3600)/60);
+  var durStr = h>0 ? h+'h '+m+'min' : m+' min';
+  document.getElementById('tournee-result-main').textContent = km+' km · '+durStr;
+  document.getElementById('tournee-result-sub').textContent = tourneeStops.length+' arrêts';
   document.getElementById('tournee-result').style.display = 'block';
-  showToast('✓ '+km+' km – '+fmtDureeMin(res.dureeTotaleMin));
+  showToast('✓ '+km+' km – '+durStr);
 }
 
 function optimizeTournee(){
@@ -2878,13 +2852,6 @@ async function loadTourneeForEdit(id){
   renderList(); renderTourneeList(); clearTourneeLayer();
   renderDepartArriveeSelects();
 
-  tourneeCalcResult = null;
-  if(t.duree_totale_min){
-    document.getElementById('tournee-result-main').textContent = (t.distance_km!=null?t.distance_km:'?')+' km · '+fmtDureeMin(t.duree_totale_min)+' au total';
-    document.getElementById('tournee-result-sub').textContent = tourneeStops.length+' arrêts · route '+fmtDureeMin(t.duree_route_min||0)+' + visites '+fmtDureeMin(t.duree_visite_min||0)+' (dernier calcul)';
-    document.getElementById('tournee-result').style.display = 'block';
-  }
-
   if(pts && pts.length>0){
     var first = pts[0], last = pts[pts.length-1];
     if(first.est_repere===true){
@@ -2925,28 +2892,17 @@ async function saveTourneeSupabase(){
 
   showToast(editingTourneeId ? '⏳ Mise à jour en cours…' : '⏳ Création en cours…');
 
-  // Estimation km/durées (réutilise le dernier calcul s'il correspond encore aux arrêts actuels, sinon recalcule)
-  var tourneeEstimate = (tourneeCalcResult && tourneeCalcResult.sig === tourneeCalcSignature())
-    ? tourneeCalcResult
-    : await computeTourneeEstimate().catch(function(){ return null; });
-  var dureeFields = tourneeEstimate ? {
-    distance_km: Math.round(tourneeEstimate.distanceKm*10)/10,
-    duree_route_min: tourneeEstimate.dureeRouteMin,
-    duree_visite_min: tourneeEstimate.dureeVisiteMin,
-    duree_totale_min: tourneeEstimate.dureeTotaleMin
-  } : { distance_km:null, duree_route_min:null, duree_visite_min:null, duree_totale_min:null };
-
   // Creer ou mettre a jour la tournee
   var tData;
   if(editingTourneeId){
     try {
-      await sbPatch('tournees','id=eq.'+editingTourneeId, Object.assign({nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null}, dureeFields));
+      await sbPatch('tournees','id=eq.'+editingTourneeId, {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null});
       await sbDelete('points_tournee','tournee_id=eq.'+editingTourneeId);
     } catch(e){ showToast('❌ Erreur mise à jour : '+e.message); return; }
     tData = {id: editingTourneeId};
   } else {
     var tArr;
-    try { tArr = await sbPost('tournees', Object.assign({nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}, dureeFields)); }
+    try { tArr = await sbPost('tournees', {nom:nom, date:date, distributeur_id:distId, secteur:secteur||null, commentaire:comment||null, statut:'planifiee'}); }
     catch(e){ showToast('❌ Erreur création : '+e.message); return; }
     tData = Array.isArray(tArr) ? tArr[0] : tArr;
   }

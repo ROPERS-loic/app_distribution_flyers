@@ -407,8 +407,8 @@ textarea.form-input{resize:vertical;min-height:70px}
         </div>
         <div class="card">
           <table class="data-table">
-            <thead><tr><th>Tournée</th><th>Date</th><th>Distributeur</th><th>Secteur</th><th>Statut</th><th>Progression</th><th>⏱ Temps estimé</th><th>Actions</th></tr></thead>
-            <tbody id="tournees-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
+            <thead><tr><th>Tournée</th><th>Date</th><th>Distributeur</th><th>Secteur</th><th>Statut</th><th>Progression</th><th>Actions</th></tr></thead>
+            <tbody id="tournees-tbody"><tr><td colspan="7" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -920,14 +920,9 @@ function renderDashboard(){
 // ══════════════════════════════════════════════════════════
 //  TOURNÉES
 // ══════════════════════════════════════════════════════════
-function fmtDureeEstimee(t){
-  if(t.duree_totale_min===null||t.duree_totale_min===undefined) return '—';
-  var h=Math.floor(t.duree_totale_min/60), m=Math.round(t.duree_totale_min%60);
-  return (h>0?h+'h '+m+'min':m+' min')+(t.distance_km?' · '+t.distance_km+' km':'');
-}
 function renderTourneesTable(){
   const tbody=document.getElementById('tournees-tbody'),data=ST.tourneesFiltered;
-  if(!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--grey)">Aucune tournée</td></tr>';return;}
+  if(!data.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--grey)">Aucune tournée</td></tr>';return;}
   tbody.innerHTML=data.map(t=>{
     const pts=(t.points||[]).filter(p=>!isRepere(p)),done=pts.filter(p=>p.statut!=='a_faire').length,pct=pts.length?Math.round(done/pts.length*100):0;
     return `<tr>
@@ -935,7 +930,6 @@ function renderTourneesTable(){
       <td>${fmtDate(t.date)}</td><td>${esc(t.distributeur?.nom||'—')}</td><td>${esc(t.secteur||'—')}</td>
       <td><span class="badge b-${t.statut}">${statutLabel(t.statut)}</span></td>
       <td><div style="display:flex;align-items:center;gap:8px;min-width:120px"><div class="prog-mini" style="flex:1"><div class="prog-mini-fill" style="width:${pct}%"></div></div><span style="font-size:11px;color:var(--grey)">${done}/${pts.length}</span></div></td>
-      <td style="font-size:12px;color:var(--grey)">${fmtDureeEstimee(t)}</td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-secondary btn-sm" onclick="openTourneeDetail(${t.id})">Détail</button>
         <button class="btn btn-danger btn-sm" onclick="deleteTournee(${t.id})">🗑</button>

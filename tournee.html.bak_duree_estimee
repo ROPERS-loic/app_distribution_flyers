@@ -459,10 +459,6 @@ textarea.form-input{resize:vertical;min-height:60px}
               </label>
               <div id="pl-sheet-rappel-comment-wrap" style="display:none;margin-top:6px">
                 <textarea id="pl-sheet-rappel-comment" placeholder="Pourquoi revenir ? (optionnel)"></textarea>
-                <div style="display:flex;gap:16px;margin-top:8px;font-size:12px">
-                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pl-rappel-type" value="repassage" checked>🔁 Repassage simple</label>
-                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pl-rappel-type" value="rdv_commercial">📅 RDV commercial</label>
-                </div>
               </div>
             </div>
             <div class="pl-sheet-label">📅 Infos saison (optionnel)</div>
@@ -700,7 +696,7 @@ async function syncOfflineQueue() {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
       else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
-      else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine, item.rappelType);
+      else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine);
       else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
       else if (item.type === 'ajout_lieu') await syncAjoutLieuItem(item);
       else if (item.type === 'nouveau_lieu') await syncNouveauLieuItem(item);
@@ -745,7 +741,7 @@ async function syncPointageLibreItem(item) {
   await sbPost('points_tournee', points);
   await Promise.all(Object.keys(plSelectedData).map(async (k) => {
     const d = plSelectedData[k] || {};
-    try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
+    try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
     if (d.dateOuverture || d.dateFermeture) {
       try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
     }
@@ -1110,15 +1106,9 @@ function renderTourneeDetail() {
     : null;
   const gmNext = nextPt ? `https://www.google.com/maps/dir/?api=1&destination=${nextPt.lieux.latitude},${nextPt.lieux.longitude}` : null;
 
-  const dureeInfo = t.duree_totale_min ? (function(){
-    const h = Math.floor(t.duree_totale_min/60), m = Math.round(t.duree_totale_min%60);
-    return (h>0?h+'h '+m+'min':m+' min')+(t.distance_km?' · '+t.distance_km+' km':'');
-  })() : null;
-
   let html = `
     <div class="progress-band">
       <div class="pb-top"><div class="pb-title">${esc(t.nom)}</div><div class="pb-pct">${pct}%</div></div>
-      ${dureeInfo?`<div style="font-size:11px;color:var(--grey);margin:-4px 0 8px">⏱ ${dureeInfo} estimé</div>`:''}
       <div class="prog-bg"><div class="prog-fill${pct===100?' full':''}" style="width:${pct}%"></div></div>
       <div class="pb-counts">
         <div class="pb-count"><div class="pb-dot" style="background:var(--green)"></div>${dist} faits</div>
@@ -1374,7 +1364,7 @@ function openValidation(pointId) {
     entreeGratuite: p.entree_gratuite||0,
     commentaire: p.commentaire_distributeur||'',
     dateOuverture: '', dateFermeture: '',
-    rappel: false, rappelComment: '', rappelType: 'repassage',
+    rappel: false, rappelComment: '',
     livraisonStatut: cmd ? (cmd.statut==='livree' ? 'livree' : null) : null,
     photoB64: null, photoFile: null
   };
@@ -1479,11 +1469,7 @@ function renderValidation() {
           <input type="checkbox" id="rappel-input" ${f.rappel?'checked':''} onchange="ST.form.rappel=this.checked;renderValidation()">
           🔁 Prévoir un nouveau passage
         </label>
-        ${f.rappel?`<textarea class="form-input" id="rappel-comment-input" rows="2" placeholder="Pourquoi revenir ? (optionnel)" style="margin-top:6px" oninput="ST.form.rappelComment=this.value">${esc(f.rappelComment||'')}</textarea>
-        <div style="display:flex;gap:16px;margin-top:8px;font-size:12px">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="rappel-type-input" value="repassage" ${f.rappelType!=='rdv_commercial'?'checked':''} onchange="ST.form.rappelType=this.value">🔁 Repassage simple</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="rappel-type-input" value="rdv_commercial" ${f.rappelType==='rdv_commercial'?'checked':''} onchange="ST.form.rappelType=this.value">📅 RDV commercial</label>
-        </div>`:''}
+        ${f.rappel?`<textarea class="form-input" id="rappel-comment-input" rows="2" placeholder="Pourquoi revenir ? (optionnel)" style="margin-top:6px" oninput="ST.form.rappelComment=this.value">${esc(f.rappelComment||'')}</textarea>`:''}
       </div>
 
       <div class="form-group">
@@ -1574,14 +1560,14 @@ async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture) {
 // ════════════════════════════════════════════
 //  RAPPELS / A FAIRE
 // ════════════════════════════════════════════
-async function applyRappelUpdate(lieuId, wantOpen, commentaire, origine, type) {
+async function applyRappelUpdate(lieuId, wantOpen, commentaire, origine) {
   if (!lieuId) return;
   const existing = await sbGet(`rappels_lieux?select=id&lieu_id=eq.${lieuId}&statut=eq.a_faire&limit=1`);
   if (existing && existing[0]) {
     await sbPatch('rappels_lieux', 'id=eq.'+existing[0].id, {statut:'traite', traite_le:new Date().toISOString(), traite_par: ST.user?.id||null});
   }
   if (wantOpen) {
-    await sbPost('rappels_lieux', {lieu_id: lieuId, commentaire: commentaire||null, origine, statut:'a_faire', type: type||'repassage', cree_par: ST.user?.id||null});
+    await sbPost('rappels_lieux', {lieu_id: lieuId, commentaire: commentaire||null, origine, statut:'a_faire', cree_par: ST.user?.id||null});
   }
 }
 
@@ -1665,10 +1651,10 @@ async function submitValidation() {
   }
 
   if (lieuIdRappel) {
-    try { await applyRappelUpdate(lieuIdRappel, ST.form.rappel, ST.form.rappelComment||null, 'terrain', ST.form.rappelType); }
+    try { await applyRappelUpdate(lieuIdRappel, ST.form.rappel, ST.form.rappelComment||null, 'terrain'); }
     catch(e) {
       if (isNetworkFailure(e)) {
-        addToOfflineQueue({ type:'rappel', lieuId:lieuIdRappel, wantOpen:ST.form.rappel, commentaire:ST.form.rappelComment||null, origine:'terrain', rappelType:ST.form.rappelType });
+        addToOfflineQueue({ type:'rappel', lieuId:lieuIdRappel, wantOpen:ST.form.rappel, commentaire:ST.form.rappelComment||null, origine:'terrain' });
       }
     }
   }
@@ -2060,7 +2046,6 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-rappel').checked = !!prev.rappel;
   document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
   document.getElementById('pl-sheet-rappel-comment-wrap').style.display = prev.rappel?'block':'none';
-  document.querySelectorAll('input[name="pl-rappel-type"]').forEach(function(r){ r.checked = (r.value === (prev.rappelType||'repassage')); });
   document.getElementById('pl-sheet-date-fermeture').value = prev.dateFermeture||'';
   document.getElementById('pl-sheet-date-ouverture').value = prev.dateOuverture||'';
   if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
@@ -2106,13 +2091,12 @@ function validatePLSheet() {
   const comment = document.getElementById('pl-sheet-comment').value.trim();
   const rappel = document.getElementById('pl-sheet-rappel').checked;
   const rappelComment = document.getElementById('pl-sheet-rappel-comment').value.trim();
-  const rappelType = (document.querySelector('input[name="pl-rappel-type"]:checked')||{}).value || 'repassage';
   const dateFermeture = document.getElementById('pl-sheet-date-fermeture').value || '';
   const dateOuverture = document.getElementById('pl-sheet-date-ouverture').value || '';
   const photoInput2 = document.getElementById('pl-photo-input');
   const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
-  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, photoFile, photoB64: photoFile ? photoB64 : null };
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, dateFermeture, dateOuverture, photoFile, photoB64: photoFile ? photoB64 : null };
   const btn = document.getElementById('pladd-'+k);
   if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
   closePLSheet();
@@ -2221,7 +2205,7 @@ async function submitPointageLibre() {
 
     await Promise.all([...keysToPost, ...keysToPatch].map(async (k) => {
       const d = plSelected[k] || {};
-      try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
+      try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage'); } catch(e) {}
       if (d.dateOuverture || d.dateFermeture) {
         try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
       }
