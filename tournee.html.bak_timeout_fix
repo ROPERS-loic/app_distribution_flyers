@@ -589,13 +589,7 @@ function entreeOptionsHTML(selected) {
 function getStoredSession(){try{const r=localStorage.getItem('sb-krbzipnoeroaofojccri-auth-token');return r?JSON.parse(r):null;}catch(e){return null;}}
 function getToken(){const s=getStoredSession();return s?.access_token||SUPA_KEY;}
 async function refreshSession(){const s=getStoredSession();if(!s?.refresh_token)return false;try{const d=await sbAuthPost('token?grant_type=refresh_token',{refresh_token:s.refresh_token});localStorage.setItem('sb-krbzipnoeroaofojccri-auth-token',JSON.stringify(d));return true;}catch(e){return false;}}
-function isNetworkFailure(e){ return !navigator.onLine || e instanceof TypeError || (e && e.name==='AbortError'); }
-function sbFetchWithTimeout(url,opts){
-  const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(), 3000);
-  return fetch(url, Object.assign({}, opts, {signal: controller.signal})).finally(()=>clearTimeout(timer));
-}
-async function sbFetch(url,opts){let r=await sbFetchWithTimeout(url,opts);if(r.status===401){const ok=await refreshSession();if(ok){opts.headers['Authorization']='Bearer '+getToken();r=await sbFetchWithTimeout(url,opts);}else{localStorage.removeItem('sb-krbzipnoeroaofojccri-auth-token');navTo('login');throw new Error('Session expirée, reconnectez-vous');}}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
+async function sbFetch(url,opts){let r=await fetch(url,opts);if(r.status===401){const ok=await refreshSession();if(ok){opts.headers['Authorization']='Bearer '+getToken();r=await fetch(url,opts);}else{localStorage.removeItem('sb-krbzipnoeroaofojccri-auth-token');navTo('login');throw new Error('Session expirée, reconnectez-vous');}}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return r.json();}
 async function uploadPhoto(file,path){const doUp=(tok)=>fetch(`${SUPA_URL}/storage/v1/object/photos-distribution/${path}`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok,'Content-Type':file.type||'image/jpeg','x-upsert':'true'},body:file});let r=await doUp(getToken());if(r.status===401){const ok=await refreshSession();if(ok)r=await doUp(getToken());}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'HTTP '+r.status);}return `${SUPA_URL}/storage/v1/object/public/photos-distribution/${path}`;}
 async function sbGet(path){return sbFetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken()}});}
 async function sbPost(table,data){return sbFetch(`${SUPA_URL}/rest/v1/${table}`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+getToken(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});}
@@ -631,9 +625,6 @@ const QUEUE_KEY = 'nougaterie_offline_queue';
 
 function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
-}
-function pendingSyncPointIds() {
-  return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>i.pointId));
 }
 function saveOfflineQueue(q) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
@@ -671,10 +662,7 @@ async function syncOfflineQueue() {
     } catch(e) { remaining.push(item); }
   }
   saveOfflineQueue(remaining);
-  if (synced > 0) {
-    toast('✅ '+synced+' pointage'+(synced>1?'s':'')+' synchronisé'+(synced>1?'s':'')+'!', 3000);
-    if (ST.screen === 'tournee') renderTourneeDetail();
-  }
+  if (synced > 0) toast('✅ '+synced+' pointage'+(synced>1?'s':'')+' synchronisé'+(synced>1?'s':'')+'!', 3000);
 }
 async function syncPointageLibreItem(item) {
   const { dateVal, distributeurId, plSelectedData } = item;
@@ -1048,7 +1036,6 @@ function stopCardHTML(p, i, pts) {
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
-          ${pendingSyncPointIds().has(p.id)?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
         </div>
         ${repere
           ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
@@ -1501,7 +1488,7 @@ async function submitValidation() {
   let queued = false;
   try { await sbPatch('points_tournee','id=eq.'+ST.form.pointId,upd); }
   catch(e) {
-    if (isNetworkFailure(e)) {
+    if (!navigator.onLine || e instanceof TypeError) {
       addToOfflineQueue({ type:'validation', pointId:ST.form.pointId, upd });
       toast('📤 Sauvegardé hors-ligne', 3000);
       queued = true;
@@ -1516,7 +1503,7 @@ async function submitValidation() {
     if (lieuIdRappel) {
       try { await saveSaisonLieu(lieuIdRappel, ST.form.dateOuverture||null, ST.form.dateFermeture||null); }
       catch(e) {
-        if (isNetworkFailure(e)) {
+        if (!navigator.onLine || e instanceof TypeError) {
           addToOfflineQueue({ type:'saison', lieuId:lieuIdRappel, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null });
         }
       }
@@ -1526,7 +1513,7 @@ async function submitValidation() {
   if (lieuIdRappel) {
     try { await applyRappelUpdate(lieuIdRappel, ST.form.rappel, ST.form.rappelComment||null, 'terrain'); }
     catch(e) {
-      if (isNetworkFailure(e)) {
+      if (!navigator.onLine || e instanceof TypeError) {
         addToOfflineQueue({ type:'rappel', lieuId:lieuIdRappel, wantOpen:ST.form.rappel, commentaire:ST.form.rappelComment||null, origine:'terrain' });
       }
     }
@@ -1544,7 +1531,7 @@ async function submitValidation() {
     };
     try { await sbPatch('commandes_livraison','id=eq.'+currentCmd.id,cmdUpd); }
     catch(e) {
-      if (isNetworkFailure(e)) {
+      if (!navigator.onLine || e instanceof TypeError) {
         addToOfflineQueue({ type:'livraison_commande', commandeId:currentCmd.id, upd:cmdUpd });
       }
     }
@@ -2051,7 +2038,7 @@ async function submitPointageLibre() {
     plSelected = {};
     navTo('historique');
   } catch(e) {
-    if (isNetworkFailure(e)) {
+    if (!navigator.onLine || e instanceof TypeError) {
       addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData:{...plSelected} });
       toast('📤 Sauvegardé hors-ligne — photos non incluses', 4000);
       plSelected = {};

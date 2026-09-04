@@ -420,7 +420,6 @@ textarea.form-input{resize:vertical;min-height:70px}
           <button class="btn btn-primary btn-sm" onclick="openAddStopModal()">+ Ajouter des lieux</button>
           <button class="btn btn-secondary btn-sm" onclick="openGmapTournee()">🗺️ Google Maps</button>
           <button class="btn btn-secondary btn-sm" onclick="printTourneePDF()">🖨️ Imprimer la tournée</button>
-          <button class="btn btn-secondary btn-sm" id="btn-synthese" onclick="genererSyntheseTournee()">📄 Document de synthèse</button>
           <button class="btn btn-danger btn-sm" onclick="deleteTournee(ST.currentTourneeId)">🗑 Supprimer</button>
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
@@ -1029,8 +1028,6 @@ async function openTourneeDetail(id){
   document.getElementById('detail-badge').className='badge b-'+(t?.statut||'planifiee');
   document.getElementById('detail-badge').textContent=statutLabel(t?.statut);
   document.getElementById('btn-edit-preparation').style.display=(t?.statut==='planifiee')?'':'none';
-  document.getElementById('btn-synthese').style.display=(t?.statut==='terminee')?'':'none';
-  loadRappelsActuels();
   document.getElementById('detail-infos').innerHTML=`
     <div style="font-size:12px"><strong>Date :</strong> ${fmtDate(t?.date)}</div>
     <div style="font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -1378,10 +1375,6 @@ function renderDetailStops(){
             : `<div class="stop-addr">${esc(s.lieu?.ville||s.lieu?.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(desc||'Livraison')}${livDone?' ✓':''}</div>`:''}`}
         </div>
         ${(isLivraisonOnly||repere)?'':`<span style="font-size:11px;margin-right:4px;color:var(--grey)">${s.quantite_flyers} flyers</span>`}
-        ${(!isLivraisonOnly && !repere && s.statut==='distribue' && s.nb_nougat_offert>0)?`<span style="font-size:11px;margin-right:4px;color:var(--grey)">🍬×${s.nb_nougat_offert}</span>`:''}
-        ${(!isLivraisonOnly && !repere && s.statut==='distribue' && s.entree_gratuite>0)?`<span style="font-size:11px;margin-right:4px;color:var(--grey)">🎟️×${s.entree_gratuite}</span>`:''}
-        ${s.commentaire_distributeur?`<span style="font-size:12px;margin-right:2px" title="${esc(s.commentaire_distributeur)}">💬</span>`:''}
-        ${s.photo_preuve?`<span style="font-size:12px;margin-right:2px" title="Photo disponible">📷</span>`:''}
         ${repere
           ? `<span class="badge" style="background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
           : `<span class="badge b-${s.statut}">${isLivraisonOnly?livLbl:statutLabel(s.statut)}</span>`}
@@ -1632,132 +1625,6 @@ function printTourneePDF(){
   });
 
   doc.save('feuille_route_'+(t?.nom||'sans-nom').replace(/[^a-z0-9]+/gi,'_')+'_'+(t?.date||'').replace(/-/g,'')+'.pdf');
-}
-
-async function photoToDataURLGestion(url, size){
-  try {
-    const resp = await fetch(url);
-    if(!resp.ok) throw new Error('fetch failed');
-    const blob = await resp.blob();
-    const bmp = await createImageBitmap(blob);
-    const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    const side = Math.min(bmp.width, bmp.height);
-    const sx = (bmp.width-side)/2, sy = (bmp.height-side)/2;
-    ctx.drawImage(bmp, sx, sy, side, side, 0, 0, size, size);
-    return canvas.toDataURL('image/jpeg', 0.7);
-  } catch(e) { return null; }
-}
-
-function truncSynthese(s, n){ s = s||''; return s.length>n ? s.slice(0,n-1)+'…' : s; }
-
-async function genererSyntheseTournee(){
-  const { jsPDF } = window.jspdf;
-  if(!jsPDF){ alert('jsPDF non chargé'); return; }
-  const t = ST.tournees.find(x=>x.id===ST.currentTourneeId);
-  const stops = [...ST.currentTourneeStops].filter(s=>!isRepere(s)).sort((a,b)=>(a.ordre_passage||0)-(b.ordre_passage||0));
-  if(!stops.length){ showToast('⚠ Aucun arrêt dans cette tournée'); return; }
-
-  showToast('⏳ Génération en cours…', 6000);
-  if(!ST.rappels) await loadRappelsActuels();
-
-  const photoMap = {};
-  await Promise.all(stops.filter(s=>s.photo_preuve).map(async s=>{
-    photoMap[s.id] = await photoToDataURLGestion(s.photo_preuve, 200);
-  }));
-
-  const now = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  const M = 10;
-
-  function drawHeader(){
-    doc.setFillColor(26,26,26); doc.rect(0,0,W,20,'F');
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
-    doc.text('Document de synthèse — '+(t?.nom||'Tournée'), M, 13);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text('Généré le '+now, W-M, 13, {align:'right'});
-    doc.setFontSize(8.5);
-    const distNom = t?.distributeur?.nom || 'Non assigné';
-    doc.text('Date : '+fmtDate(t?.date)+'   ·   Distributeur : '+distNom+'   ·   '+stops.length+' arrêts', M, 18);
-  }
-
-  drawHeader();
-  let y = 26;
-  const gap = 4, cardW = (W - M*2 - gap)/2, cardH = 40, photoSize = 26;
-  let col = 0;
-
-  stops.forEach((s) => {
-    if(col===0 && y + cardH > H - 10){ doc.addPage(); drawHeader(); y = 26; }
-    const x = M + col*(cardW+gap);
-
-    doc.setDrawColor(220,220,220);
-    doc.roundedRect(x, y, cardW, cardH, 2, 2);
-
-    const img = photoMap[s.id];
-    if(img){
-      try { doc.addImage(img, 'JPEG', x+3, y+3, photoSize, photoSize); } catch(e){}
-    } else {
-      doc.setFillColor(245,245,245); doc.rect(x+3, y+3, photoSize, photoSize, 'F');
-      doc.setFontSize(6.5); doc.setTextColor(180,180,180); doc.setFont('helvetica','normal');
-      doc.text('Pas de photo', x+3+photoSize/2, y+3+photoSize/2, {align:'center'});
-    }
-
-    const isLivraisonOnly = s.type_arret === 'livraison';
-    const cmd = s.commandes_livraison && s.commandes_livraison[0];
-    const tx = x + 3 + photoSize + 4;
-    const tw = cardW - photoSize - 10;
-
-    doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
-    doc.text((s.ordre_passage||'')+'. '+truncSynthese(s.lieu?.nom, 30), tx, y+7, {maxWidth: tw});
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,120,120);
-    doc.text(truncSynthese(s.lieu?.ville||'', 36), tx, y+11.5);
-
-    const statutColors = {distribue:[39,174,96], ferme:[120,120,120], refus:[229,57,53], absent:[232,135,10], a_faire:[160,160,160]};
-    const statutTexts = isLivraisonOnly
-      ? {a_faire:'À livrer', distribue:'✅ Livré', absent:'❌ Non livré', ferme:'❌ Non livré', refus:'❌ Non livré'}
-      : {a_faire:'⬜ Non visité', distribue:'✅ Fait', ferme:'🔒 Fermé', refus:'🚫 Refus', absent:'👻 Absent'};
-    const col1 = statutColors[s.statut] || [100,100,100];
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(col1[0],col1[1],col1[2]);
-    let statutLine = statutTexts[s.statut] || s.statut;
-    if(s.heure_validation){
-      statutLine += '  ·  ' + new Date(s.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    }
-    doc.text(statutLine, tx, y+16.5, {maxWidth: tw});
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(60,60,60);
-    if(isLivraisonOnly){
-      doc.text('📦 '+truncSynthese(cmd?.description||'Livraison', 40), tx, y+21, {maxWidth: tw});
-    } else if(s.statut==='distribue'){
-      let qtyLine = '🗞 '+(s.quantite_flyers||0)+' Ngt · '+(s.quantite_flyers_chateau||0)+' Chât.';
-      if(s.nb_nougat_offert>0) qtyLine += '  🍬×'+s.nb_nougat_offert;
-      if(s.entree_gratuite>0) qtyLine += '  🎟️×'+s.entree_gratuite;
-      doc.text(qtyLine, tx, y+21, {maxWidth: tw});
-    } else {
-      const rappelActif = ST.rappels && ST.rappels[s.lieu_id];
-      if(rappelActif){
-        doc.setTextColor(232,135,10); doc.setFont('helvetica','bold');
-        doc.text('🔁 Repassage prévu', tx, y+21);
-      } else {
-        doc.setTextColor(160,160,160);
-        doc.text('Pas de repassage prévu', tx, y+21);
-      }
-    }
-
-    if(s.commentaire_distributeur){
-      doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(90,90,90);
-      const lines = doc.splitTextToSize('💬 '+truncSynthese(s.commentaire_distributeur, 90), tw);
-      doc.text(lines.slice(0,2), tx, y+25.5);
-    }
-
-    col = (col+1) % 2;
-    if(col===0) y += cardH + gap;
-  });
-
-  doc.save('synthese_'+(t?.nom||'sans-nom').replace(/[^a-z0-9]+/gi,'_')+'_'+(t?.date||'').replace(/-/g,'')+'.pdf');
-  showToast('✅ Document généré');
 }
 
 function openAddStopModal(){ ST.addStopsSelected=new Set(); renderAddStops(); openModal('modal-add-stops'); }
