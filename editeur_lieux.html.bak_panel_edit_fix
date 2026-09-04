@@ -1071,7 +1071,6 @@ var routeStops = [];
 var tourneeStops = [];
 var tourneeStopTypes = {};
 var tourneeStopLivraisonDesc = {};
-var tourneeSnapshot = null;
 var tourneeDistributeurs = [];
 var saisonsMap = {};
 var saisonsLoaded = false;
@@ -2474,21 +2473,9 @@ async function savePointageSupabase(){
   }catch(e){showToast('Erreur : '+e.message);}
 }
 
-function captureTourneeSnapshot(){
-  tourneeSnapshot = JSON.stringify({stops:tourneeStops, types:tourneeStopTypes, desc:tourneeStopLivraisonDesc});
-}
-
-function tourneeHasUnsavedChanges(){
-  if(tourneeSnapshot === null) return false;
-  return JSON.stringify({stops:tourneeStops, types:tourneeStopTypes, desc:tourneeStopLivraisonDesc}) !== tourneeSnapshot;
-}
-
 function toggleTourneeMode(){
   // Fermer le mode route si actif
   if(routeMode) toggleRouteMode();
-  if(tourneeMode && tourneeHasUnsavedChanges()){
-    if(!confirm('Fermer sans enregistrer ? Les modifications de cette tournée seront perdues.')) return;
-  }
   tourneeMode = !tourneeMode;
   var btn = document.getElementById('btn-tournee');
   btn.textContent = tourneeMode ? '✕ Annuler tournée' : '🗺️ Créer tournée';
@@ -2501,14 +2488,9 @@ function toggleTourneeMode(){
     // Pré-remplir la date avec aujourd'hui
     document.getElementById('tf-date').value = new Date().toISOString().split('T')[0];
     loadTourneeDistributeurs();
-    captureTourneeSnapshot();
   } else {
-    tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
-    POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
-    renderList(); renderTourneeList();
     clearTourneeLayer();
     editingTourneeId = null;
-    tourneeSnapshot = null;
     var saveBtn = document.getElementById('btn-save-tournee');
     if(saveBtn) saveBtn.textContent = '☁️ Créer la tournée dans Supabase';
   }
@@ -2835,7 +2817,6 @@ async function loadTourneeForEdit(id){
       tourneeStopLivraisonDesc[p.id] = pt.commandes_livraison[0].description||'';
     }
   });
-  captureTourneeSnapshot();
 
   var refPt = (pts||[]).find(function(pt){ return pt.quantite_flyers>0; });
   if(refPt) document.getElementById('tf-qty').value = refPt.quantite_flyers;
@@ -2944,21 +2925,15 @@ async function saveTourneeSupabase(){
   if(noMatch > 0) msg += ' ('+noMatch+' lieux non trouvés dans Supabase)';
   showToast(msg);
 
-  // Réinitialiser (uniquement pour une création — une modification reste ouverte pour continuer à éditer)
-  if(editingTourneeId){
-    captureTourneeSnapshot();
-    renderTourneeList();
-  } else {
-    tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
-    document.getElementById('tf-nom').value = '';
-    document.getElementById('tf-secteur').value = '';
-    document.getElementById('tf-comment').value = '';
-    POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
-    renderList(); renderTourneeList(); clearTourneeLayer();
-    document.getElementById('tournee-result').style.display = 'none';
-    captureTourneeSnapshot();
-    toggleTourneeMode();
-  }
+  // Réinitialiser
+  tourneeStops = []; tourneeStopTypes = {}; tourneeStopLivraisonDesc = {};
+  document.getElementById('tf-nom').value = '';
+  document.getElementById('tf-secteur').value = '';
+  document.getElementById('tf-comment').value = '';
+  POIS.forEach(function(p){ refreshMarkerIcon(p.id); });
+  renderList(); renderTourneeList(); clearTourneeLayer();
+  document.getElementById('tournee-result').style.display = 'none';
+  toggleTourneeMode();
 }
 
 // ══════════════════════════════════════════════════════════

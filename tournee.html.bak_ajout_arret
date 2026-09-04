@@ -309,10 +309,6 @@ textarea.form-input{resize:vertical;min-height:60px}
 /* Modal doublon */
 #dup-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center;padding:20px}
 #dup-modal.open{display:flex}
-#add-stop-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:250;flex-direction:column;justify-content:flex-end}
-#add-stop-overlay.open{display:flex}
-#add-stop-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:78vh;display:flex;flex-direction:column;overflow:hidden}
-#add-stop-browse{overflow-y:auto;flex:1;min-height:0;padding-bottom:10px}
 #dup-card{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
 .dup-btn{width:100%;padding:12px;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
 .dup-btn-replace{background:#FFF3E0;color:#B36000}
@@ -523,18 +519,6 @@ textarea.form-input{resize:vertical;min-height:60px}
   </nav>
 </div>
 
-<div id="add-stop-overlay" onclick="if(event.target===this)closeAddStopSheet()">
-  <div id="add-stop-sheet">
-    <div class="pl-sheet-handle"></div>
-    <div class="pl-sheet-title">➕ Ajouter un arrêt</div>
-    <div style="padding:0 16px 10px">
-      <input id="add-stop-search" type="search" placeholder="🔍 Rechercher un lieu..." oninput="filterAddStop()"
-        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
-    </div>
-    <div id="add-stop-browse"></div>
-  </div>
-</div>
-
 <div id="dup-modal">
   <div id="dup-card">
     <div style="font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;margin-bottom:6px">⚠️ Lieux déjà visités aujourd'hui</div>
@@ -649,7 +633,7 @@ function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
 }
 function pendingSyncPointIds() {
-  return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>String(i.pointId)));
+  return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>i.pointId));
 }
 function saveOfflineQueue(q) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
@@ -683,17 +667,13 @@ async function syncOfflineQueue() {
       else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
       else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine);
       else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
-      else if (item.type === 'ajout_lieu') await syncAjoutLieuItem(item);
       synced++;
     } catch(e) { remaining.push(item); }
   }
   saveOfflineQueue(remaining);
   if (synced > 0) {
     toast('✅ '+synced+' pointage'+(synced>1?'s':'')+' synchronisé'+(synced>1?'s':'')+'!', 3000);
-    if (ST.screen === 'tournee' && ST.activeTournee) {
-      await loadPoints(ST.activeTournee.id).catch(()=>{});
-      renderTourneeDetail();
-    }
+    if (ST.screen === 'tournee') renderTourneeDetail();
   }
 }
 async function syncPointageLibreItem(item) {
@@ -721,14 +701,6 @@ async function syncPointageLibreItem(item) {
       try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
     }
   }));
-}
-
-async function syncAjoutLieuItem(item) {
-  const { tourneeId, lieuId, ordrePassage, wasTerminee } = item;
-  await sbPost('points_tournee', { tournee_id: tourneeId, lieu_id: lieuId, ordre_passage: ordrePassage, quantite_flyers: 1, quantite_flyers_chateau: 1, statut: 'a_faire', est_repere: false });
-  if (wasTerminee) {
-    await sbPatch('tournees','id=eq.'+tourneeId,{statut:'en_cours'}).catch(()=>{});
-  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -759,7 +731,7 @@ function refreshGeo() {
     navigator.geolocation.getCurrentPosition(
       p => { ST.geoPos = { lat: p.coords.latitude, lon: p.coords.longitude }; resolve(ST.geoPos); },
       () => resolve(ST.geoPos),
-      { timeout: 3000, maximumAge: 30000 }
+      { timeout: 8000, maximumAge: 30000 }
     );
   });
 }
@@ -1008,7 +980,7 @@ function renderTourneeDetail() {
   const abs   = realPts.filter(p => p.statut==='absent').length;
   const todo  = realPts.filter(p => p.statut==='a_faire').length;
   const pct   = total ? Math.round(done/total*100) : 0;
-  const isEnd = t.statut==='terminee';
+  const isEnd = t.statut==='terminee' || (total>0 && done===total);
 
   // Google Maps URLs
   const wayPts = pts.filter(p => p.lieux?.latitude && p.lieux?.longitude);
@@ -1044,7 +1016,7 @@ function renderTourneeDetail() {
     html += `<div id="terminer-zone"><button class="btn-secondary" style="margin-bottom:12px;color:var(--red);border-color:var(--red)" onclick="askTerminerTournee()">🏁 Terminer la tournée</button></div>`;
   }
 
-  html += `<div class="section-title" style="display:flex;align-items:center;justify-content:space-between">Arrêts (${pts.length})${t.statut!=='annulee'?`<button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer" onclick="openAddStopSheet()">➕ Ajouter un arrêt</button>`:''}</div>`;
+  html += `<div class="section-title">Arrêts (${pts.length})</div>`;
   html += `<div id="stops-list">` + (pts.length ? pts.map((p,i) => stopCardHTML(p,i,pts)).join('') : `<div class="empty-sc"><div class="ei">📍</div><div class="et">Aucun arrêt</div></div>`) + `</div>`;
   html += `<button class="btn-secondary" style="margin-top:12px" onclick="navTo('accueil')">← Retour aux tournées</button>`;
   document.getElementById('tournee-detail-content').innerHTML = html;
@@ -1076,7 +1048,7 @@ function stopCardHTML(p, i, pts) {
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
-          ${pendingSyncPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
+          ${pendingSyncPointIds().has(p.id)?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
         </div>
         ${repere
           ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
@@ -1582,15 +1554,20 @@ async function submitValidation() {
   if (idx>=0) ST.activePoints[idx] = { ...ST.activePoints[idx], ...upd };
 
   const allDone = ST.activePoints.filter(p => !isRepere(p)).every(p => p.statut!=='a_faire');
-  if (ST.activeTournee.statut==='planifiee') {
-    await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'en_cours'}).catch(()=>{});
-    ST.activeTournee.statut = 'en_cours';
+  if (allDone && ST.activeTournee.statut!=='terminee') {
+    await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'terminee'}).catch(()=>{});
+    ST.activeTournee.statut = 'terminee';
     const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
-    if (ti>=0) ST.tournees[ti].statut = 'en_cours';
-  }
-  if (!queued) {
-    if (allDone) toast('🎉 Tous les arrêts sont faits — pensez à "Terminer la tournée" !', 4000);
-    else toast('Arrêt validé ✓');
+    if (ti>=0) ST.tournees[ti].statut = 'terminee';
+    if (!queued) toast('🎉 Tournée terminée !', 3000);
+  } else {
+    if (ST.activeTournee.statut==='planifiee') {
+      await sbPatch('tournees','id=eq.'+ST.activeTournee.id,{statut:'en_cours'}).catch(()=>{});
+      ST.activeTournee.statut = 'en_cours';
+      const ti = ST.tournees.findIndex(t=>t.id===ST.activeTournee.id);
+      if (ti>=0) ST.tournees[ti].statut = 'en_cours';
+    }
+    if (!queued) toast('Arrêt validé ✓');
   }
   navTo('tournee');
 }
@@ -2080,92 +2057,6 @@ async function submitPointageLibre() {
       plSelected = {};
       navTo('historique');
     } else { toast('Erreur : '+e.message); }
-  }
-}
-
-// ════════════════════════════════════════════
-//  AJOUT D'UN ARRÊT SUR LA TOURNÉE EN COURS
-// ════════════════════════════════════════════
-let addStopAllLieux = [];
-
-async function openAddStopSheet() {
-  if (!ST.allLieux.length) await loadAllLieux();
-  addStopAllLieux = ST.allLieux.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
-  const searchEl = document.getElementById('add-stop-search');
-  if (searchEl) searchEl.value = '';
-  renderAddStopBrowse([]);
-  document.getElementById('add-stop-overlay').classList.add('open');
-}
-
-function closeAddStopSheet() {
-  document.getElementById('add-stop-overlay').classList.remove('open');
-}
-
-function filterAddStop() {
-  const q = norm(document.getElementById('add-stop-search')?.value||'');
-  if (!q) { renderAddStopBrowse([]); return; }
-  const items = addStopAllLieux.filter(l=>norm(l.nom).includes(q)||norm(l.ville).includes(q)||norm(l.categorie).includes(q));
-  renderAddStopBrowse(items);
-}
-
-function addStopItemHTML(l) {
-  const already = ST.activePoints.some(p=>p.lieu_id===l.id);
-  return `<div class="pl-browse-item">
-    <div style="flex:1;min-width:0">
-      <div class="pl-browse-name">${esc(l.nom||'—')}</div>
-      <div class="pl-browse-sub">${esc(l.categorie||'')}${l.ville?' · '+esc(l.ville):''}</div>
-    </div>
-    <button class="btn-pl-add${already?' added':''}" ${already?'disabled':''} onclick="confirmAddStop(${l.id})">
-      ${already?'✓':'+'}
-    </button>
-  </div>`;
-}
-
-function renderAddStopBrowse(items) {
-  const el = document.getElementById('add-stop-browse'); if (!el) return;
-  if (!items.length) {
-    const q = (document.getElementById('add-stop-search')?.value||'').trim();
-    el.innerHTML = `<div class="empty-sc" style="padding:30px 16px"><div class="ei">🔍</div><div class="et">${q?'Aucun résultat':'Tapez pour rechercher un lieu'}</div></div>`;
-    return;
-  }
-  el.innerHTML = items.slice(0,30).map(addStopItemHTML).join('');
-}
-
-async function confirmAddStop(lieuId) {
-  const l = ST.allLieux.find(x=>x.id===lieuId);
-  if (!l) return;
-  if (ST.activePoints.some(p=>p.lieu_id===lieuId)) { toast('Ce lieu est déjà dans la tournée'); return; }
-  const t = ST.activeTournee; if (!t) return;
-  const nextOrdre = ST.activePoints.reduce((mx,p)=>Math.max(mx, p.ordre_passage||0), 0) + 1;
-  const wasTerminee = t.statut === 'terminee';
-  try {
-    const res = await sbPost('points_tournee', { tournee_id: t.id, lieu_id: lieuId, ordre_passage: nextOrdre, quantite_flyers: 1, quantite_flyers_chateau: 1, statut: 'a_faire', est_repere: false });
-    const created = Array.isArray(res) ? res[0] : res;
-    ST.activePoints.push({ ...created, lieux: l });
-    if (wasTerminee) {
-      await sbPatch('tournees','id=eq.'+t.id,{statut:'en_cours'}).catch(()=>{});
-      t.statut = 'en_cours';
-      const ti = ST.tournees.findIndex(x=>x.id===t.id);
-      if (ti>=0) ST.tournees[ti].statut = 'en_cours';
-    }
-    toast('✓ '+(l.nom||'Lieu')+' ajouté à la tournée');
-    renderTourneeDetail();
-    filterAddStop();
-  } catch(e) {
-    if (isNetworkFailure(e)) {
-      addToOfflineQueue({ type:'ajout_lieu', tourneeId:t.id, lieuId, ordrePassage:nextOrdre, wasTerminee });
-      ST.activePoints.push({ id:'tmp_'+Date.now(), tournee_id:t.id, lieu_id:lieuId, ordre_passage:nextOrdre, quantite_flyers:1, quantite_flyers_chateau:1, statut:'a_faire', est_repere:false, lieux:l });
-      if (wasTerminee) {
-        t.statut = 'en_cours';
-        const ti = ST.tournees.findIndex(x=>x.id===t.id);
-        if (ti>=0) ST.tournees[ti].statut = 'en_cours';
-      }
-      toast('📤 Ajouté hors-ligne, sera synchronisé', 3000);
-      renderTourneeDetail();
-      filterAddStop();
-    } else {
-      toast('Erreur : '+e.message);
-    }
   }
 }
 

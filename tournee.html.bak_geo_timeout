@@ -649,7 +649,7 @@ function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
 }
 function pendingSyncPointIds() {
-  return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>String(i.pointId)));
+  return new Set(getOfflineQueue().filter(i=>i.type==='validation').map(i=>i.pointId));
 }
 function saveOfflineQueue(q) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
@@ -759,7 +759,7 @@ function refreshGeo() {
     navigator.geolocation.getCurrentPosition(
       p => { ST.geoPos = { lat: p.coords.latitude, lon: p.coords.longitude }; resolve(ST.geoPos); },
       () => resolve(ST.geoPos),
-      { timeout: 3000, maximumAge: 30000 }
+      { timeout: 8000, maximumAge: 30000 }
     );
   });
 }
@@ -1076,7 +1076,7 @@ function stopCardHTML(p, i, pts) {
           ${isLivraisonOnly
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
-          ${pendingSyncPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
+          ${pendingSyncPointIds().has(p.id)?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
         </div>
         ${repere
           ? `<span class="badge" style="margin-right:4px;flex-shrink:0;background:#ECEFF1;color:#607D8B">🚩 Repère</span>`
