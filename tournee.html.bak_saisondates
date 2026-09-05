@@ -471,7 +471,7 @@ textarea.form-input{resize:vertical;min-height:60px}
               </div>
             </div>
             <div class="pl-sheet-label">📅 Infos saison (optionnel)</div>
-            <div style="padding:0 16px;display:flex;gap:8px" id="pl-saison-fields-row">
+            <div style="padding:0 16px;display:flex;gap:8px">
               <div style="flex:1">
                 <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
                 <input type="date" class="form-input" id="pl-sheet-date-fermeture">
@@ -704,7 +704,7 @@ async function syncOfflineQueue() {
     try {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
-      else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture, item.anneeOuverture, item.anneeFermeture);
+      else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture);
       else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine, item.rappelType);
       else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
       else if (item.type === 'ajout_lieu') await syncAjoutLieuItem(item);
@@ -752,7 +752,7 @@ async function syncPointageLibreItem(item) {
     const d = plSelectedData[k] || {};
     try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
     if (d.dateOuverture || d.dateFermeture) {
-      try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null, d.anneeOuverture, d.anneeFermeture); } catch(e) {}
+      try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
     }
   }));
 }
@@ -1381,7 +1381,7 @@ function openValidation(pointId) {
     nougat: p.nb_nougat_offert||0,
     entreeGratuite: p.entree_gratuite||0,
     commentaire: p.commentaire_distributeur||'',
-    dateOuverture: '', dateFermeture: '', anneeOuverture: null, anneeFermeture: null, saisonOrder: 'fermeture-first',
+    dateOuverture: '', dateFermeture: '',
     rappel: false, rappelComment: '', rappelType: 'repassage',
     livraisonStatut: cmd ? (cmd.statut==='livree' ? 'livree' : null) : null,
     photoB64: null, photoFile: null
@@ -1471,7 +1471,16 @@ function renderValidation() {
       ${isLivraisonOnly ? '' : `
       <div class="form-group">
         <label class="form-label">📅 Infos saison (optionnel)</label>
-        <div style="display:flex;gap:8px" id="saison-fields-row">${saisonFieldsRowHTML(f)}</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
+            <input type="date" class="form-input" id="date-fermeture-input" value="${f.dateFermeture||''}" onchange="ST.form.dateFermeture=this.value">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
+            <input type="date" class="form-input" id="date-ouverture-input" value="${f.dateOuverture||''}" onchange="ST.form.dateOuverture=this.value">
+          </div>
+        </div>
       </div>`}
 
       <div class="form-group">
@@ -1528,105 +1537,47 @@ function setLivraisonStatut(v) {
 // ════════════════════════════════════════════
 //  SAISON / HORAIRES DU LIEU
 // ════════════════════════════════════════════
-function resolveSaisonFields(rowY, rowY1, y) {
-  const today = new Date().toISOString().slice(0,10);
-  const candidates = [];
-  if (rowY && rowY.date_fermeture) candidates.push({type:'fermeture', annee:y, date:rowY.date_fermeture});
-  if (rowY && rowY.date_ouverture) candidates.push({type:'ouverture', annee:y, date:rowY.date_ouverture});
-  if (rowY1 && rowY1.date_fermeture) candidates.push({type:'fermeture', annee:y+1, date:rowY1.date_fermeture});
-  if (rowY1 && rowY1.date_ouverture) candidates.push({type:'ouverture', annee:y+1, date:rowY1.date_ouverture});
-  const future = candidates.filter(c => c.date >= today).sort((a,b) => a.date < b.date ? -1 : 1);
-  const fermetureEv = future.find(c => c.type==='fermeture');
-  const ouvertureEv = future.find(c => c.type==='ouverture');
-  const anneeFermeture = fermetureEv ? fermetureEv.annee : y;
-  const anneeOuverture = ouvertureEv ? ouvertureEv.annee : y+1;
-  function rawVal(annee, field) {
-    const row = annee===y ? rowY : (annee===y+1 ? rowY1 : null);
-    if (!row) return '';
-    return (field==='ouverture' ? row.date_ouverture : row.date_fermeture) || '';
-  }
-  const dateFermeture = rawVal(anneeFermeture, 'fermeture');
-  const dateOuverture = rawVal(anneeOuverture, 'ouverture');
-  const order = (fermetureEv && ouvertureEv) ? (fermetureEv.date <= ouvertureEv.date ? 'fermeture-first' : 'ouverture-first')
-              : (ouvertureEv && !fermetureEv ? 'ouverture-first' : 'fermeture-first');
-  return { anneeFermeture, anneeOuverture, dateFermeture, dateOuverture, order };
-}
-function saisonFieldsRowHTML(f) {
-  const fermBox = `<div style="flex:1">
-      <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
-      <input type="date" class="form-input" id="date-fermeture-input" value="${f.dateFermeture||''}" onchange="ST.form.dateFermeture=this.value">
-    </div>`;
-  const ouvBox = `<div style="flex:1">
-      <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
-      <input type="date" class="form-input" id="date-ouverture-input" value="${f.dateOuverture||''}" onchange="ST.form.dateOuverture=this.value">
-    </div>`;
-  return f.saisonOrder === 'ouverture-first' ? (ouvBox + fermBox) : (fermBox + ouvBox);
-}
 async function loadSaisonInfo(lieuId) {
   try {
-    const y = new Date().getFullYear();
-    const rows = await sbGet(`saisons_lieux?select=annee,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=in.(${y},${y+1})`);
-    const rowY = (rows||[]).find(r => r.annee === y) || null;
-    const rowY1 = (rows||[]).find(r => r.annee === y+1) || null;
-    const resolved = resolveSaisonFields(rowY, rowY1, y);
-    if (!ST.form.dateOuverture) ST.form.dateOuverture = resolved.dateOuverture;
-    if (!ST.form.dateFermeture) ST.form.dateFermeture = resolved.dateFermeture;
-    ST.form.anneeOuverture = resolved.anneeOuverture;
-    ST.form.anneeFermeture = resolved.anneeFermeture;
-    ST.form.saisonOrder = resolved.order;
-    const row = document.getElementById('saison-fields-row');
-    if (row) row.innerHTML = saisonFieldsRowHTML(ST.form);
+    const annee = new Date().getFullYear();
+    const rows = await sbGet(`saisons_lieux?select=id,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+    if (rows && rows[0]) {
+      if (!ST.form.dateOuverture) ST.form.dateOuverture = rows[0].date_ouverture || '';
+      if (!ST.form.dateFermeture) ST.form.dateFermeture = rows[0].date_fermeture || '';
+      const oi = document.getElementById('date-ouverture-input');
+      const fi = document.getElementById('date-fermeture-input');
+      if (oi) oi.value = ST.form.dateOuverture;
+      if (fi) fi.value = ST.form.dateFermeture;
+    }
   } catch(e) {}
-}
-function plSaisonFieldsRowHTML(dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, order) {
-  const fermBox = `<div style="flex:1">
-      <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
-      <input type="date" class="form-input" id="pl-sheet-date-fermeture" value="${dateFermeture||''}" data-annee="${anneeFermeture||''}">
-    </div>`;
-  const ouvBox = `<div style="flex:1">
-      <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
-      <input type="date" class="form-input" id="pl-sheet-date-ouverture" value="${dateOuverture||''}" data-annee="${anneeOuverture||''}">
-    </div>`;
-  return order === 'ouverture-first' ? (ouvBox + fermBox) : (fermBox + ouvBox);
 }
 async function loadSaisonInfoForPL(lieuId, k) {
   try {
-    const y = new Date().getFullYear();
-    const rows = await sbGet(`saisons_lieux?select=annee,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=in.(${y},${y+1})`);
-    if (plSheetK !== k) return;
-    const rowY = (rows||[]).find(r => r.annee === y) || null;
-    const rowY1 = (rows||[]).find(r => r.annee === y+1) || null;
-    const resolved = resolveSaisonFields(rowY, rowY1, y);
-    const row = document.getElementById('pl-saison-fields-row');
-    if (row) {
-      row.innerHTML = plSaisonFieldsRowHTML(resolved.dateFermeture, resolved.dateOuverture, resolved.anneeFermeture, resolved.anneeOuverture, resolved.order);
-      row.dataset.order = resolved.order;
+    const annee = new Date().getFullYear();
+    const rows = await sbGet(`saisons_lieux?select=id,date_ouverture,date_fermeture&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+    if (rows && rows[0] && plSheetK === k) {
+      const oi = document.getElementById('pl-sheet-date-ouverture');
+      const fi = document.getElementById('pl-sheet-date-fermeture');
+      if (oi && !oi.value) oi.value = rows[0].date_ouverture || '';
+      if (fi && !fi.value) fi.value = rows[0].date_fermeture || '';
     }
   } catch(e) {}
 }
 
-async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture, anneeOuverture, anneeFermeture) {
+async function saveSaisonLieu(lieuId, dateOuverture, dateFermeture) {
   if (!lieuId) return;
-  const y = new Date().getFullYear();
-  anneeOuverture = anneeOuverture || y;
-  anneeFermeture = anneeFermeture || y;
-  async function upsert(annee, fields) {
-    const payload = Object.assign({
-      lieu_id: lieuId, annee,
-      source: 'distributeur',
-      maj_par: ST.user?.id || null,
-      maj_le: new Date().toISOString()
-    }, fields);
-    const existing = await sbGet(`saisons_lieux?select=id&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
-    if (existing && existing[0]) { await sbPatch('saisons_lieux', 'id=eq.'+existing[0].id, payload); }
-    else { await sbPost('saisons_lieux', payload); }
-  }
-  if (anneeOuverture === anneeFermeture) {
-    await upsert(anneeFermeture, { date_ouverture: dateOuverture || null, date_fermeture: dateFermeture || null });
-  } else {
-    await upsert(anneeFermeture, { date_fermeture: dateFermeture || null });
-    await upsert(anneeOuverture, { date_ouverture: dateOuverture || null });
-  }
+  const annee = new Date().getFullYear();
+  const payload = {
+    lieu_id: lieuId, annee,
+    date_ouverture: dateOuverture || null,
+    date_fermeture: dateFermeture || null,
+    source: 'distributeur',
+    maj_par: ST.user?.id || null,
+    maj_le: new Date().toISOString()
+  };
+  const existing = await sbGet(`saisons_lieux?select=id&lieu_id=eq.${lieuId}&annee=eq.${annee}&limit=1`);
+  if (existing && existing[0]) { await sbPatch('saisons_lieux', 'id=eq.'+existing[0].id, payload); }
+  else { await sbPost('saisons_lieux', payload); }
 }
 
 // ════════════════════════════════════════════
@@ -1713,10 +1664,10 @@ async function submitValidation() {
 
   if (ST.form.dateOuverture || ST.form.dateFermeture) {
     if (lieuIdRappel) {
-      try { await saveSaisonLieu(lieuIdRappel, ST.form.dateOuverture||null, ST.form.dateFermeture||null, ST.form.anneeOuverture, ST.form.anneeFermeture); }
+      try { await saveSaisonLieu(lieuIdRappel, ST.form.dateOuverture||null, ST.form.dateFermeture||null); }
       catch(e) {
         if (isNetworkFailure(e)) {
-          addToOfflineQueue({ type:'saison', lieuId:lieuIdRappel, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null, anneeOuverture:ST.form.anneeOuverture, anneeFermeture:ST.form.anneeFermeture });
+          addToOfflineQueue({ type:'saison', lieuId:lieuIdRappel, dateOuverture:ST.form.dateOuverture||null, dateFermeture:ST.form.dateFermeture||null });
         }
       }
     }
@@ -2121,11 +2072,8 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
   document.getElementById('pl-sheet-rappel-comment-wrap').style.display = prev.rappel?'block':'none';
   document.querySelectorAll('input[name="pl-rappel-type"]').forEach(function(r){ r.checked = (r.value === (prev.rappelType||'repassage')); });
-  const plSaisonRow = document.getElementById('pl-saison-fields-row');
-  if (plSaisonRow) {
-    plSaisonRow.innerHTML = plSaisonFieldsRowHTML(prev.dateFermeture, prev.dateOuverture, prev.anneeFermeture, prev.anneeOuverture, prev.saisonOrder);
-    plSaisonRow.dataset.order = prev.saisonOrder || 'fermeture-first';
-  }
+  document.getElementById('pl-sheet-date-fermeture').value = prev.dateFermeture||'';
+  document.getElementById('pl-sheet-date-ouverture').value = prev.dateOuverture||'';
   if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
   const histEl = document.getElementById('pl-sheet-hist');
   if (histEl) histEl.innerHTML = '';
@@ -2170,17 +2118,12 @@ function validatePLSheet() {
   const rappel = document.getElementById('pl-sheet-rappel').checked;
   const rappelComment = document.getElementById('pl-sheet-rappel-comment').value.trim();
   const rappelType = (document.querySelector('input[name="pl-rappel-type"]:checked')||{}).value || 'repassage';
-  const fermInputEl = document.getElementById('pl-sheet-date-fermeture');
-  const ouvInputEl = document.getElementById('pl-sheet-date-ouverture');
-  const dateFermeture = fermInputEl.value || '';
-  const dateOuverture = ouvInputEl.value || '';
-  const anneeFermeture = parseInt(fermInputEl.dataset.annee,10) || new Date().getFullYear();
-  const anneeOuverture = parseInt(ouvInputEl.dataset.annee,10) || (new Date().getFullYear()+1);
-  const saisonOrder = document.getElementById('pl-saison-fields-row')?.dataset.order || 'fermeture-first';
+  const dateFermeture = document.getElementById('pl-sheet-date-fermeture').value || '';
+  const dateOuverture = document.getElementById('pl-sheet-date-ouverture').value || '';
   const photoInput2 = document.getElementById('pl-photo-input');
   const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
-  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, saisonOrder, photoFile, photoB64: photoFile ? photoB64 : null };
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, photoFile, photoB64: photoFile ? photoB64 : null };
   const btn = document.getElementById('pladd-'+k);
   if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
   closePLSheet();
@@ -2291,7 +2234,7 @@ async function submitPointageLibre() {
       const d = plSelected[k] || {};
       try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
       if (d.dateOuverture || d.dateFermeture) {
-        try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null, d.anneeOuverture, d.anneeFermeture); } catch(e) {}
+        try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null); } catch(e) {}
       }
     }));
 
