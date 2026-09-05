@@ -517,7 +517,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
 
   <div id="map">
-    <div id="legend"><h4 onclick="toggleLegend()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0">Zones <span id="legend-toggle-icon" style="font-size:10px">▾</span></h4><div id="legend-items" style="margin-top:5px"></div></div>
+    <div id="legend"><h4>Zones</h4><div id="legend-items"></div></div>
     <div id="add-banner">📍 Cliquez sur la carte pour placer le lieu</div>
   </div>
 
@@ -951,23 +951,6 @@ function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
 //  MODAL FICHE LIEU (consultation : infos, historique, photos)
 // ══════════════════════════════════════════════════════════
 renderImportHistory();
-var LEGEND_COLLAPSED_KEY = 'nougaterie_legend_collapsed';
-function toggleLegend(){
-  var items = document.getElementById('legend-items');
-  var icon = document.getElementById('legend-toggle-icon');
-  var willCollapse = items.style.display !== 'none';
-  items.style.display = willCollapse ? 'none' : '';
-  icon.textContent = willCollapse ? '▸' : '▾';
-  try{ localStorage.setItem(LEGEND_COLLAPSED_KEY, willCollapse ? '1' : '0'); }catch(e){}
-}
-(function(){
-  try{
-    if(localStorage.getItem(LEGEND_COLLAPSED_KEY)==='1'){
-      document.getElementById('legend-items').style.display='none';
-      document.getElementById('legend-toggle-icon').textContent='▸';
-    }
-  }catch(e){}
-})();
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 

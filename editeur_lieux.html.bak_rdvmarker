@@ -517,7 +517,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
 
   <div id="map">
-    <div id="legend"><h4 onclick="toggleLegend()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0">Zones <span id="legend-toggle-icon" style="font-size:10px">▾</span></h4><div id="legend-items" style="margin-top:5px"></div></div>
+    <div id="legend"><h4>Zones</h4><div id="legend-items"></div></div>
     <div id="add-banner">📍 Cliquez sur la carte pour placer le lieu</div>
   </div>
 
@@ -951,23 +951,6 @@ function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
 //  MODAL FICHE LIEU (consultation : infos, historique, photos)
 // ══════════════════════════════════════════════════════════
 renderImportHistory();
-var LEGEND_COLLAPSED_KEY = 'nougaterie_legend_collapsed';
-function toggleLegend(){
-  var items = document.getElementById('legend-items');
-  var icon = document.getElementById('legend-toggle-icon');
-  var willCollapse = items.style.display !== 'none';
-  items.style.display = willCollapse ? 'none' : '';
-  icon.textContent = willCollapse ? '▸' : '▾';
-  try{ localStorage.setItem(LEGEND_COLLAPSED_KEY, willCollapse ? '1' : '0'); }catch(e){}
-}
-(function(){
-  try{
-    if(localStorage.getItem(LEGEND_COLLAPSED_KEY)==='1'){
-      document.getElementById('legend-items').style.display='none';
-      document.getElementById('legend-toggle-icon').textContent='▸';
-    }
-  }catch(e){}
-})();
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -1207,9 +1190,6 @@ async function loadRappelsActuels(){
 function poiRappelActif(p){
   return !!(p.supabase_id && rappelsMap[p.supabase_id]);
 }
-function poiRappelObj(p){
-  return (p.supabase_id && rappelsMap[p.supabase_id]) || null;
-}
 function matchRappelFilter(p){
   var only = document.getElementById('filter-rappel-only');
   if(!only || !only.checked) return true;
@@ -1380,21 +1360,14 @@ function makeIcon(color,selected,routeNum,badge,saisonRing,rappelActif,isDepart,
   var sh=selected?'0 0 0 3px '+color+',0 2px 6px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.3)';
   var fs=sz>24?'11':'9';
   var label=routeNum?String(routeNum):badge?badge:'';
-  var isCommercial=rappelActif&&rappelActif.type==='rdv_commercial';
   var ringStyle=aValider?'outline:2px dashed #E67E22;outline-offset:2px;':(saisonRing?'outline:2px dashed #2B2B2B;outline-offset:2px;':'');
-  var rappelDot=rappelActif?(isCommercial?'<div style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#7B1FA2;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:8px">📅</div>':'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#E53935;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>'):'';
+  var rappelDot=rappelActif?'<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#E53935;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>':'';
   var aValiderBadge=aValider?'<div title="Lieu créé sur le terrain, à compléter" style="position:absolute;top:-4px;left:-4px;width:14px;height:14px;border-radius:50%;background:#E67E22;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:9px">⚠️</div>':'';
   if(isDepart){
     var dsz=selected?32:26;
     var labelBadge=label?'<div style="position:absolute;bottom:-3px;right:-3px;min-width:14px;height:14px;padding:0 2px;border-radius:7px;background:'+color+';border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:9px">'+label+'</div>':'';
     var inner2='<div style="position:relative;width:'+dsz+'px;height:'+dsz+'px;display:flex;align-items:center;justify-content:center;font-size:'+(dsz-4)+'px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))">🏠'+rappelDot+aValiderBadge+labelBadge+'</div>';
     return L.divIcon({html:inner2,iconSize:[dsz,dsz],iconAnchor:[dsz/2,dsz/2],popupAnchor:[0,-dsz/2],className:''});
-  }
-  if(isCommercial){
-    var inner3='<div style="position:relative;width:'+sz+'px;height:'+sz+'px">'
-      +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:#7B1FA2;border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px;'+ringStyle+'">'+(label||'📅')+'</div>'
-      +aValiderBadge+'</div>';
-    return L.divIcon({html:inner3,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-sz/2],className:''});
   }
   var inner='<div style="position:relative;width:'+sz+'px;height:'+sz+'px">'
     +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';border:'+brd+';box-shadow:'+sh+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:'+fs+'px;'+ringStyle+'">'+label+'</div>'
@@ -1408,12 +1381,12 @@ function refreshMarkerIcon(id){
   var badge=null;
   if(tourneeStops.indexOf(id)>=0){badge='T';color='#27AE60';}
   if(pointageStops.indexOf(id)>=0){badge='P';color='#8E24AA';}
-  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelObj(p),p.type_lieu==='Point de départ',!!p.a_valider));
+  markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelActif(p),p.type_lieu==='Point de départ',!!p.a_valider));
 }
 function buildMarkers(){
   POIS.forEach(function(p){
     var lat=parseFloat(p.lat),lon=parseFloat(p.lon); if(isNaN(lat)||isNaN(lon)) return;
-    var m=L.marker([lat,lon],{draggable:!tourneeMode,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelObj(p),p.type_lieu==='Point de départ',!!p.a_valider),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
+    var m=L.marker([lat,lon],{draggable:!tourneeMode,icon:makeIcon(zoneColor(p.zone_tournee),false,null,null,poiSaisonRing(p),poiRappelActif(p),p.type_lieu==='Point de départ',!!p.a_valider),zIndexOffset:p.type_lieu==='Point de départ'?1000:0}).addTo(map);
     m.on('click',function(){ tourneeMode?tourneeClickLieu(p.id):pointageMode?togglePointageStop(p.id):routeMode?toggleRouteStop(p.id):selectPoi(p.id); });
     m.on('dragend',function(e){ var ll=e.target.getLatLng(); pushHistory(); p.lat=ll.lat.toFixed(6); p.lon=ll.lng.toFixed(6); if(selectedId===p.id){ document.getElementById('f-lat').value=p.lat; document.getElementById('f-lon').value=p.lon; } saveState(); savePOIToSupabase(p); showToast('📍 Position mise à jour'); });
     markers[p.id]=m;
