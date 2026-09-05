@@ -785,32 +785,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-rappel-type-el">
-  <div class="modal-box" style="width:400px">
-    <div class="modal-header">
-      <h3>🔁 Nouveau rappel</h3>
-      <button class="modal-close" onclick="closeModal('modal-rappel-type-el')">✕</button>
-    </div>
-    <div class="modal-body">
-      <label style="font-size:12px;font-weight:700;color:var(--grey);display:block;margin-bottom:5px">Commentaire (optionnel)</label>
-      <textarea id="rt-comment-el" rows="2" placeholder="Pourquoi revenir ?" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;font-size:13px;font-family:inherit"></textarea>
-      <label style="font-size:12px;font-weight:700;color:var(--grey);display:block;margin:14px 0 5px">Type de rappel</label>
-      <div style="display:flex;gap:8px">
-        <label id="rt-lbl-repassage-el" style="flex:1;display:flex;align-items:center;gap:6px;padding:9px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:12px">
-          <input type="radio" name="rt-type-el" value="repassage" checked onchange="updateRappelTypeLabelsEl()">🔁 Repassage simple
-        </label>
-        <label id="rt-lbl-commercial-el" style="flex:1;display:flex;align-items:center;gap:6px;padding:9px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:12px">
-          <input type="radio" name="rt-type-el" value="rdv_commercial" onchange="updateRappelTypeLabelsEl()">📅 RDV commercial
-        </label>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-        <button class="btn-save" style="background:#B0BEC5" onclick="closeModal('modal-rappel-type-el')">Annuler</button>
-        <button class="btn-save" onclick="confirmRappelTypeModalEl()">Valider</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="modal-saisons">
   <div class="modal-box" style="width:640px">
     <div class="modal-header">
@@ -1178,7 +1152,7 @@ function updateMarkersVisibility(){
 // ══════════════════════════════════════════════════════════
 async function loadRappelsActuels(){
   try{
-    var rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,type,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
+    var rows = await sbGet('rappels_lieux?select=id,lieu_id,commentaire,origine,cree_le&statut=eq.a_faire&order=lieu_id.asc,cree_le.desc');
     var map2 = {};
     rows.forEach(function(r){ if(!map2[r.lieu_id]) map2[r.lieu_id] = r; });
     rappelsMap = map2;
@@ -1206,43 +1180,16 @@ async function toggleRappelLieu(){
       delete rappelsMap[p.supabase_id];
       showToast('✓ Rappel traité : '+p.nom);
     }catch(e){ showToast('❌ '+e.message); return; }
-    loadRappelPanelForPoi(p);
-    refreshMarkerIcon(p.id);
-    applyFilters();
   } else {
-    openRappelTypeModalEditeur();
+    var commentaire = prompt('Commentaire (optionnel) pour ce rappel "à faire" :', '');
+    if(commentaire===null) return;
+    try{
+      var res = await sbPost('rappels_lieux',{lieu_id:p.supabase_id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire'});
+      var row = Array.isArray(res)?res[0]:res;
+      rappelsMap[p.supabase_id] = row;
+      showToast('🔁 Marqué à faire : '+p.nom);
+    }catch(e){ showToast('❌ '+e.message); return; }
   }
-}
-var RT_EL = { poiId: null };
-function openRappelTypeModalEditeur(){
-  var p = POIS.find(function(p){ return p.id===selectedId; }); if(!p||!p.supabase_id) return;
-  RT_EL.poiId = p.id;
-  document.getElementById('rt-comment-el').value = '';
-  document.querySelector('input[name="rt-type-el"][value="repassage"]').checked = true;
-  updateRappelTypeLabelsEl();
-  openModal('modal-rappel-type-el');
-}
-function updateRappelTypeLabelsEl(){
-  document.querySelectorAll('#modal-rappel-type-el label[id^="rt-lbl-"]').forEach(function(lbl){
-    var radio = lbl.querySelector('input');
-    var on = radio.checked;
-    var col = radio.value==='rdv_commercial' ? '#7B1FA2' : '#E53935';
-    var bg = radio.value==='rdv_commercial' ? '#F3E5F5' : '#FFEBEE';
-    lbl.style.borderColor = on ? col : '#ddd';
-    lbl.style.background = on ? bg : '';
-  });
-}
-async function confirmRappelTypeModalEl(){
-  var p = POIS.find(function(p){ return p.id===RT_EL.poiId; }); if(!p||!p.supabase_id) return;
-  var commentaire = document.getElementById('rt-comment-el').value.trim();
-  var type = (document.querySelector('input[name="rt-type-el"]:checked')||{}).value || 'repassage';
-  closeModal('modal-rappel-type-el');
-  try{
-    var res = await sbPost('rappels_lieux',{lieu_id:p.supabase_id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire',type:type});
-    var row = Array.isArray(res)?res[0]:res;
-    rappelsMap[p.supabase_id] = row;
-    showToast(type==='rdv_commercial'?'📅 RDV commercial ajouté : '+p.nom:'🔁 Marqué à faire : '+p.nom);
-  }catch(e){ showToast('❌ '+e.message); return; }
   loadRappelPanelForPoi(p);
   refreshMarkerIcon(p.id);
   applyFilters();
@@ -1267,8 +1214,7 @@ function loadRappelPanelForPoi(p){
   panel.style.display = 'block';
   var actif = rappelsMap[p.supabase_id];
   if(actif){
-    content.innerHTML = (actif.type==='rdv_commercial'?'<div style="font-size:11px;font-weight:700;color:#7B1FA2;margin-bottom:3px">📅 RDV commercial</div>':'')
-      + '<div style="font-size:11px;margin-bottom:6px"><strong>Ouvert</strong> — '
+    content.innerHTML = '<div style="font-size:11px;margin-bottom:6px"><strong>Ouvert</strong> — '
       + (actif.origine==='terrain'?'signalé sur le terrain':actif.origine==='pointage'?'signalé au pointage':'ajouté depuis le bureau')
       + (actif.cree_le?' le '+new Date(actif.cree_le).toLocaleDateString('fr-FR'):'')
       + (actif.commentaire?'<br><em>'+escHtml(actif.commentaire)+'</em>':'')

@@ -632,37 +632,6 @@ textarea.form-input{resize:vertical;min-height:70px}
   </div>
 </div>
 
-<!-- Modal choix type de rappel -->
-<div class="modal-overlay" id="modal-rappel-type">
-  <div class="modal-box" style="width:420px">
-    <div class="modal-header">
-      <h3>🔁 Nouveau rappel</h3>
-      <button class="modal-close" onclick="closeModal('modal-rappel-type')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Commentaire (optionnel)</label>
-        <textarea class="form-input" id="rt-comment" rows="2" placeholder="Pourquoi revenir ?"></textarea>
-      </div>
-      <div class="form-group" style="margin-top:12px">
-        <label class="form-label">Type de rappel</label>
-        <div style="display:flex;gap:10px;margin-top:4px">
-          <label id="rt-lbl-repassage" style="flex:1;display:flex;align-items:center;gap:6px;padding:10px;border:2px solid var(--grey-lt);border-radius:8px;cursor:pointer;font-size:13px">
-            <input type="radio" name="rt-type" value="repassage" checked onchange="updateRappelTypeLabels()">🔁 Repassage simple
-          </label>
-          <label id="rt-lbl-commercial" style="flex:1;display:flex;align-items:center;gap:6px;padding:10px;border:2px solid var(--grey-lt);border-radius:8px;cursor:pointer;font-size:13px">
-            <input type="radio" name="rt-type" value="rdv_commercial" onchange="updateRappelTypeLabels()">📅 RDV commercial
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-rappel-type')">Annuler</button>
-      <button class="btn btn-primary" onclick="confirmRappelTypeModal()">Valider</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal fiche lieu -->
 <div class="modal-overlay" id="modal-fiche-lieu">
   <div class="modal-box" style="width:780px;max-width:95vw">
@@ -1922,40 +1891,16 @@ async function toggleRappelLieuFiche(id){
       delete ST.rappels[id];
       showToast('✓ Rappel traité');
     } catch(e){ showToast('❌ '+e.message); return; }
-    updateMapMarkers();
-    openFicheLieu(id);
   } else {
-    openRappelTypeModal(id);
+    const commentaire = prompt('Commentaire (optionnel) pour ce rappel "à faire" :', '');
+    if(commentaire===null) return;
+    const isCommercial = confirm('Est-ce un rendez-vous commercial (dégustation, présentation) ?\n\nOK = 📅 RDV commercial\nAnnuler = 🔁 Repassage simple');
+    try{
+      const res = await sbPost('rappels_lieux',{lieu_id:id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire',type:isCommercial?'rdv_commercial':'repassage'});
+      ST.rappels[id] = Array.isArray(res)?res[0]:res;
+      showToast(isCommercial?'📅 RDV commercial ajouté':'🔁 Marqué à faire');
+    } catch(e){ showToast('❌ '+e.message); return; }
   }
-}
-var RT = { lieuId: null };
-function openRappelTypeModal(id){
-  RT.lieuId = id;
-  document.getElementById('rt-comment').value = '';
-  document.querySelector('input[name="rt-type"][value="repassage"]').checked = true;
-  updateRappelTypeLabels();
-  openModal('modal-rappel-type');
-}
-function updateRappelTypeLabels(){
-  document.querySelectorAll('#modal-rappel-type label[id^="rt-lbl-"]').forEach(function(lbl){
-    var radio = lbl.querySelector('input');
-    var on = radio.checked;
-    var col = radio.value==='rdv_commercial' ? '#7B1FA2' : '#E53935';
-    var bg = radio.value==='rdv_commercial' ? '#F3E5F5' : '#FFEBEE';
-    lbl.style.borderColor = on ? col : 'var(--grey-lt)';
-    lbl.style.background = on ? bg : '';
-  });
-}
-async function confirmRappelTypeModal(){
-  const id = RT.lieuId; if(!id) return;
-  const commentaire = document.getElementById('rt-comment').value.trim();
-  const type = (document.querySelector('input[name="rt-type"]:checked')||{}).value || 'repassage';
-  closeModal('modal-rappel-type');
-  try{
-    const res = await sbPost('rappels_lieux',{lieu_id:id,commentaire:commentaire||null,origine:'bureau',statut:'a_faire',type});
-    ST.rappels[id] = Array.isArray(res)?res[0]:res;
-    showToast(type==='rdv_commercial'?'📅 RDV commercial ajouté':'🔁 Marqué à faire');
-  } catch(e){ showToast('❌ '+e.message); return; }
   updateMapMarkers();
   openFicheLieu(id);
 }
