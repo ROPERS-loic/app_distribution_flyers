@@ -1131,7 +1131,7 @@ function renderStopDetailView(pointId){
       ? ({distribue:'Livré',absent:'Non livré',ferme:'Non livré',refus:'Non livré'}[s.statut]||s.statut)
       : statutLabel(s.statut);
     const heure = s.heure_validation ? new Date(s.heure_validation).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '';
-    bodyHtml += `<div style="margin-bottom:12px"><span class="badge b-${s.statut}">${esc(slbl)}</span>${heure?` <span style="font-size:11px;color:var(--grey);margin-left:6px">${heure}</span>`:''}${(!isLivraisonOnly && s.statut==='distribue')?` <span style="font-size:12px;color:var(--grey);margin-left:6px">· ${s.quantite_flyers||0} flyers${flyReasonTagG(s.quantite_flyers?null:s.raison_zero_nougaterie)}${(s.quantite_flyers_chateau||s.raison_zero_chateau)?' · '+(s.quantite_flyers_chateau||0)+' château'+flyReasonTagG(s.quantite_flyers_chateau?null:s.raison_zero_chateau):''}</span>`:''}</div>`;
+    bodyHtml += `<div style="margin-bottom:12px"><span class="badge b-${s.statut}">${esc(slbl)}</span>${heure?` <span style="font-size:11px;color:var(--grey);margin-left:6px">${heure}</span>`:''}${(!isLivraisonOnly && s.statut==='distribue' && s.quantite_flyers)?` <span style="font-size:12px;color:var(--grey);margin-left:6px">· ${s.quantite_flyers} flyers</span>`:''}</div>`;
     if(cmd){
       bodyHtml += `<div style="font-size:13px;margin-bottom:12px;color:#8A5A00">📦 ${esc(cmd.description||'Livraison')}${cmd.statut==='livree'?' ✓':''}</div>`;
     }
@@ -1189,8 +1189,6 @@ async function editStopDetailForm(pointId){
     statut: s.statut!=='a_faire' ? s.statut : null,
     flyers: s.quantite_flyers||0,
     flyersChateau: s.quantite_flyers_chateau||0,
-    raisonZeroNougaterie: s.raison_zero_nougaterie||null,
-    raisonZeroChateau: s.raison_zero_chateau||null,
     entreeGratuite: s.entree_gratuite||0,
     nougat: s.nb_nougat_offert||0,
     commentaire: s.commentaire_distributeur||'',
@@ -1246,15 +1244,13 @@ function renderStopDetailEditForm(){
     html += `
     <div style="margin-bottom:14px;display:${f.statut==='distribue'?'block':'none'}">
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">🍬 Paquets Nougaterie</label>
-      <select id="sd-flyers" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyers=parseFloat(this.value)||0;renderStopDetailEditForm()">
+      <select id="sd-flyers" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyers=parseFloat(this.value)||0">
         ${paquetOptionsHtmlSD(f.flyers)}
       </select>
-      ${f.flyers===0?raisonZeroButtonsHtmlG(f.raisonZeroNougaterie,'sdSetRaisonZeroNougaterie'):''}
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin:10px 0 6px">🎟️ Paquets Château des Roure</label>
-      <select id="sd-flyers-chateau" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyersChateau=parseFloat(this.value)||0;renderStopDetailEditForm()">
+      <select id="sd-flyers-chateau" style="width:100%;padding:7px;border-radius:6px;border:1px solid #ddd;font-size:13px" onchange="SD.flyersChateau=parseFloat(this.value)||0">
         ${paquetOptionsHtmlSD(f.flyersChateau)}
       </select>
-      ${f.flyersChateau===0?raisonZeroButtonsHtmlG(f.raisonZeroChateau,'sdSetRaisonZeroChateau'):''}
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;display:block;margin-bottom:6px">📅 Infos saison (optionnel)</label>
@@ -1294,14 +1290,12 @@ function renderStopDetailEditForm(){
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-secondary btn-sm" style="flex:1" onclick="renderStopDetailView(${SD.pointId})">Annuler</button>
-      <button class="btn btn-primary btn-sm" style="flex:1" id="sd-save-btn" onclick="saveStopDetailForm()" ${(!f.statut || (f.statut==='distribue' && ((f.flyers===0 && !f.raisonZeroNougaterie) || (f.flyersChateau===0 && !f.raisonZeroChateau)))) ? 'disabled' : ''}>💾 Enregistrer</button>
+      <button class="btn btn-primary btn-sm" style="flex:1" id="sd-save-btn" onclick="saveStopDetailForm()" ${f.statut?'':'disabled'}>💾 Enregistrer</button>
     </div>`;
   document.getElementById('stop-detail-body').innerHTML = html;
 }
 
 function sdSetStatut(v){ if(SD){ SD.statut=v; renderStopDetailEditForm(); } }
-function sdSetRaisonZeroNougaterie(v){ if(SD){ SD.raisonZeroNougaterie=v; renderStopDetailEditForm(); } }
-function sdSetRaisonZeroChateau(v){ if(SD){ SD.raisonZeroChateau=v; renderStopDetailEditForm(); } }
 
 function sdHandlePhoto(input){
   const file = input.files[0]; if(!file || !SD) return;
@@ -1313,7 +1307,6 @@ function sdHandlePhoto(input){
 
 async function saveStopDetailForm(){
   if(!SD || !SD.statut){ showToast('⚠ Choisissez un statut'); return; }
-  if(SD.statut==='distribue' && ((SD.flyers===0 && !SD.raisonZeroNougaterie) || (SD.flyersChateau===0 && !SD.raisonZeroChateau))){ showToast('⚠ Précisez la raison (stock suffisant / refusé)'); return; }
   const pointId = SD.pointId;
   const s = ST.currentTourneeStops.find(x=>x.id===pointId);
   if(!s) return;
@@ -1334,8 +1327,6 @@ async function saveStopDetailForm(){
   if(!isLivraisonOnly){
     patch.quantite_flyers = SD.statut==='distribue' ? (SD.flyers||0) : 0;
     patch.quantite_flyers_chateau = SD.statut==='distribue' ? (SD.flyersChateau||0) : 0;
-    patch.raison_zero_nougaterie = (SD.statut==='distribue' && (SD.flyers||0)===0) ? (SD.raisonZeroNougaterie||null) : null;
-    patch.raison_zero_chateau = (SD.statut==='distribue' && (SD.flyersChateau||0)===0) ? (SD.raisonZeroChateau||null) : null;
     patch.nb_nougat_offert = SD.nougat||0;
     patch.entree_gratuite = SD.entreeGratuite||0;
   }
@@ -1780,8 +1771,7 @@ async function genererSyntheseTournee(){
     if(isLivraisonOnly){
       doc.text('📦 '+truncSynthese(cmd?.description||'Livraison', 40), tx, y+21, {maxWidth: tw});
     } else if(s.statut==='distribue'){
-      const flyTagSyn = r => r==='stock_suffisant' ? '(S)' : r==='refuse' ? '(R)' : '';
-      let qtyLine = '🗞 '+(s.quantite_flyers||0)+((s.quantite_flyers||0)===0?flyTagSyn(s.raison_zero_nougaterie):'')+' Ngt · '+(s.quantite_flyers_chateau||0)+((s.quantite_flyers_chateau||0)===0?flyTagSyn(s.raison_zero_chateau):'')+' Chât.';
+      let qtyLine = '🗞 '+(s.quantite_flyers||0)+' Ngt · '+(s.quantite_flyers_chateau||0)+' Chât.';
       if(s.nb_nougat_offert>0) qtyLine += '  🍬×'+s.nb_nougat_offert;
       if(s.entree_gratuite>0) qtyLine += '  🎟️×'+s.entree_gratuite;
       doc.text(qtyLine, tx, y+21, {maxWidth: tw});
@@ -2212,17 +2202,6 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function norm(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){ return d; } }
 function statutLabel(s){ return {planifiee:'Planifiée',en_cours:'En cours',terminee:'Terminée',annulee:'Annulée',a_faire:'À faire',distribue:'Fait',ferme:'Fermé',refus:'Refus',absent:'Absent'}[s]||s||''; }
-function flyReasonTagG(raison){
-  if(raison==='stock_suffisant') return ' <span style="color:var(--grey);font-weight:600">(stock ok)</span>';
-  if(raison==='refuse') return ' <span style="color:var(--red);font-weight:600">(refusé)</span>';
-  return '';
-}
-function raisonZeroButtonsHtmlG(current, setterFnName){
-  return `<div style="display:flex;gap:6px;margin-top:6px">
-    <button type="button" onclick="${setterFnName}('stock_suffisant')" style="flex:1;padding:6px;font-size:11px;border-radius:6px;border:1.5px solid ${current==='stock_suffisant'?'#27AE60':'#ddd'};background:${current==='stock_suffisant'?'#E8F5E9':'#fff'};color:${current==='stock_suffisant'?'#27AE60':'#555'};cursor:pointer;font-weight:600">🔄 Stock suffisant</button>
-    <button type="button" onclick="${setterFnName}('refuse')" style="flex:1;padding:6px;font-size:11px;border-radius:6px;border:1.5px solid ${current==='refuse'?'#E53935':'#ddd'};background:${current==='refuse'?'#FFEBEE':'#fff'};color:${current==='refuse'?'#E53935':'#555'};cursor:pointer;font-weight:600">🚫 Refusé</button>
-  </div>`;
-}
 function statutEmoji(s){ return {planifiee:'📋',en_cours:'🏃',terminee:'✅',annulee:'❌'}[s]||'📋'; }
 function statutColor(s){ return {distribue:'var(--green)',ferme:'var(--red)',refus:'#7B1FA2',absent:'var(--orange)'}[s]||'var(--grey)'; }
 
@@ -2236,7 +2215,7 @@ async function openFicheLieu(id) {
   openModal('modal-fiche-lieu');
 
   const yr = new Date().getFullYear();
-  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${id}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
+  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${id}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
   const saisons = await sbGet(`saisons_lieux?select=annee,date_ouverture,date_fermeture,commentaire,source&lieu_id=eq.${id}&order=annee.desc`).catch(()=>[]);
   const rappelRows = await sbGet(`rappels_lieux?select=id,commentaire,origine,type,cree_le&lieu_id=eq.${id}&statut=eq.a_faire&order=cree_le.desc&limit=1`).catch(()=>[]);
   const livraisonRows = await sbGet(`commandes_livraison?select=id,description,cree_le&lieu_id=eq.${id}&statut=eq.a_livrer&point_tournee_id=is.null&order=cree_le.desc&limit=1`).catch(()=>[]);
@@ -2345,8 +2324,7 @@ function ficheTimelineDesktopHTML(list,dotC,bgC,txtC,slbls){
         <div class="ftd-date">${esc(dateStr)}${heureStr?' · '+heureStr:''}</div>
         <div style="margin:3px 0">
           <span class="badge" style="background:${bgC[p.statut]};color:${txtC[p.statut]}">${slbls[p.statut]||p.statut}</span>
-          ${p.statut==='distribue'?`<span style="font-size:11px;color:var(--grey);margin-left:6px">🗞 ${p.quantite_flyers||0} flyers${flyReasonTagG(p.quantite_flyers?null:p.raison_zero_nougaterie)}</span>`:''}
-          ${p.statut==='distribue'&&(p.quantite_flyers_chateau||p.raison_zero_chateau)?`<span style="font-size:11px;color:var(--grey);margin-left:6px">🎟️ ${p.quantite_flyers_chateau||0} château${flyReasonTagG(p.quantite_flyers_chateau?null:p.raison_zero_chateau)}</span>`:''}
+          ${p.statut==='distribue'&&p.quantite_flyers?`<span style="font-size:11px;color:var(--grey);margin-left:6px">🗞 ${p.quantite_flyers} flyers</span>`:''}
           ${p.tournees?.nom?`<span style="font-size:11px;color:var(--grey);margin-left:6px">📋 ${esc(p.tournees.nom)}</span>`:''}
           ${dist?`<span style="font-size:11px;color:var(--grey);margin-left:6px">👤 ${esc(dist)}</span>`:''}
         </div>
@@ -2486,7 +2464,7 @@ let _gsData = [];
 async function loadGStats(){
   document.getElementById('gs-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--grey)">Chargement…</td></tr>';
   try {
-    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,nb_nougat_offert,entree_gratuite,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
+    const data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,nb_nougat_offert,entree_gratuite,heure_validation,commentaire_distributeur,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=2000');
     _gsData = data || [];
     applyGStats();
   } catch(e){
@@ -2583,8 +2561,8 @@ function applyGStats(){
     const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
     const col = colors[p.statut]||'#999';
     const lbl = labels[p.statut]||p.statut;
-    const qty = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt'+flyReasonTagG(p.quantite_flyers?null:p.raison_zero_nougaterie) : '—';
-    const qtyCh = p.statut==='distribue' ? (p.quantite_flyers_chateau||0)+' pqt'+flyReasonTagG(p.quantite_flyers_chateau?null:p.raison_zero_chateau) : '—';
+    const qty = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '—';
+    const qtyCh = p.statut==='distribue' ? (p.quantite_flyers_chateau||0)+' pqt' : '—';
     return `<tr>
       <td style="font-weight:600">${l.nom||'—'}</td>
       <td style="color:var(--grey);font-size:11px">${l.ville||'—'}</td>
@@ -2776,9 +2754,8 @@ function exportStatsPDF() {
     const t = p.tournees||{};
     const d = p.heure_validation ? new Date(p.heure_validation).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
-    const flyTagG = r => r==='stock_suffisant' ? '(S)' : r==='refuse' ? '(R)' : '';
-    const qty   = p.statut==='distribue' ? String(p.quantite_flyers||0)+((p.quantite_flyers||0)===0?flyTagG(p.raison_zero_nougaterie):'') : '—';
-    const qtyCh = p.statut==='distribue' ? String(p.quantite_flyers_chateau||0)+((p.quantite_flyers_chateau||0)===0?flyTagG(p.raison_zero_chateau):'') : '—';
+    const qty   = p.statut==='distribue' ? String(p.quantite_flyers||0) : '—';
+    const qtyCh = p.statut==='distribue' ? String(p.quantite_flyers_chateau||0) : '—';
     return [
       l.nom||'—', l.ville||'—', labels[p.statut]||p.statut,
       qty, qtyCh, String(p.nb_nougat_offert||0), String(p.entree_gratuite||0),
@@ -2822,8 +2799,6 @@ function exportStatsPDF() {
     }
   });
 
-  doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(140,140,140);
-  doc.text('(S) stock encore suffisant  ·  (R) refusé par l\'établissement', 10, doc.internal.pageSize.getHeight()-9);
   doc.save('stats_nougaterie_'+new Date().toISOString().slice(0,10)+'.pdf');
 }
 
@@ -2845,8 +2820,8 @@ function exportStatsExcel() {
       const comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
       return [
         l.nom||'', l.ville||'', labels[p.statut]||p.statut,
-        p.statut==='distribue' ? (p.quantite_flyers||0)+((p.quantite_flyers||0)===0?(p.raison_zero_nougaterie==='stock_suffisant'?' (stock)':p.raison_zero_nougaterie==='refuse'?' (refuse)':''):'') : '',
-        p.statut==='distribue' ? (p.quantite_flyers_chateau||0)+((p.quantite_flyers_chateau||0)===0?(p.raison_zero_chateau==='stock_suffisant'?' (stock)':p.raison_zero_chateau==='refuse'?' (refuse)':''):'') : '',
+        p.statut==='distribue' ? (p.quantite_flyers||0) : '',
+        p.statut==='distribue' ? (p.quantite_flyers_chateau||0) : '',
         p.nb_nougat_offert||0,
         p.entree_gratuite||0,
         d, t.distributeur?.nom||'', comment

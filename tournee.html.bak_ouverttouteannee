@@ -438,12 +438,10 @@ textarea.form-input{resize:vertical;min-height:60px}
             <div class="pl-sheet-label">Paquets</div>
             <div class="pl-qty-row">
               <div class="pl-qty-box"><label>🍬 Nougaterie</label>
-                <select id="pl-sheet-qty" onchange="onPLQtyChange()"></select>
-                <div id="pl-sheet-raison-nougaterie"></div>
+                <select id="pl-sheet-qty"></select>
               </div>
               <div class="pl-qty-box"><label>🎟️ Château</label>
-                <select id="pl-sheet-qtych" onchange="onPLQtyChange()"></select>
-                <div id="pl-sheet-raison-chateau"></div>
+                <select id="pl-sheet-qtych"></select>
               </div>
             </div>
             <div class="pl-sheet-label">Offres</div>
@@ -473,7 +471,19 @@ textarea.form-input{resize:vertical;min-height:60px}
               </div>
             </div>
             <div class="pl-sheet-label">📅 Infos saison (optionnel)</div>
-            <div style="padding:0 16px" id="pl-saison-section"></div>
+            <div style="padding:0 16px;display:flex;gap:8px" id="pl-saison-fields-row">
+              <div style="flex:1">
+                <label style="font-size:11px;color:var(--grey)">Ouvert jusqu'au</label>
+                <input type="date" class="form-input" id="pl-sheet-date-fermeture">
+              </div>
+              <div style="flex:1">
+                <label style="font-size:11px;color:var(--grey)">Réouvre le</label>
+                <input type="date" class="form-input" id="pl-sheet-date-ouverture">
+              </div>
+            </div>
+            <div style="padding:0 16px;margin-top:6px">
+              <button type="button" onclick="setPLSaisonOuvertTouteAnnee()" style="background:none;border:1px dashed var(--grey-lt);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;color:var(--grey);cursor:pointer;width:100%">☀️ Ouvert toute l'année</button>
+            </div>
             <div class="pl-sheet-label">Photo</div>
             <div style="padding:0 16px 16px">
               <input type="file" id="pl-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePLPhoto(this)">
@@ -483,7 +493,7 @@ textarea.form-input{resize:vertical;min-height:60px}
             <div id="pl-sheet-hist" style="padding:0 16px 16px"></div>
           </div>
           <div id="pl-sheet-footer">
-            <button class="pl-sheet-validate" id="pl-sheet-validate-btn" onclick="validatePLSheet()">Valider la visite</button>
+            <button class="pl-sheet-validate" onclick="validatePLSheet()">Valider la visite</button>
           </div>
         </div>
       </div>
@@ -588,17 +598,6 @@ function parseQty(val, fallback = 0) {
   const n = parseFloat(val);
   return isNaN(n) ? fallback : n;
 }
-function flyReasonTag(raison) {
-  if (raison === 'stock_suffisant') return ' <span style="color:var(--grey);font-weight:600">(stock ok)</span>';
-  if (raison === 'refuse') return ' <span style="color:var(--red);font-weight:600">(refusé)</span>';
-  return '';
-}
-function raisonZeroButtonsHTML(current, setterFnName) {
-  return `<div style="display:flex;gap:6px;margin-top:6px">
-    <button type="button" class="stat-btn${current==='stock_suffisant'?' sel-distribue':''}" style="flex:1;padding:7px;font-size:11px" onclick="${setterFnName}('stock_suffisant')">🔄 Stock suffisant</button>
-    <button type="button" class="stat-btn${current==='refuse'?' sel-refus':''}" style="flex:1;padding:7px;font-size:11px" onclick="${setterFnName}('refuse')">🚫 Refusé</button>
-  </div>`;
-}
 const NOUGAT_QTY_OPTIONS = [0,1,2,3,4];
 function nougatOptionsHTML(selected) {
   return NOUGAT_QTY_OPTIONS.map(v => {
@@ -649,7 +648,7 @@ const ST = {
   rtChannel: null,
   rappels: {},
   livraisons: {},
-  form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false, raisonZeroNougaterie:null, raisonZeroChateau:null }
+  form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false }
 };
 
 // ════════════════════════════════════════════
@@ -709,7 +708,6 @@ async function syncOfflineQueue() {
       if (item.type === 'pointage_libre') await syncPointageLibreItem(item);
       else if (item.type === 'validation') await sbPatch('points_tournee','id=eq.'+item.pointId, item.upd);
       else if (item.type === 'saison') await saveSaisonLieu(item.lieuId, item.dateOuverture, item.dateFermeture, item.anneeOuverture, item.anneeFermeture);
-      else if (item.type === 'ouvert_toute_annee') await sbPatch('lieux','id=eq.'+item.lieuId,{ouvert_toute_annee:item.value});
       else if (item.type === 'rappel') await applyRappelUpdate(item.lieuId, item.wantOpen, item.commentaire, item.origine, item.rappelType);
       else if (item.type === 'livraison_commande') await sbPatch('commandes_livraison','id=eq.'+item.commandeId, item.upd);
       else if (item.type === 'ajout_lieu') await syncAjoutLieuItem(item);
@@ -749,8 +747,6 @@ async function syncPointageLibreItem(item) {
     const d = plSelectedData[k];
     return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
              quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
-             raison_zero_nougaterie: (d.qty||1)===0 ? (d.raisonZeroNougaterie||null) : null,
-             raison_zero_chateau: (d.qtyChateau||1)===0 ? (d.raisonZeroChateau||null) : null,
              nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut:d.statut||'distribue',
              heure_validation:heure, commentaire_distributeur:d.comment||null };
   });
@@ -944,7 +940,7 @@ async function loadAllLieux() {
 
 async function loadHistorique(lieuId) {
   const yr = new Date().getFullYear();
-  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${lieuId}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
+  const all = await sbGet(`points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.${lieuId}&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc`).catch(()=>[]);
   const annee = all.filter(p => p.heure_validation && p.heure_validation.startsWith(yr));
   return { all, annee };
 }
@@ -1204,7 +1200,7 @@ function stopCardHTML(p, i, pts) {
       <div class="stop-body">
         ${validated ? `
           <div style="background:var(--green-lt);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px;font-size:12px;font-weight:600;color:var(--green);display:flex;align-items:center;gap:6px">
-            ✓ Validé${heure?' à '+heure:''}${(!isLivraisonOnly && s==='distribue')?' · '+(p.quantite_flyers||0)+' flyers'+flyReasonTag(p.quantite_flyers?null:p.raison_zero_nougaterie)+((p.quantite_flyers_chateau||p.raison_zero_chateau)?' · '+(p.quantite_flyers_chateau||0)+' château'+flyReasonTag(p.quantite_flyers_chateau?null:p.raison_zero_chateau):''):''}
+            ✓ Validé${heure?' à '+heure:''}${(!isLivraisonOnly && p.quantite_flyers)?' · '+p.quantite_flyers+' flyers':''}
           </div>
         ` : ''}
         ${repere ? `<div style="font-size:12px;color:var(--grey);margin-bottom:10px">🏠 Point de repère (départ/arrivée) — non soumis à validation</div>` : ''}
@@ -1385,12 +1381,10 @@ function openValidation(pointId) {
     statut: p.statut!=='a_faire' ? p.statut : null,
     flyers: p.quantite_flyers||0,
     flyersChateau: p.quantite_flyers_chateau||0,
-    raisonZeroNougaterie: p.raison_zero_nougaterie||null,
-    raisonZeroChateau: p.raison_zero_chateau||null,
     nougat: p.nb_nougat_offert||0,
     entreeGratuite: p.entree_gratuite||0,
     commentaire: p.commentaire_distributeur||'',
-    dateOuverture: '', dateFermeture: '', anneeOuverture: null, anneeFermeture: null, saisonOrder: 'fermeture-first', saisonOverrideMode: false,
+    dateOuverture: '', dateFermeture: '', anneeOuverture: null, anneeFermeture: null, saisonOrder: 'fermeture-first',
     rappel: false, rappelComment: '', rappelType: 'repassage',
     livraisonStatut: cmd ? (cmd.statut==='livree' ? 'livree' : null) : null,
     photoB64: null, photoFile: null
@@ -1456,15 +1450,13 @@ function renderValidation() {
 
       <div class="form-group" id="flyers-group" style="display:${(!isLivraisonOnly && f.statut==='distribue')?'block':'none'}">
         <label class="form-label">🍬 Paquets Nougaterie</label>
-        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseQty(this.value);renderValidation()">
+        <select class="form-input" id="flyers-input" onchange="ST.form.flyers=parseQty(this.value)">
           ${paquetOptionsHTML(f.flyers)}
         </select>
-        ${f.flyers===0?raisonZeroButtonsHTML(f.raisonZeroNougaterie,'setRaisonZeroNougaterie'):''}
         <label class="form-label" style="margin-top:10px">🎟️ Paquets Château des Roure</label>
-        <select class="form-input" id="flyers-chateau-input" onchange="ST.form.flyersChateau=parseQty(this.value);renderValidation()">
+        <select class="form-input" id="flyers-chateau-input" onchange="ST.form.flyersChateau=parseQty(this.value)">
           ${paquetOptionsHTML(f.flyersChateau)}
         </select>
-        ${f.flyersChateau===0?raisonZeroButtonsHTML(f.raisonZeroChateau,'setRaisonZeroChateau'):''}
       </div>
 
       <div class="form-group">
@@ -1482,7 +1474,8 @@ function renderValidation() {
       ${isLivraisonOnly ? '' : `
       <div class="form-group">
         <label class="form-label">📅 Infos saison (optionnel)</label>
-        ${saisonSectionHTML(f, l)}
+        <div style="display:flex;gap:8px" id="saison-fields-row">${saisonFieldsRowHTML(f)}</div>
+        <button type="button" onclick="setSaisonOuvertTouteAnnee()" style="margin-top:6px;background:none;border:1px dashed var(--grey-lt);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;color:var(--grey);cursor:pointer;width:100%">☀️ Ouvert toute l'année</button>
       </div>`}
 
       <div class="form-group">
@@ -1514,21 +1507,19 @@ function renderValidation() {
 
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <button class="btn-secondary" style="flex:1" onclick="navTo('tournee')">Annuler</button>
-        <button class="btn-primary" style="flex:1" id="valider-btn" onclick="submitValidation()" ${(!f.statut || (f.statut==='distribue' && ((f.flyers===0 && !f.raisonZeroNougaterie) || (f.flyersChateau===0 && !f.raisonZeroChateau)))) ? 'disabled' : ''}>Valider</button>
+        <button class="btn-primary" style="flex:1" id="valider-btn" onclick="submitValidation()" ${f.statut?'':'disabled'}>Valider</button>
       </div>
 
       <div id="hist-inval"></div>
     </div>`;
 
-  if (l.id) { loadAndRenderHistInline(l.id, 'hist-inval'); if (!l.ouvert_toute_annee || f.saisonOverrideMode) loadSaisonInfo(l.id); }
+  if (l.id) { loadAndRenderHistInline(l.id, 'hist-inval'); loadSaisonInfo(l.id); }
 }
 
 function setStatut(s) {
   ST.form.statut = s;
   renderValidation();
 }
-function setRaisonZeroNougaterie(v) { ST.form.raisonZeroNougaterie = v; renderValidation(); }
-function setRaisonZeroChateau(v) { ST.form.raisonZeroChateau = v; renderValidation(); }
 function setLivraisonStatut(v) {
   ST.form.livraisonStatut = v;
   const p = ST.activePoints.find(x => x.id===ST.form.pointId);
@@ -1575,34 +1566,14 @@ function saisonFieldsRowHTML(f) {
     </div>`;
   return f.saisonOrder === 'ouverture-first' ? (ouvBox + fermBox) : (fermBox + ouvBox);
 }
-function saisonSectionHTML(f, l) {
-  if (l && l.ouvert_toute_annee && !f.saisonOverrideMode) {
-    return `<div style="display:flex;align-items:center;gap:8px;background:#FFF8E1;border-radius:var(--radius-sm);padding:10px 12px">
-      <span style="font-size:13px;font-weight:600;color:#8A6D00">☀️ Ouvert toute l'année</span>
-      <button type="button" onclick="ST.form.saisonOverrideMode=true;renderValidation()" style="margin-left:auto;background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer">Modifier</button>
-    </div>`;
-  }
-  return `<div style="display:flex;gap:8px" id="saison-fields-row">${saisonFieldsRowHTML(f)}</div>
-    <button type="button" onclick="setSaisonOuvertTouteAnnee()" style="margin-top:6px;background:none;border:1px dashed var(--grey-lt);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;color:var(--grey);cursor:pointer;width:100%">☀️ Ouvert toute l'année</button>`;
-}
-async function setSaisonOuvertTouteAnnee() {
-  const p = ST.activePoints.find(x => x.id===ST.form.pointId);
-  const lieuId = p && p.lieux && p.lieux.id;
-  if (!lieuId) return;
-  try {
-    await sbPatch('lieux', 'id=eq.'+lieuId, { ouvert_toute_annee: true });
-  } catch(e) {
-    if (isNetworkFailure(e)) {
-      addToOfflineQueue({ type:'ouvert_toute_annee', lieuId, value:true });
-      toast('📤 Sauvegardé hors-ligne', 3000);
-    } else {
-      toast('Erreur ✗');
-      return;
-    }
-  }
-  if (p && p.lieux) p.lieux.ouvert_toute_annee = true;
-  ST.form.saisonOverrideMode = false;
-  renderValidation();
+function setSaisonOuvertTouteAnnee() {
+  const y = new Date().getFullYear();
+  const af = ST.form.anneeFermeture || y;
+  const ao = ST.form.anneeOuverture || (y+1);
+  ST.form.dateFermeture = af + '-12-31';
+  ST.form.dateOuverture = ao + '-01-01';
+  const row = document.getElementById('saison-fields-row');
+  if (row) row.innerHTML = saisonFieldsRowHTML(ST.form);
 }
 async function loadSaisonInfo(lieuId) {
   try {
@@ -1631,49 +1602,17 @@ function plSaisonFieldsRowHTML(dateFermeture, dateOuverture, anneeFermeture, ann
     </div>`;
   return order === 'ouverture-first' ? (ouvBox + fermBox) : (fermBox + ouvBox);
 }
-let plSaisonOverrideActive = false;
-function plSaisonSectionHTML(l, prev) {
-  if (l && l.ouvert_toute_annee && !plSaisonOverrideActive) {
-    return `<div style="display:flex;align-items:center;gap:8px;background:#FFF8E1;border-radius:var(--radius-sm);padding:10px 12px">
-      <span style="font-size:13px;font-weight:600;color:#8A6D00">☀️ Ouvert toute l'année</span>
-      <button type="button" onclick="plSetSaisonOverrideMode()" style="margin-left:auto;background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer">Modifier</button>
-    </div>`;
-  }
-  return `<div style="display:flex;gap:8px" id="pl-saison-fields-row">${plSaisonFieldsRowHTML(prev.dateFermeture, prev.dateOuverture, prev.anneeFermeture, prev.anneeOuverture, prev.saisonOrder)}</div>
-    <div style="margin-top:6px"><button type="button" onclick="setPLSaisonOuvertTouteAnnee()" style="background:none;border:1px dashed var(--grey-lt);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;color:var(--grey);cursor:pointer;width:100%">☀️ Ouvert toute l'année</button></div>`;
-}
-function plSetSaisonOverrideMode() {
-  plSaisonOverrideActive = true;
-  renderPLSaisonSection();
-}
-function renderPLSaisonSection() {
-  const k = plSheetK; if (!k) return;
-  const l = plAllLieux.find(x => String(x.id)===k) || {};
-  const prev = (plSelected[k] && typeof plSelected[k]==='object') ? plSelected[k] : {};
-  const el = document.getElementById('pl-saison-section');
-  if (!el) return;
-  el.innerHTML = plSaisonSectionHTML(l, prev);
-  if (l.ouvert_toute_annee && !plSaisonOverrideActive) return;
-  if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
-}
-async function setPLSaisonOuvertTouteAnnee() {
-  const k = plSheetK; if (!k) return;
-  const l = plAllLieux.find(x => String(x.id)===k);
-  if (!l || !l.id) return;
-  try {
-    await sbPatch('lieux', 'id=eq.'+l.id, { ouvert_toute_annee: true });
-  } catch(e) {
-    if (isNetworkFailure(e)) {
-      addToOfflineQueue({ type:'ouvert_toute_annee', lieuId:l.id, value:true });
-      toast('📤 Sauvegardé hors-ligne', 3000);
-    } else {
-      toast('Erreur ✗');
-      return;
-    }
-  }
-  l.ouvert_toute_annee = true;
-  plSaisonOverrideActive = false;
-  renderPLSaisonSection();
+function setPLSaisonOuvertTouteAnnee() {
+  const row = document.getElementById('pl-saison-fields-row');
+  if (!row) return;
+  const y = new Date().getFullYear();
+  const fermInputEl = document.getElementById('pl-sheet-date-fermeture');
+  const ouvInputEl = document.getElementById('pl-sheet-date-ouverture');
+  const af = parseInt(fermInputEl && fermInputEl.dataset.annee, 10) || y;
+  const ao = parseInt(ouvInputEl && ouvInputEl.dataset.annee, 10) || (y+1);
+  const order = row.dataset.order || 'fermeture-first';
+  row.innerHTML = plSaisonFieldsRowHTML(af+'-12-31', ao+'-01-01', af, ao, order);
+  row.dataset.order = order;
 }
 async function loadSaisonInfoForPL(lieuId, k) {
   try {
@@ -1752,7 +1691,6 @@ function handlePhoto(input) {
 async function submitValidation() {
   const btn = document.getElementById('valider-btn');
   if (!ST.form.statut) { toast('Choisissez un statut'); return; }
-  if (ST.form.statut==='distribue' && ((ST.form.flyers===0 && !ST.form.raisonZeroNougaterie) || (ST.form.flyersChateau===0 && !ST.form.raisonZeroChateau))) { toast('Précisez la raison (stock suffisant / refusé)'); return; }
   btn.disabled = true; btn.textContent = 'Validation…';
 
   const geo = await refreshGeo();
@@ -1775,8 +1713,6 @@ async function submitValidation() {
     statut: ST.form.statut,
     quantite_flyers: ST.form.statut==='distribue' ? (ST.form.flyers||0) : 0,
     quantite_flyers_chateau: ST.form.statut==='distribue' ? (ST.form.flyersChateau||0) : 0,
-    raison_zero_nougaterie: (ST.form.statut==='distribue' && (ST.form.flyers||0)===0) ? (ST.form.raisonZeroNougaterie||null) : null,
-    raison_zero_chateau: (ST.form.statut==='distribue' && (ST.form.flyersChateau||0)===0) ? (ST.form.raisonZeroChateau||null) : null,
     nb_nougat_offert: ST.form.nougat||0,
     entree_gratuite: ST.form.entreeGratuite||0,
     commentaire_distributeur: ST.form.commentaire||null,
@@ -1885,8 +1821,7 @@ function histListHTML(list) {
       </div>
       <div class="hist-body">
         ${p.tournees?`<span>📋 ${esc(p.tournees.nom)}</span>`:''}
-        ${p.statut==='distribue'?`<span>🗞 ${p.quantite_flyers||0} flyers${flyReasonTag(p.quantite_flyers?null:p.raison_zero_nougaterie)}</span>`:''}
-        ${p.statut==='distribue'&&(p.quantite_flyers_chateau||p.raison_zero_chateau)?`<span>🎟️ ${p.quantite_flyers_chateau||0} château${flyReasonTag(p.quantite_flyers_chateau?null:p.raison_zero_chateau)}</span>`:''}
+        ${p.statut==='distribue'&&p.quantite_flyers?`<span>🗞 ${p.quantite_flyers} flyers</span>`:''}
         ${p.commentaire_distributeur?`<span>💬 ${esc(p.commentaire_distributeur)}</span>`:''}
       </div>
     </div>`;
@@ -2030,8 +1965,7 @@ function histTimelineHTML(list) {
         <div class="ht-date">${esc(dateStr)}${heureStr?' · '+heureStr:''}</div>
         <div>
           <span class="ht-statut" style="background:${bgC[p.statut]};color:${txtC[p.statut]}">${slbls[p.statut]||p.statut}</span>
-          ${p.statut==='distribue'?`<span style="font-size:10px;font-weight:600;color:var(--grey);margin-left:6px">🗞 ${p.quantite_flyers||0} flyers${flyReasonTag(p.quantite_flyers?null:p.raison_zero_nougaterie)}</span>`:''}
-          ${p.statut==='distribue'&&(p.quantite_flyers_chateau||p.raison_zero_chateau)?`<span style="font-size:10px;font-weight:600;color:var(--grey);margin-left:6px">🎟️ ${p.quantite_flyers_chateau||0} château${flyReasonTag(p.quantite_flyers_chateau?null:p.raison_zero_chateau)}</span>`:''}
+          ${p.statut==='distribue'&&p.quantite_flyers?`<span style="font-size:10px;font-weight:600;color:var(--grey);margin-left:6px">🗞 ${p.quantite_flyers} flyers</span>`:''}
         </div>
         ${(p.tournees?.nom||dist)?`<div class="ht-meta">${p.tournees?.nom?`<span>📋 ${esc(p.tournees.nom)}</span>`:''}${dist?`<span>👤 ${esc(dist)}</span>`:''}</div>`:''}
         ${p.commentaire_distributeur?`<div class="ht-comment">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
@@ -2116,7 +2050,6 @@ async function exportListePDF() {
 //  POINTAGE LIBRE
 // ════════════════════════════════════════════
 let plSelected = {}; // id -> {statut,qty,nougat,note}
-let plRaisonNougaterie = null, plRaisonChateau = null;
 let plAllLieux = [];
 
 async function renderPointageLibre() {
@@ -2206,9 +2139,6 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-sub').textContent = (l.categorie||'')+(l.ville?' · '+l.ville:'');
   document.getElementById('pl-sheet-qty').innerHTML = paquetOptionsHTML(prev.qty ?? 1);
   document.getElementById('pl-sheet-qtych').innerHTML = paquetOptionsHTML(prev.qtyChateau ?? 1);
-  plRaisonNougaterie = prev.raisonZeroNougaterie || null;
-  plRaisonChateau = prev.raisonZeroChateau || null;
-  renderPLRaisonZone();
   document.getElementById('pl-sheet-nougat').innerHTML = nougatOptionsHTML(prev.nougat ?? 0);
   document.getElementById('pl-sheet-entree').innerHTML = entreeOptionsHTML(prev.entree ?? 0);
   document.getElementById('pl-sheet-comment').value = prev.comment||'';
@@ -2216,8 +2146,12 @@ function openPLSheet(k) {
   document.getElementById('pl-sheet-rappel-comment').value = prev.rappelComment||'';
   document.getElementById('pl-sheet-rappel-comment-wrap').style.display = prev.rappel?'block':'none';
   document.querySelectorAll('input[name="pl-rappel-type"]').forEach(function(r){ r.checked = (r.value === (prev.rappelType||'repassage')); });
-  plSaisonOverrideActive = false;
-  renderPLSaisonSection();
+  const plSaisonRow = document.getElementById('pl-saison-fields-row');
+  if (plSaisonRow) {
+    plSaisonRow.innerHTML = plSaisonFieldsRowHTML(prev.dateFermeture, prev.dateOuverture, prev.anneeFermeture, prev.anneeOuverture, prev.saisonOrder);
+    plSaisonRow.dataset.order = prev.saisonOrder || 'fermeture-first';
+  }
+  if (!prev.dateFermeture && !prev.dateOuverture && l.id) loadSaisonInfoForPL(l.id, k);
   const histEl = document.getElementById('pl-sheet-hist');
   if (histEl) histEl.innerHTML = '';
   if (l.id) loadAndRenderHistInline(l.id, 'pl-sheet-hist');
@@ -2249,34 +2183,12 @@ function setPLStatut(s) {
     p.classList.toggle('active', p.dataset.s===s);
   });
 }
-function onPLQtyChange() { renderPLRaisonZone(); }
-function renderPLRaisonZone() {
-  const qty = parseQty(document.getElementById('pl-sheet-qty').value, 1);
-  const qtyCh = parseQty(document.getElementById('pl-sheet-qtych').value, 1);
-  if (qty !== 0) plRaisonNougaterie = null;
-  if (qtyCh !== 0) plRaisonChateau = null;
-  const zN = document.getElementById('pl-sheet-raison-nougaterie');
-  const zC = document.getElementById('pl-sheet-raison-chateau');
-  if (zN) zN.innerHTML = qty===0 ? raisonZeroButtonsHTML(plRaisonNougaterie,'setPLRaisonNougaterie') : '';
-  if (zC) zC.innerHTML = qtyCh===0 ? raisonZeroButtonsHTML(plRaisonChateau,'setPLRaisonChateau') : '';
-  updatePLValidateBtnState();
-}
-function setPLRaisonNougaterie(v) { plRaisonNougaterie = v; renderPLRaisonZone(); }
-function setPLRaisonChateau(v) { plRaisonChateau = v; renderPLRaisonZone(); }
-function updatePLValidateBtnState() {
-  const qty = parseQty(document.getElementById('pl-sheet-qty').value, 1);
-  const qtyCh = parseQty(document.getElementById('pl-sheet-qtych').value, 1);
-  const missing = (qty===0 && !plRaisonNougaterie) || (qtyCh===0 && !plRaisonChateau);
-  const btn = document.getElementById('pl-sheet-validate-btn');
-  if (btn) btn.disabled = missing;
-}
 
 function validatePLSheet() {
   const k = plSheetK; if (!k) return;
   const statut = document.querySelector('.pl-statut-pill.active')?.dataset.s||'distribue';
   const qty = parseQty(document.getElementById('pl-sheet-qty').value, 1);
   const qtyChateau = parseQty(document.getElementById('pl-sheet-qtych').value, 1);
-  if ((qty===0 && !plRaisonNougaterie) || (qtyChateau===0 && !plRaisonChateau)) { toast('Précisez la raison (stock suffisant / refusé)'); return; }
   const nougat = parseQty(document.getElementById('pl-sheet-nougat').value, 0);
   const entree = parseQty(document.getElementById('pl-sheet-entree').value, 0);
   const comment = document.getElementById('pl-sheet-comment').value.trim();
@@ -2285,16 +2197,15 @@ function validatePLSheet() {
   const rappelType = (document.querySelector('input[name="pl-rappel-type"]:checked')||{}).value || 'repassage';
   const fermInputEl = document.getElementById('pl-sheet-date-fermeture');
   const ouvInputEl = document.getElementById('pl-sheet-date-ouverture');
-  const prevSaison = (plSelected[k] && typeof plSelected[k]==='object') ? plSelected[k] : {};
-  const dateFermeture = fermInputEl ? (fermInputEl.value || '') : (prevSaison.dateFermeture || '');
-  const dateOuverture = ouvInputEl ? (ouvInputEl.value || '') : (prevSaison.dateOuverture || '');
-  const anneeFermeture = fermInputEl ? (parseInt(fermInputEl.dataset.annee,10) || new Date().getFullYear()) : (prevSaison.anneeFermeture || null);
-  const anneeOuverture = ouvInputEl ? (parseInt(ouvInputEl.dataset.annee,10) || (new Date().getFullYear()+1)) : (prevSaison.anneeOuverture || null);
-  const saisonOrder = document.getElementById('pl-saison-fields-row')?.dataset.order || prevSaison.saisonOrder || 'fermeture-first';
+  const dateFermeture = fermInputEl.value || '';
+  const dateOuverture = ouvInputEl.value || '';
+  const anneeFermeture = parseInt(fermInputEl.dataset.annee,10) || new Date().getFullYear();
+  const anneeOuverture = parseInt(ouvInputEl.dataset.annee,10) || (new Date().getFullYear()+1);
+  const saisonOrder = document.getElementById('pl-saison-fields-row')?.dataset.order || 'fermeture-first';
   const photoInput2 = document.getElementById('pl-photo-input');
   const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
-  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, saisonOrder, photoFile, photoB64: photoFile ? photoB64 : null, raisonZeroNougaterie: qty===0?(plRaisonNougaterie||null):null, raisonZeroChateau: qtyChateau===0?(plRaisonChateau||null):null };
+  plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, saisonOrder, photoFile, photoB64: photoFile ? photoB64 : null };
   const btn = document.getElementById('pladd-'+k);
   if (btn) { btn.innerHTML='✓'; btn.classList.add('added'); btn.onclick=()=>removePL(k); }
   closePLSheet();
@@ -2385,8 +2296,6 @@ async function submitPointageLibre() {
       }
       return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
                quantite_flyers:d.qty??1, quantite_flyers_chateau:d.qtyChateau??1,
-               raison_zero_nougaterie: (d.qty??1)===0 ? (d.raisonZeroNougaterie||null) : null,
-               raison_zero_chateau: (d.qtyChateau??1)===0 ? (d.raisonZeroChateau||null) : null,
                nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut, heure_validation:heure,
                commentaire_distributeur:d.comment||null, photo_preuve:photoUrl };
     };
@@ -2596,7 +2505,7 @@ async function renderHistorique() {
 
   try {
     const data = await sbGet(
-      `points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,heure_validation,commentaire_distributeur,lieux(id,nom,categorie,ville)` +
+      `points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,heure_validation,commentaire_distributeur,lieux(id,nom,categorie,ville)` +
       `&tournee_id=in.(${ids.join(',')})&statut=neq.a_faire` +
       `&heure_validation=gte.${encodeURIComponent(fromDate.toISOString())}` +
       `&order=heure_validation.desc`
@@ -2613,7 +2522,7 @@ async function renderHistorique() {
         ? d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit'}) + ' ' +
           d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
         : '—';
-      const flyersStr = p.statut === 'distribue' ? `· ${p.quantite_flyers||0} pkt 🍬${flyReasonTag(p.quantite_flyers?null:p.raison_zero_nougaterie)}${(p.quantite_flyers_chateau||p.raison_zero_chateau)?' · '+(p.quantite_flyers_chateau||0)+' pkt 🎟️'+flyReasonTag(p.quantite_flyers_chateau?null:p.raison_zero_chateau):''}` : '';
+      const flyersStr = p.statut === 'distribue' ? `· ${p.quantite_flyers||0} pkt 🍬${p.quantite_flyers_chateau?' · '+(p.quantite_flyers_chateau)+' pkt 🎟️':''}` : '';
       return `<div class="hist-item" onclick="openFicheFromLieux(${l.id})">
         <div class="hist-item-top">
           <div class="lieu-icon-box">${catIcon(l.categorie)}</div>
@@ -2814,22 +2723,18 @@ async function genPDF() {
 
   doc.autoTable({
     startY: y,
-    head:[['#','Lieu','Catégorie','Statut','Flyers N/C','Heure','Commentaire']],
+    head:[['#','Lieu','Catégorie','Statut','Flyers','Heure','Commentaire']],
     body: pts.map(p => {
       const lx=p.lieux||{};
       const hre=p.heure_validation ? new Date(p.heure_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—';
-      const flyTag = r => r==='stock_suffisant' ? '(S)' : r==='refuse' ? '(R)' : '';
-      const flyCell = p.statut==='distribue'
-        ? `${p.quantite_flyers||0}${(p.quantite_flyers||0)===0?flyTag(p.raison_zero_nougaterie):''}/${p.quantite_flyers_chateau||0}${(p.quantite_flyers_chateau||0)===0?flyTag(p.raison_zero_chateau):''}`
-        : '—';
       return [p.ordre_passage||'—', lx.nom||'—', lx.categorie||'—', sLbl[p.statut]||p.statut,
-              flyCell, hre, p.commentaire_distributeur||''];
+              p.statut==='distribue'?(p.quantite_flyers||0):'—', hre, p.commentaire_distributeur||''];
     }),
     styles:{fontSize:8,cellPadding:3},
     headStyles:{fillColor:cBlack,textColor:cGold,fontStyle:'bold',fontSize:8},
     columnStyles:{
-      0:{cellWidth:8,halign:'center'},1:{cellWidth:45},2:{cellWidth:24},
-      3:{cellWidth:22},4:{cellWidth:20,halign:'center'},5:{cellWidth:18,halign:'center'},6:{cellWidth:38}
+      0:{cellWidth:8,halign:'center'},1:{cellWidth:45},2:{cellWidth:28},
+      3:{cellWidth:22},4:{cellWidth:14,halign:'center'},5:{cellWidth:18,halign:'center'},6:{cellWidth:40}
     },
     didParseCell: data => {
       if (data.column.index===3 && data.section==='body') {
@@ -2841,11 +2746,6 @@ async function genPDF() {
     alternateRowStyles:{fillColor:[252,251,248]},
     margin:{left:M,right:M}
   });
-
-  // Légende flyers
-  const legendY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y) + 5;
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...cGrey);
-  doc.text('Flyers : Nougaterie / Château  ·  (S) stock encore suffisant  ·  (R) refusé par l\'établissement', M, legendY);
 
   // Footer
   const pages=doc.internal.getNumberOfPages();

@@ -946,16 +946,6 @@ var routeLayer = null;
 var tourneeRouteLayer = null;
 var selectedId = null;
 function escHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
-function flyReasonTagE(raison){
-  if(raison==='stock_suffisant') return ' <span style="color:#888;font-weight:600">(stock ok)</span>';
-  if(raison==='refuse') return ' <span style="color:#E53935;font-weight:600">(refusé)</span>';
-  return '';
-}
-function flyReasonTagShortE(raison){
-  if(raison==='stock_suffisant') return '(S)';
-  if(raison==='refuse') return '(R)';
-  return '';
-}
 
 // ══════════════════════════════════════════════════════════
 //  MODAL FICHE LIEU (consultation : infos, historique, photos)
@@ -999,7 +989,7 @@ async function openFicheLieuEditeur(id, forTournee){
   var yr = new Date().getFullYear();
   var all = [];
   try {
-    all = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+p.supabase_id+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc');
+    all = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(id,nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+p.supabase_id+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc');
   } catch(e){ all = []; }
 
   var annee = all.filter(function(pt){ return pt.heure_validation && pt.heure_validation.indexOf(String(yr))===0; });
@@ -1092,8 +1082,7 @@ function ficheTimelineEditeurHTML(list,dotC,bgC,txtC,slbls){
       + '<div class="ftd-date">'+escHtml(dateStr)+(heureStr?' · '+heureStr:'')+'</div>'
       + '<div style="margin:3px 0">'
       + '<span class="badge" style="background:'+bgC[pt.statut]+';color:'+txtC[pt.statut]+'">'+(slbls[pt.statut]||pt.statut)+'</span>'
-      + (pt.statut==='distribue'?'<span style="font-size:11px;color:var(--grey);margin-left:6px">🗞 '+(pt.quantite_flyers||0)+' flyers'+flyReasonTagE(pt.quantite_flyers?null:pt.raison_zero_nougaterie)+'</span>':'')
-      + (pt.statut==='distribue'&&(pt.quantite_flyers_chateau||pt.raison_zero_chateau)?'<span style="font-size:11px;color:var(--grey);margin-left:6px">🎟️ '+(pt.quantite_flyers_chateau||0)+' château'+flyReasonTagE(pt.quantite_flyers_chateau?null:pt.raison_zero_chateau)+'</span>':'')
+      + (pt.statut==='distribue'&&pt.quantite_flyers?'<span style="font-size:11px;color:var(--grey);margin-left:6px">🗞 '+pt.quantite_flyers+' flyers</span>':'')
       + (pt.tournees&&pt.tournees.nom?'<span style="font-size:11px;color:var(--grey);margin-left:6px">📋 '+escHtml(pt.tournees.nom)+'</span>':'')
       + (dist?'<span style="font-size:11px;color:var(--grey);margin-left:6px">👤 '+escHtml(dist)+'</span>':'')
       + '</div>'
@@ -2267,9 +2256,19 @@ function saisonRowHTML(s){
     + '<div style="flex:1"><label style="font-size:10px;color:var(--grey)">Ouverture</label><input type="date" class="sr-ouverture" value="'+(s.date_ouverture||'')+'" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'
     + '<div style="flex:1"><label style="font-size:10px;color:var(--grey)">Fermeture</label><input type="date" class="sr-fermeture" value="'+(s.date_fermeture||'')+'" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'
     + '<div style="flex:1.4"><label style="font-size:10px;color:var(--grey)">Commentaire</label><input type="text" class="sr-commentaire" value="'+escHtml(s.commentaire||'')+'" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'
+    + '<button class="fed-filter-btn" style="background:#FFF3D6;color:#8A5A00;padding:6px 10px" onclick="setSaisonRowTouteAnnee(this)" title="Ouvert toute l\'année">☀️</button>'
     + '<button class="fed-filter-btn" style="background:#F5C21A;color:#1A1A1A;padding:6px 10px" onclick="saveSaisonRow(this)">💾</button>'
     + '<button class="fed-filter-btn" style="background:var(--red-lt);color:var(--red);padding:6px 10px" onclick="deleteSaisonRow(this)">🗑</button>'
     + '</div>';
+}
+
+function setSaisonRowTouteAnnee(btn){
+  var row = btn.closest('.saison-row');
+  var anneeInput = row.querySelector('.sr-annee');
+  var annee = parseInt(anneeInput.value,10) || new Date().getFullYear();
+  if(!anneeInput.value) anneeInput.value = annee;
+  row.querySelector('.sr-ouverture').value = annee+'-01-01';
+  row.querySelector('.sr-fermeture').value = annee+'-12-31';
 }
 
 function addSaisonRow(){
@@ -2391,7 +2390,7 @@ async function loadHistPanelForPoi(nomPoi) {
     var lieuId = lieuxData[0].id;
 
     var yr = new Date().getFullYear();
-    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,quantite_flyers_chateau,raison_zero_nougaterie,raison_zero_chateau,heure_validation,commentaire_distributeur,photo_preuve,tournees(nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+lieuId+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc').catch(function(){return[];});
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,heure_validation,commentaire_distributeur,photo_preuve,tournees(nom,date,distributeur:utilisateurs(nom))&lieu_id=eq.'+lieuId+'&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc').catch(function(){return[];});
 
     var list = data || [];
     var flyTotal = list.filter(function(p){return p.statut==='distribue';}).reduce(function(s,p){return s+(p.quantite_flyers||0);},0);
@@ -2423,7 +2422,7 @@ async function loadHistPanelForPoi(nomPoi) {
           + '<div style="display:flex;gap:6px;align-items:baseline">'
             + '<span class="hp-date">'+dateStr+(heureStr?' '+heureStr:'')+'</span>'
             + '<span class="hp-statut" style="color:'+(dotC[p.statut]||'#888')+'">'+( slbls[p.statut]||p.statut)+'</span>'
-            + (p.statut==='distribue'?'<span style="font-size:10px;color:#888">'+(p.quantite_flyers||0)+' fl.'+flyReasonTagShortE(p.quantite_flyers?null:p.raison_zero_nougaterie)+(( p.quantite_flyers_chateau||p.raison_zero_chateau)?' / '+(p.quantite_flyers_chateau||0)+' ch.'+flyReasonTagShortE(p.quantite_flyers_chateau?null:p.raison_zero_chateau):'')+'</span>':'')
+            + (p.quantite_flyers&&p.statut==='distribue'?'<span style="font-size:10px;color:#888">'+p.quantite_flyers+' fl.</span>':'')
           + '</div>'
           + '<div class="hp-meta">'
             + (p.tournees&&p.tournees.nom?'📋 '+escHtml(p.tournees.nom)+' ':'')
@@ -3284,7 +3283,7 @@ async function openStats(){
   document.getElementById('stats-empty').textContent = 'Chargement…';
   document.getElementById('stats-list').innerHTML = '<div id="stats-empty">Chargement…</div>';
   try {
-    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,raison_zero_nougaterie,nb_nougat_offert,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
+    var data = await sbGet('points_tournee?select=id,statut,quantite_flyers,nb_nougat_offert,heure_validation,commentaire_distributeur,lieu_id,lieux(nom,ville,categorie),tournees(nom,date,distributeur:utilisateurs(nom))&statut=neq.a_faire&heure_validation=not.is.null&order=heure_validation.desc&limit=1000');
     _statsData = data || [];
     applyStatsFilters();
   } catch(e) {
@@ -3349,7 +3348,7 @@ function applyStatsFilters(){
     var comment = (p.commentaire_distributeur||'').replace('[Nougat offert]','').trim();
     var bc = badgeClass[p.statut]||'sv-b-other';
     var bl = badgeLabel[p.statut]||p.statut;
-    var qtyStr = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt'+flyReasonTagShortE(p.quantite_flyers?null:p.raison_zero_nougaterie) : '';
+    var qtyStr = p.statut==='distribue' ? (p.quantite_flyers||0)+' pqt' : '';
     return '<div class="sv-row">'
       +'<div class="sv-lieu">'
         +'<div class="sv-nom">'+(l.nom||'—')+'</div>'
