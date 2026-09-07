@@ -1,4 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#F5C21A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tournée 🍬">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+<title>Tournée – La Nougaterie du Pont d'Arc</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --gold:#F5C21A;--gold-dk:#DBA10E;--gold-lt:#FFF8DC;
+  --black:#1A1A1A;--grey:#6B6B6B;--grey-lt:#D0CFC9;
+  --cream:#F7F6F2;--white:#FFFFFF;
+  --green:#27AE60;--green-lt:#E8F8EF;
+  --red:#E53935;--red-lt:#FFEBEE;
+  --orange:#E8870A;--orange-lt:#FFF3E0;
+  --blue:#2563EB;--blue-lt:#E8F0FE;--purple:#7B1FA2;--purple-lt:#F3E5F5;
+  --nav-h:66px;--hdr-h:56px;
+  --radius:16px;--radius-sm:10px;
+  --shadow:0 2px 12px rgba(0,0,0,0.10);
+  --shadow-lg:0 4px 24px rgba(0,0,0,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--black);min-height:100vh;overflow-x:hidden}
+h1,h2,h3{font-family:'Montserrat',sans-serif}
+a{text-decoration:none;color:inherit}
+button{font-family:'Inter',sans-serif;cursor:pointer}
+input,textarea,select{font-family:'Inter',sans-serif}
 
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#app-header{background:var(--black);color:var(--white);height:var(--hdr-h);padding:0 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:50}
+#hdr-back{background:none;border:none;color:var(--white);font-size:22px;line-height:1;padding:4px 8px 4px 0;display:none}
+#hdr-title{flex:1;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hdr-pill{background:var(--gold);color:var(--black);font-family:'Montserrat',sans-serif;font-weight:700;font-size:10px;padding:3px 10px;border-radius:20px;white-space:nowrap}
+#hdr-refresh{background:none;border:none;color:var(--white);font-size:17px;line-height:1;padding:4px 6px;display:none;cursor:pointer}
+#hdr-refresh.spin{animation:hdrSpin .7s linear}
+@keyframes hdrSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#app-body{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h)+8px)}
+#app-body.no-nav{padding-bottom:0}
+
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:var(--white);border-top:1px solid #e5e5e5;display:flex;align-items:stretch;box-shadow:0 -2px 12px rgba(0,0,0,0.08);z-index:100}
+#bottom-nav.hidden{display:none}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;color:var(--grey);padding:6px 4px;transition:.15s}
+.nav-item.active{color:var(--gold-dk)}
+.nav-item .nav-icon{font-size:22px;line-height:1}
+.nav-item .nav-label{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700}
+
+.screen{display:none}
+.screen.active{display:block}
+#screen-login.active{display:flex;flex-direction:column;min-height:100vh}
+
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.section-title{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.pad{padding:16px}
+.gap{display:flex;flex-direction:column;gap:12px}
+
+.btn-primary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--gold);color:var(--black);border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-primary:hover{background:var(--gold-dk)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:var(--white);color:var(--black);border:2px solid var(--black);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-pdf{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--purple);color:var(--white);border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-pdf:hover{background:#6A1B9A}
+.btn-maps{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 14px;background:#4285F4;color:var(--white);border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.btn-maps.green{background:#34A853}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600}
+.badge-distribue{background:var(--green-lt);color:var(--green)}
+.badge-ferme{background:#ECEFF1;color:var(--grey)}
+.badge-refus{background:var(--red-lt);color:var(--red)}
+.badge-absent{background:var(--orange-lt);color:var(--orange)}
+.badge-pas_fait{background:var(--blue-lt);color:var(--blue)}
+.badge-a_faire{background:var(--gold-lt);color:var(--gold-dk)}
+.badge-planifiee{background:var(--gold-lt);color:var(--gold-dk)}
+.badge-en_cours{background:#E3F2FD;color:#1565C0}
+.badge-terminee{background:var(--green-lt);color:var(--green)}
+
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.form-input{width:100%;padding:12px 14px;border:1.5px solid #E5E5E5;border-radius:var(--radius-sm);font-size:14px;outline:none;background:var(--white);transition:.15s;color:var(--black)}
+.form-input:focus{border-color:var(--gold)}
+textarea.form-input{resize:vertical;min-height:60px}
+
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat-btn{padding:12px 8px;border:2px solid #E5E5E5;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;text-align:center;background:var(--white);color:var(--grey);cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.stat-btn span.icon{font-size:20px}
+.stat-btn.sel-distribue{border-color:var(--green);background:var(--green-lt);color:var(--green)}
+.stat-btn.sel-ferme{border-color:var(--grey);background:#ECEFF1;color:var(--grey)}
+.stat-btn.sel-refus{border-color:var(--red);background:var(--red-lt);color:var(--red)}
+.stat-btn.sel-absent{border-color:var(--orange);background:var(--orange-lt);color:var(--orange)}
+.stat-btn.sel-pasfait{border-color:var(--blue);background:var(--blue-lt);color:var(--blue)}
+
+.prog-bg{background:#E5E5E5;border-radius:4px;height:6px;overflow:hidden}
+.prog-fill{background:var(--gold);height:6px;border-radius:4px;transition:width .4s}
+.prog-fill.full{background:var(--green)}
+
+#toast{position:fixed;bottom:calc(var(--nav-h)+12px);left:50%;transform:translateX(-50%);background:rgba(26,26,26,0.92);color:var(--white);padding:10px 20px;border-radius:20px;font-size:12px;font-weight:600;z-index:500;opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .25s}
+#toast.show{opacity:1}
+
+/* LOGIN */
+.login-hero{background:#F7F6F2;padding:48px 24px 36px;text-align:center;color:var(--black);flex-shrink:0}
+.login-logo{margin-bottom:12px}
+.login-logo img{max-width:220px;width:80%;height:auto}
+.login-brand{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--black);line-height:1.25}
+.login-sub{font-size:13px;color:var(--grey);margin-top:8px}
+.login-form{padding:24px 20px 40px;display:flex;flex-direction:column;gap:14px;flex:1}
+.login-error{background:var(--red-lt);color:var(--red);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;display:none}
+.login-error.show{display:block}
+
+/* ACCUEIL */
+#screen-accueil{padding:16px}
+.hero-card{background:var(--black);color:var(--white);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-lg)}
+.hero-greeting{font-size:12px;color:var(--grey-lt);margin-bottom:3px}
+.hero-name{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;margin-bottom:14px}
+.hero-stats{display:flex;gap:10px}
+.hero-stat{flex:1;background:rgba(255,255,255,0.08);border-radius:var(--radius-sm);padding:10px;text-align:center}
+.hero-stat .val{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:var(--gold);line-height:1}
+.hero-stat .lbl{font-size:10px;color:var(--grey-lt);margin-top:3px}
+
+.tournee-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:15px;margin-bottom:10px;cursor:pointer;transition:.15s;border-left:4px solid transparent;display:flex;align-items:center;gap:12px}
+.tournee-card:hover{box-shadow:var(--shadow-lg)}
+.tournee-card.sp{border-left-color:var(--gold)}
+.tournee-card.ec{border-left-color:#1565C0}
+.tournee-card.te{border-left-color:var(--green)}
+.tc-icon{width:44px;height:44px;border-radius:var(--radius-sm);background:var(--gold-lt);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.tc-info{flex:1;min-width:0}
+.tc-name{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-meta{font-size:11px;color:var(--grey);margin-top:3px}
+
+/* TOURNÉE DÉTAIL */
+#screen-tournee{padding:16px}
+.progress-band{background:var(--white);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.pb-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pb-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700}
+.pb-pct{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:800;color:var(--gold-dk)}
+.pb-counts{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.pb-count{font-size:11px;color:var(--grey);display:flex;align-items:center;gap:4px}
+.pb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+.stop-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;border-left:4px solid #E5E5E5;transition:.2s}
+.stop-card.s-distribue{border-left-color:var(--green)}
+.stop-card.s-refus{border-left-color:var(--red)}
+.stop-card.s-ferme{border-left-color:var(--grey-lt)}
+.stop-card.s-absent{border-left-color:var(--orange)}
+.stop-card.s-pas_fait{border-left-color:var(--blue)}
+.stop-hdr{padding:12px 13px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.stop-num{width:30px;height:30px;border-radius:50%;background:var(--cream);color:var(--grey);font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
+.stop-card.s-distribue .stop-num{background:var(--green);color:var(--white)}
+.stop-card.s-refus .stop-num{background:var(--red);color:var(--white)}
+.stop-card.s-ferme .stop-num{background:#B0BEC5;color:var(--white)}
+.stop-card.s-absent .stop-num{background:var(--orange);color:var(--white)}
+.stop-card.s-pas_fait .stop-num{background:var(--blue);color:var(--white)}
+.stop-card.type-livraison{border-left-color:#C87F0A}
+.stop-card.type-livraison .stop-num{background:#C87F0A;color:var(--white)}
+.stop-card .stop-num.num-rdv{background:#7B1FA2;color:var(--white)}
+.stop-info{flex:1;min-width:0}
+.stop-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;white-space:normal;overflow-wrap:break-word;line-height:1.3}
+.stop-addr{font-size:10px;color:var(--grey);margin-top:2px}
+.stop-chev{color:var(--grey);font-size:16px;transition:transform .2s;flex-shrink:0}
+.stop-card.expanded .stop-chev{transform:rotate(180deg)}
+.stop-drag{width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--grey);font-size:17px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.stop-drag:active{cursor:grabbing;color:var(--black)}
+.stop-card.stop-dragging{box-shadow:var(--shadow-lg);opacity:.97}
+.stop-placeholder{background:var(--cream);border:2px dashed #ddd;border-radius:var(--radius);margin-bottom:10px}
+.stop-body{display:none;padding:13px;border-top:1px solid #F0EFE9}
+.stop-card.expanded .stop-body{display:block}
+
+/* VALIDATION */
+#screen-validation{padding:16px}
+
+/* FICHE */
+#screen-fiche{padding:0}
+.fiche-hero{background:var(--black);padding:20px 16px 24px;color:var(--white)}
+.fiche-icon-big{font-size:42px;margin-bottom:8px}
+.fiche-nom{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800}
+.fiche-sous{font-size:13px;color:var(--grey-lt);margin-top:4px}
+.fiche-info-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #F0EFE9;font-size:13px}
+.fiche-info-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center;margin-top:1px}
+
+/* LIEUX */
+#screen-historique{padding:0}
+.hist-period-row{display:flex;gap:6px;overflow-x:auto;padding:12px 16px 8px;padding-bottom:4px}
+.hist-period-pill{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid #ddd;cursor:pointer;white-space:nowrap;background:#f5f5f5;color:#888;flex-shrink:0;font-family:inherit}
+.hist-period-pill.active{background:var(--black);border-color:var(--black);color:#fff}
+.hist-item{display:flex;flex-direction:column;gap:0;background:#fff;border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:8px;overflow:hidden;cursor:pointer}
+.hist-item-top{display:flex;align-items:center;gap:10px;padding:10px 12px}
+.hist-item-bot{display:flex;justify-content:space-between;align-items:center;padding:6px 12px 10px;border-top:1px solid #f0f0f0}
+.search-box{position:relative;margin-bottom:12px}
+.search-box input{width:100%;padding:12px 14px 12px 38px;border:none;border-radius:var(--radius-sm);font-size:13px;background:var(--white);box-shadow:var(--shadow);outline:none}
+.search-box::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px}
+.lieu-item{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;padding:13px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:.15s}
+.lieu-item:hover{box-shadow:var(--shadow-lg)}
+.lieu-icon-box{width:44px;height:44px;border-radius:var(--radius-sm);background:var(--gold-lt);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+
+/* PROFIL */
+#screen-profil{padding:16px}
+.profile-card{background:var(--black);color:var(--white);border-radius:var(--radius);padding:20px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.profile-avatar{width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:var(--black);flex-shrink:0}
+.menu-list{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.menu-item{display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid #F0EFE9;cursor:pointer;transition:.15s}
+.menu-item:last-child{border-bottom:none}
+.menu-item:hover{background:var(--cream)}
+.menu-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+
+/* HISTORIQUE TIMELINE */
+.ht-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F0EFE9}
+.ht-item:last-child{border-bottom:none}
+.ht-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;border:2px solid white}
+.ht-content{flex:1;min-width:0}
+.ht-date{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--black);margin-bottom:4px;text-transform:capitalize}
+.ht-statut{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:4px}
+.ht-meta{font-size:11px;color:var(--grey);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.ht-comment{font-size:12px;color:var(--black);background:var(--cream);border-radius:8px;padding:7px 10px;margin-top:6px;line-height:1.5}
+.ht-photo{width:80px;height:80px;border-radius:8px;object-fit:cover;cursor:pointer;margin-top:8px;display:block}
+
+/* Stats fiche */
+.fiche-stats{display:flex;gap:8px;margin:14px 0 4px}
+.fiche-stat-tile{flex:1;background:var(--cream);border-radius:var(--radius-sm);padding:10px 6px;text-align:center}
+.fiche-stat-tile .sv{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;line-height:1}
+.fiche-stat-tile .sl{font-size:9px;color:var(--grey);margin-top:2px}
+
+/* Photo grid */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px}
+.photo-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;display:block}
+
+/* Photo lightbox */
+.photo-lb{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.photo-lb img{max-width:95vw;max-height:80vh;border-radius:8px;object-fit:contain}
+.photo-lb-cap{color:rgba(255,255,255,.7);font-size:12px}
+.photo-lb-close{position:absolute;top:14px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1;font-weight:300}
+
+/* Historique inline (validation) */
+.hist-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 0;border-top:1px solid #F0EFE9;margin-top:12px}
+.hist-toggle-lbl{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.4px}
+.hist-body-wrap{display:none;margin-top:8px}
+.hist-body-wrap.open{display:block}
+.hist-item{background:var(--cream);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
+.hist-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.hist-date{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--white);background:var(--black);padding:2px 8px;border-radius:20px;flex-shrink:0}
+.hist-body{font-size:12px;color:var(--grey);display:flex;gap:10px;flex-wrap:wrap}
+
+/* UTILS */
+.spinner{width:32px;height:32px;border:3px solid var(--gold-lt);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-sc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:12px;color:var(--grey);font-size:13px}
+.empty-sc{text-align:center;padding:40px 20px}
+.empty-sc .ei{font-size:48px;margin-bottom:12px}
+.empty-sc .et{font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;margin-bottom:6px}
+.empty-sc .es{font-size:13px;color:var(--grey);line-height:1.6}
+
+.photo-area{border:2px dashed #E5E5E5;border-radius:var(--radius-sm);padding:18px;text-align:center;cursor:pointer;margin-bottom:12px;transition:.15s;background:var(--cream);position:relative}
+.photo-area:hover{border-color:var(--gold)}
+.photo-area input{display:none}
+.photo-preview{width:100%;max-height:200px;border-radius:var(--radius-sm);object-fit:cover;margin-top:10px;display:block}
+
+.btn-nougat-val{width:100%;padding:11px;background:#f5f5f5;border:2px solid #ddd;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#888;cursor:pointer;margin-bottom:12px;transition:.15s}
+.btn-nougat-val.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+.btn-entree.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8}
+.vf-row{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 4px;scrollbar-width:none}
+.vf-row::-webkit-scrollbar{display:none}
+.vchip{padding:6px 14px;border-radius:16px;border:1px solid #ddd;background:#f5f5f5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Montserrat',sans-serif}
+.vchip.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.vf-date-range{display:none;padding:0 16px 8px;gap:8px;align-items:center}
+.vf-date-range.show{display:flex}
+.vf-date-range input{flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;font-size:12px}
+.btn-export-pdf{display:none;margin:4px 16px 8px;padding:11px;background:#1565C0;color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:calc(100% - 32px)}
+.btn-export-pdf.show{display:block}
+#screen-pointage-libre{padding:0;flex-direction:column;height:100%;overflow:hidden}
+#screen-pointage-libre.active{display:flex}
+/* Browsable list */
+.pl-browse-item{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #f0f0f0;background:#fff}
+.pl-browse-name{flex:1;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;white-space:normal;overflow-wrap:break-word;line-height:1.3}
+.pl-browse-sub{font-size:10px;color:var(--grey)}
+.btn-pl-add{width:34px;height:34px;background:var(--purple);color:#fff;border:none;border-radius:50%;font-size:20px;font-weight:300;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1}
+.btn-pl-add.added{background:#27AE60;font-size:15px}
+/* Bottom sheet */
+#pl-sheet-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:200;flex-direction:column;justify-content:flex-end}
+#pl-sheet-overlay.open{display:flex}
+#pl-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+#pl-sheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+#pl-sheet-footer{flex-shrink:0;padding:10px 16px 20px;background:#fff;border-top:1px solid #f0f0f0}
+.pl-sheet-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 14px}
+.pl-sheet-title{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;color:var(--black);padding:0 16px 4px}
+.pl-sheet-sub{font-size:11px;color:var(--grey);padding:0 16px 12px;border-bottom:1px solid #f0f0f0;margin-bottom:12px}
+.pl-sheet-label{font-size:10px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.5px;padding:0 16px;margin-bottom:6px}
+.pl-statut-row{display:flex;gap:6px;padding:0 16px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+.pl-statut-pill{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid #ddd;cursor:pointer;white-space:nowrap;background:#f5f5f5;color:#888;flex-shrink:0}
+.pl-statut-pill.active{border-color:currentColor}
+.pl-statut-pill[data-s="distribue"].active{background:#E8F5E9;border-color:#27AE60;color:#27AE60}
+.pl-statut-pill[data-s="ferme"].active{background:#FFEBEE;border-color:#E53935;color:#E53935}
+.pl-statut-pill[data-s="refus"].active{background:#FFF3E0;border-color:#E8A020;color:#E8A020}
+.pl-statut-pill[data-s="absent"].active{background:#F3E5F5;border-color:#8E24AA;color:#8E24AA}
+.pl-qty-row{display:flex;gap:8px;padding:0 16px;margin-bottom:14px}
+.pl-qty-box{flex:1}
+.pl-qty-box label{font-size:10px;color:var(--grey);display:block;margin-bottom:4px}
+.pl-qty-box select{width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#f9f9f9}
+.pl-toggle-row{display:flex;gap:8px;padding:0 16px;margin-bottom:12px}
+.pl-toggle-btn{flex:1;padding:9px 6px;border:1.5px solid #ddd;border-radius:8px;font-size:12px;font-weight:700;background:#f5f5f5;color:#888;cursor:pointer;text-align:center}
+.pl-toggle-btn.active{background:#FFF3DC;border-color:#E8A020;color:#C07800}
+.pl-toggle-btn.entree.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8}
+#pl-sheet-comment{width:100%;box-sizing:border-box;margin:0 0 12px;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:none;height:56px;display:block}
+#pl-photo-btn{width:100%;padding:10px;background:#f7f7f7;border:1.5px dashed #ccc;border-radius:8px;font-size:13px;cursor:pointer;text-align:center;color:var(--grey-dk);font-family:inherit}
+#pl-photo-btn.has-photo{background:#E8F5E9;border-color:#27AE60;color:#27AE60}
+#pl-photo-preview{display:none;width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-top:8px}
+#pl-photo-preview.show{display:block}
+/* Modal doublon */
+#dup-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center;padding:20px}
+#dup-modal.open{display:flex}
+#add-stop-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:250;flex-direction:column;justify-content:flex-end}
+#add-stop-overlay.open{display:flex}
+#add-stop-sheet{background:#fff;border-radius:20px 20px 0 0;max-height:78vh;display:flex;flex-direction:column;overflow:hidden}
+#add-stop-browse{overflow-y:auto;flex:1;min-height:0;padding-bottom:10px}
+#dup-card{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.dup-btn{width:100%;padding:12px;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
+.dup-btn-replace{background:#FFF3E0;color:#B36000}
+.dup-btn-ignore{background:#E8F5E9;color:#1B5E20}
+.dup-btn-cancel{background:#f5f5f5;color:#666}
+.pl-sheet-validate{width:100%;padding:14px;background:var(--gold);border:none;border-radius:12px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:block}
+/* Bottom bar */
+#pl-bar{background:#fff;padding:12px 16px;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.08);position:sticky;bottom:var(--nav-h);z-index:10}
+#pl-date-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700}
+#pl-date-row input{flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px}
+#pl-send-btn{display:none;width:100%;padding:13px;background:var(--purple);color:#fff;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="offline-bar" style="display:none;background:#E53935;color:#fff;text-align:center;font-size:12px;padding:5px 10px;font-weight:600">📵 Hors-ligne — pointages sauvegardés localement</div>
+  <div id="app-header">
+    <button id="hdr-back" onclick="handleBack()">&#8592;</button>
+    <div id="hdr-title">La Nougaterie du Pont d'Arc</div>
+    <div id="hdr-pill">Terrain</div>
+    <button id="offline-badge" onclick="syncOfflineQueue()" title="Pointages en attente de sync" style="display:none;background:#E53935;color:#fff;border:none;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">📤 0</button>
+    <button id="hdr-refresh" onclick="handleRefresh()" title="Rafraîchir">🔄</button>
+  </div>
+
+  <div id="app-body" class="no-nav">
+
+    <!-- LOGIN -->
+    <div id="screen-login" class="screen active">
+      <div class="login-hero">
+        <div class="login-logo"><img src="logo_transparent.png" alt="Nougaterie du Pont d'Arc"></div>
+      </div>
+      <div class="login-form">
+        <div class="login-error" id="login-error"></div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="login-email" placeholder="votre@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mot de passe</label>
+          <input class="form-input" type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-primary" id="login-btn" onclick="doLogin()">Se connecter</button>
+      </div>
+    </div>
+
+    <!-- ACCUEIL -->
+    <div id="screen-accueil" class="screen">
+      <div class="pad gap">
+        <div class="hero-card">
+          <div class="hero-greeting">Bonjour 👋</div>
+          <div class="hero-name" id="hero-name">…</div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="val" id="h-actives">—</div><div class="lbl">Tournées actives</div></div>
+            <div class="hero-stat"><div class="val" id="h-flyers">—</div><div class="lbl">Flyers ce mois</div></div>
+            <div class="hero-stat"><div class="val" id="h-taux">—</div><div class="lbl">Taux réussite</div></div>
+          </div>
+        </div>
+        <div id="tournees-container"></div>
+      </div>
+    </div>
+
+    <!-- TOURNÉE DÉTAIL -->
+    <div id="screen-tournee" class="screen">
+      <div id="tournee-detail-content" class="pad"></div>
+    </div>
+
+    <!-- VALIDATION ARRÊT -->
+    <div id="screen-validation" class="screen">
+      <div id="validation-content"></div>
+    </div>
+
+    <!-- FICHE LIEU -->
+    <div id="screen-fiche" class="screen">
+      <div id="fiche-content"></div>
+    </div>
+
+    <!-- LIEUX -->
+    <div id="screen-historique" class="screen">
+      <div class="hist-period-row">
+        <button class="hist-period-pill active" data-p="today"  onclick="setHistFilter('today')">Aujourd'hui</button>
+        <button class="hist-period-pill"         data-p="week"   onclick="setHistFilter('week')">Cette semaine</button>
+        <button class="hist-period-pill"         data-p="month"  onclick="setHistFilter('month')">Ce mois</button>
+        <button class="hist-period-pill"         data-p="year"   onclick="setHistFilter('year')">Cette année</button>
+      </div>
+      <div id="hist-count" style="padding:4px 16px 6px;font-size:11px;color:var(--grey);font-weight:600"></div>
+      <div id="hist-list" style="padding:0 16px 16px"></div>
+    </div>
+
+    <!-- POINTAGE LIBRE -->
+    <div id="screen-pointage-libre" class="screen" style="position:relative">
+      <div style="padding:10px 12px 6px;flex-shrink:0">
+        <input id="pl-search" type="search" placeholder="🔍 Rechercher un lieu..." oninput="filterPL()"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
+      </div>
+      <div id="pl-browse" style="overflow-y:auto;flex:1;min-height:0"></div>
+      <div id="pl-bar">
+        <div id="pl-date-row">
+          <span>Date de visite</span>
+          <input type="date" id="pl-date">
+        </div>
+        <button id="pl-send-btn" onclick="submitPointageLibre()">Envoyer</button>
+      </div>
+      <!-- BOTTOM SHEET -->
+      <div id="pl-sheet-overlay" onclick="if(event.target===this)closePLSheet()">
+        <div id="pl-sheet">
+          <div id="pl-sheet-body">
+            <div class="pl-sheet-handle"></div>
+            <div class="pl-sheet-title" id="pl-sheet-title"></div>
+            <div class="pl-sheet-sub" id="pl-sheet-sub"></div>
+            <div class="pl-sheet-label">Statut</div>
+            <div class="pl-statut-row">
+              <div class="pl-statut-pill active" data-s="distribue" onclick="setPLStatut('distribue')">Fait</div>
+              <div class="pl-statut-pill" data-s="ferme" onclick="setPLStatut('ferme')">Fermé</div>
+              <div class="pl-statut-pill" data-s="refus" onclick="setPLStatut('refus')">Refus</div>
+              <div class="pl-statut-pill" data-s="absent" onclick="setPLStatut('absent')">Absent</div>
+            </div>
+            <div class="pl-sheet-label">Paquets</div>
+            <div class="pl-qty-row">
+              <div class="pl-qty-box"><label>🍬 Nougaterie</label>
+                <select id="pl-sheet-qty" onchange="onPLQtyChange()"></select>
+                <div id="pl-sheet-raison-nougaterie"></div>
+              </div>
+              <div class="pl-qty-box"><label>🎟️ Château</label>
+                <select id="pl-sheet-qtych" onchange="onPLQtyChange()"></select>
+                <div id="pl-sheet-raison-chateau"></div>
+              </div>
+            </div>
+            <div class="pl-sheet-label">Offres</div>
+            <div class="pl-qty-row">
+              <div class="pl-qty-box"><label>🍬 Nougat offert</label>
+                <select id="pl-sheet-nougat"></select>
+              </div>
+              <div class="pl-qty-box"><label>🎟️ Entrées offertes</label>
+                <select id="pl-sheet-entree"></select>
+              </div>
+            </div>
+            <div class="pl-sheet-label">Commentaire</div>
+            <div style="padding:0 16px">
+              <textarea id="pl-sheet-comment" placeholder="Optionnel..."></textarea>
+            </div>
+            <div style="padding:0 16px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="pl-sheet-rappel" onchange="document.getElementById('pl-sheet-rappel-comment-wrap').style.display=this.checked?'block':'none'">
+                🔁 Prévoir un nouveau passage
+              </label>
+              <div id="pl-sheet-rappel-comment-wrap" style="display:none;margin-top:6px">
+                <textarea id="pl-sheet-rappel-comment" placeholder="Pourquoi revenir ? (optionnel)"></textarea>
+                <div style="display:flex;gap:16px;margin-top:8px;font-size:12px">
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pl-rappel-type" value="repassage" checked>🔁 Repassage simple</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pl-rappel-type" value="rdv_commercial">📅 RDV commercial</label>
+                </div>
+              </div>
+            </div>
+            <div class="pl-sheet-label">📅 Infos saison (optionnel)</div>
+            <div style="padding:0 16px" id="pl-saison-section"></div>
+            <div class="pl-sheet-label">Photo</div>
+            <div style="padding:0 16px 16px">
+              <input type="file" id="pl-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePLPhoto(this)">
+              <button id="pl-photo-btn" onclick="document.getElementById('pl-photo-input').click()">📷 Ajouter une photo</button>
+              <img id="pl-photo-preview" alt="Photo preuve">
+            </div>
+            <div id="pl-sheet-hist" style="padding:0 16px 16px"></div>
+          </div>
+          <div id="pl-sheet-footer">
+            <button class="pl-sheet-validate" id="pl-sheet-validate-btn" onclick="validatePLSheet()">Valider la visite</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTES TERRAIN -->
+    <div id="screen-notes" class="screen" style="padding:16px">
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="section-title">📝 Nouvelle note</div>
+        <p style="font-size:12px;color:var(--grey);margin:0 0 10px">Lieu à ajouter, remarque sur un secteur, retour terrain…</p>
+        <textarea id="note-texte" placeholder="Décris le lieu : nom, adresse, type d'établissement, contact si possible..." style="width:100%;min-height:120px;border:1.5px solid #E0DDD5;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        <button onclick="submitNote()" style="margin-top:10px;width:100%;padding:13px;background:var(--gold);border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">Envoyer la note</button>
+      </div>
+      <div id="notes-sent-list"></div>
+    </div>
+
+    <!-- PROFIL -->
+    <div id="screen-profil" class="screen">
+      <div id="profil-content"></div>
+    </div>
+
+  </div>
+
+  <nav id="bottom-nav" class="hidden">
+    <button class="nav-item" onclick="navTo('accueil')" id="nav-accueil">
+      <span class="nav-icon">🗺️</span><span class="nav-label">Tournées</span>
+    </button>
+    <button class="nav-item" onclick="navTo('historique')" id="nav-historique">
+      <span class="nav-icon">📋</span><span class="nav-label">Historique</span>
+    </button>
+    <button class="nav-item" onclick="openPointageLibreTab()" id="nav-pointage-libre">
+      <span class="nav-icon">✅</span><span class="nav-label">Pointage</span>
+    </button>
+    <button class="nav-item" onclick="navTo('notes')" id="nav-notes">
+      <span class="nav-icon">📝</span><span class="nav-label">Notes</span>
+    </button>
+    <button class="nav-item" onclick="navTo('profil')" id="nav-profil">
+      <span class="nav-icon">👤</span><span class="nav-label">Profil</span>
+    </button>
+  </nav>
+</div>
+
+<div id="add-stop-overlay" onclick="if(event.target===this)closeAddStopSheet()">
+  <div id="add-stop-sheet">
+    <div class="pl-sheet-handle"></div>
+    <div class="pl-sheet-title">➕ Ajouter un arrêt</div>
+    <div style="padding:0 16px 10px">
+      <input id="add-stop-search" type="search" placeholder="🔍 Rechercher un lieu..." oninput="filterAddStop()"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
+    </div>
+    <div id="add-stop-browse"></div>
+  </div>
+</div>
+
+<div id="dup-modal">
+  <div id="dup-card">
+    <div style="font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;margin-bottom:6px">⚠️ Lieux déjà visités aujourd'hui</div>
+    <div id="dup-list" style="font-size:13px;color:#555;margin-bottom:12px;line-height:1.7"></div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px">Que souhaitez-vous faire ?</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="dup-btn dup-btn-replace" onclick="resolveDup('replace')">🔄 Remplacer les anciennes visites</button>
+      <button class="dup-btn dup-btn-ignore"  onclick="resolveDup('ignore')">⏭️ Ignorer les doublons, envoyer le reste</button>
+      <button class="dup-btn dup-btn-cancel"  onclick="resolveDup('cancel')">✕ Annuler</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
 // ════════════════════════════════════════════
 //  SERVICE WORKER (PWA)
 // ════════════════════════════════════════════
@@ -95,8 +649,6 @@ const ST = {
   rtChannel: null,
   rappels: {},
   livraisons: {},
-  etaTimes: {},
-  etaState: null,
   form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false, raisonZeroNougaterie:null, raisonZeroChateau:null }
 };
 
@@ -107,96 +659,6 @@ const ST = {
 //  FILE D'ATTENTE HORS-LIGNE
 // ════════════════════════════════════════════
 const QUEUE_KEY = 'nougaterie_offline_queue';
-
-// ── Stockage local durable des photos en attente (IndexedDB, quota bien plus large que localStorage) ──
-const PHOTO_DB_NAME = 'nougaterie_photos';
-const PHOTO_STORE = 'pending';
-function openPhotoDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(PHOTO_DB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(PHOTO_STORE); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function savePendingPhoto(id, blob) {
-  const db = await openPhotoDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PHOTO_STORE, 'readwrite');
-    tx.objectStore(PHOTO_STORE).put(blob, id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-async function getPendingPhoto(id) {
-  const db = await openPhotoDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PHOTO_STORE, 'readonly');
-    const req = tx.objectStore(PHOTO_STORE).get(id);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function deletePendingPhoto(id) {
-  try {
-    const db = await openPhotoDB();
-    await new Promise((resolve) => {
-      const tx = db.transaction(PHOTO_STORE, 'readwrite');
-      tx.objectStore(PHOTO_STORE).delete(id);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => resolve();
-    });
-  } catch(e) {}
-}
-
-// ── Compression de la photo avant envoi/stockage (réduit fortement le poids) ──
-function compressImage(file, maxDim, quality) {
-  maxDim = maxDim || 1600; quality = quality || 0.72;
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      let w = img.width, h = img.height;
-      if (w > maxDim || h > maxDim) {
-        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
-        else { w = Math.round(w * maxDim / h); h = maxDim; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob((blob) => {
-        URL.revokeObjectURL(url);
-        resolve(blob || file);
-      }, 'image/jpeg', quality);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-    img.src = url;
-  });
-}
-
-// ── Enregistrement volontaire d'une copie de la photo sur l'appareil (partage natif ou téléchargement) ──
-async function savePhotoToDevice(blob, filename) {
-  try {
-    const file = new File([blob], filename, { type: blob.type||'image/jpeg' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file] }); } catch(e) {}
-      return;
-    }
-  } catch(e) {}
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
-}
-function saveCurrentPhotoToDevice() {
-  if (!ST.form.photoFile) { toast('Aucune photo à enregistrer'); return; }
-  savePhotoToDevice(ST.form.photoFile, 'photo_'+Date.now()+'.jpg');
-}
-function savePLPhotoToDevice() {
-  if (!plPhotoBlob) { toast('Aucune photo à enregistrer'); return; }
-  savePhotoToDevice(plPhotoBlob, 'photo_'+Date.now()+'.jpg');
-}
 
 function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
@@ -258,12 +720,9 @@ async function syncOfflineQueue() {
   // Photo uploads sync last, so a stale queued validation patch never overwrites a fresh photo URL
   for (const item of photoItems) {
     try {
-      const blob = item.photoId ? await getPendingPhoto(item.photoId) : (item.photoB64 ? dataURLtoBlob(item.photoB64) : null);
-      if (!blob) throw new Error('photo introuvable localement');
-      const path = `tournee_${item.tourneeId}/p${item.pointId}_${Date.now()}.${item.ext||'jpg'}`;
-      const url = await uploadPhoto(blob, path);
+      const path = `tournee_${item.tourneeId}/p${item.pointId}_${Date.now()}.${item.ext}`;
+      const url = await uploadPhoto(dataURLtoBlob(item.photoB64), path);
       await sbPatch('points_tournee','id=eq.'+item.pointId, { photo_preuve: url });
-      if (item.photoId) await deletePendingPhoto(item.photoId);
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -286,8 +745,7 @@ async function syncPointageLibreItem(item) {
     tId = (Array.isArray(res)?res[0]:res).id;
   }
   const heure = new Date(dateVal+'T12:00:00').toISOString();
-  const keys = Object.keys(plSelectedData);
-  const points = keys.map((k,i) => {
+  const points = Object.keys(plSelectedData).map((k,i) => {
     const d = plSelectedData[k];
     return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
              quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
@@ -296,25 +754,12 @@ async function syncPointageLibreItem(item) {
              nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut:d.statut||'distribue',
              heure_validation:heure, commentaire_distributeur:d.comment||null };
   });
-  const insertedRes = await sbPost('points_tournee', points);
-  const inserted = Array.isArray(insertedRes) ? insertedRes : [insertedRes];
-  await Promise.all(keys.map(async (k, i) => {
+  await sbPost('points_tournee', points);
+  await Promise.all(Object.keys(plSelectedData).map(async (k) => {
     const d = plSelectedData[k] || {};
     try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
     if (d.dateOuverture || d.dateFermeture) {
       try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null, d.anneeOuverture, d.anneeFermeture); } catch(e) {}
-    }
-    if (d.photoId) {
-      try {
-        const blob = await getPendingPhoto(d.photoId);
-        const ptId = inserted[i] && inserted[i].id;
-        if (blob && ptId) {
-          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.jpg`;
-          const url = await uploadPhoto(blob, path);
-          await sbPatch('points_tournee','id=eq.'+ptId, { photo_preuve: url });
-          await deletePendingPhoto(d.photoId);
-        }
-      } catch(e) {}
     }
   }));
 }
@@ -569,7 +1014,6 @@ async function handleRefresh() {
       await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
       renderTourneeDetail();
       toast('🔄 Tournée mise à jour');
-      refreshEtaTimes();
     } else {
       await loadTournees();
       renderAccueil();
@@ -650,7 +1094,6 @@ async function openTournee(id) {
   await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
   subscribeRealtime(id);
   renderTourneeDetail();
-  refreshEtaTimes();
 }
 
 // ════════════════════════════════════════════
@@ -747,7 +1190,6 @@ function stopCardHTML(p, i, pts) {
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
           ${ST.livraisons[l.id]?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(ST.livraisons[l.id].description||'Livraison à faire')}</div>`:''}
-          ${(!repere && s==='a_faire') ? etaLineHTML(p) : ''}
           ${p.commentaire_distributeur?`<div class="stop-addr" style="font-style:italic">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
           ${pendingSyncPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
           ${pendingPhotoPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--red);font-weight:600;margin-top:1px">📷 Photo en attente d\'envoi</div>':''}
@@ -1035,7 +1477,6 @@ function renderValidation() {
             p.photo_preuve?`<img src="${p.photo_preuve}" class="photo-preview" alt="Photo existante">`:''
           }
         </div>
-        ${f.photoB64?`<button type="button" class="btn-secondary" style="width:100%;margin-top:8px;padding:8px;font-size:12px" onclick="event.stopPropagation();saveCurrentPhotoToDevice()">💾 Enregistrer aussi sur mon téléphone</button>`:''}
       </div>
 
       ${isLivraisonOnly ? '' : `
@@ -1288,29 +1729,24 @@ async function applyRappelUpdate(lieuId, wantOpen, commentaire, origine, type) {
   }
 }
 
-async function handlePLPhoto(input) {
+function handlePLPhoto(input) {
   const file = input.files[0]; if (!file) return;
-  const compressed = await compressImage(file);
-  plPhotoBlob = compressed;
   const r = new FileReader();
   r.onload = e => {
     const prev = document.getElementById('pl-photo-preview');
     const btn  = document.getElementById('pl-photo-btn');
-    const saveBtn = document.getElementById('pl-photo-save-btn');
     prev.src = e.target.result; prev.classList.add('show');
     btn.textContent = '📷 Photo ajoutée ✓'; btn.classList.add('has-photo');
-    if (saveBtn) saveBtn.style.display = 'block';
   };
-  r.readAsDataURL(compressed);
+  r.readAsDataURL(file);
 }
 
-async function handlePhoto(input) {
+function handlePhoto(input) {
   const file = input.files[0]; if (!file) return;
-  const compressed = await compressImage(file);
-  ST.form.photoFile = compressed;
+  ST.form.photoFile = file;
   const r = new FileReader();
   r.onload = e => { ST.form.photoB64 = e.target.result; renderValidation(); };
-  r.readAsDataURL(compressed);
+  r.readAsDataURL(file);
 }
 
 async function submitValidation() {
@@ -1324,19 +1760,14 @@ async function submitValidation() {
   let photoUrl = ST.activePoints.find(x=>x.id===ST.form.pointId)?.photo_preuve || null;
   let photoQueued = false;
   if (ST.form.photoFile) {
-    const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.jpg`;
     try {
+      const ext = ST.form.photoFile.name.split('.').pop()||'jpg';
+      const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.${ext}`;
       photoUrl = await uploadPhoto(ST.form.photoFile, path);
     } catch(e) {
-      try {
-        const photoId = 'pt'+ST.form.pointId+'_'+Date.now();
-        await savePendingPhoto(photoId, ST.form.photoFile);
-        addToOfflineQueue({ type:'photo_upload', pointId: ST.form.pointId, tourneeId: ST.activeTournee.id, photoId, ext:'jpg' });
-        photoQueued = true;
-        toast('📤 Photo mise en attente, sera envoyée dès que possible', 5000);
-      } catch(e2) {
-        toast('⚠️ Photo non conservée (stockage plein), le reste est enregistré', 5000);
-      }
+      addToOfflineQueue({ type:'photo_upload', pointId: ST.form.pointId, tourneeId: ST.activeTournee.id, photoB64: ST.form.photoB64, ext: (ST.form.photoFile.name.split('.').pop()||'jpg') });
+      photoQueued = true;
+      toast('📤 Photo mise en attente, sera envoyée dès que possible', 5000);
     }
   }
 
@@ -1422,7 +1853,6 @@ async function submitValidation() {
     else toast('Arrêt validé ✓');
   }
   navTo('tournee');
-  refreshEtaTimes();
 }
 
 // ════════════════════════════════════════════
@@ -1687,7 +2117,6 @@ async function exportListePDF() {
 // ════════════════════════════════════════════
 let plSelected = {}; // id -> {statut,qty,nougat,note}
 let plRaisonNougaterie = null, plRaisonChateau = null;
-let plPhotoBlob = null;
 let plAllLieux = [];
 
 async function renderPointageLibre() {
@@ -1796,17 +2225,13 @@ function openPLSheet(k) {
   const photoInput = document.getElementById('pl-photo-input');
   const photoPrev  = document.getElementById('pl-photo-preview');
   const photoBtn   = document.getElementById('pl-photo-btn');
-  const photoSaveBtn = document.getElementById('pl-photo-save-btn');
   photoInput.value = '';
-  plPhotoBlob = prev.photoFile || null;
   if (prev.photoB64) {
     photoPrev.src = prev.photoB64; photoPrev.classList.add('show');
     photoBtn.textContent = '📷 Photo ajoutée ✓'; photoBtn.classList.add('has-photo');
-    if (photoSaveBtn) photoSaveBtn.style.display = plPhotoBlob ? 'block' : 'none';
   } else {
     photoPrev.src = ''; photoPrev.classList.remove('show');
     photoBtn.textContent = '📷 Ajouter une photo'; photoBtn.classList.remove('has-photo');
-    if (photoSaveBtn) photoSaveBtn.style.display = 'none';
   }
   setPLStatut(prev.statut||'distribue');
   document.getElementById('pl-sheet-overlay').classList.add('open');
@@ -1866,7 +2291,8 @@ function validatePLSheet() {
   const anneeFermeture = fermInputEl ? (parseInt(fermInputEl.dataset.annee,10) || new Date().getFullYear()) : (prevSaison.anneeFermeture || null);
   const anneeOuverture = ouvInputEl ? (parseInt(ouvInputEl.dataset.annee,10) || (new Date().getFullYear()+1)) : (prevSaison.anneeOuverture || null);
   const saisonOrder = document.getElementById('pl-saison-fields-row')?.dataset.order || prevSaison.saisonOrder || 'fermeture-first';
-  const photoFile = plPhotoBlob;
+  const photoInput2 = document.getElementById('pl-photo-input');
+  const photoFile = photoInput2.files[0] || null;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
   plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, saisonOrder, photoFile, photoB64: photoFile ? photoB64 : null, raisonZeroNougaterie: qty===0?(plRaisonNougaterie||null):null, raisonZeroChateau: qtyChateau===0?(plRaisonChateau||null):null };
   const btn = document.getElementById('pladd-'+k);
@@ -1948,48 +2374,32 @@ async function submitPointageLibre() {
       const d = (typeof plSelected[k]==='object') ? plSelected[k] : {};
       const statut = d.statut||'distribue';
       let photoUrl = null;
-      let photoFailed = null;
       if (d.photoFile) {
         try {
-          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.jpg`;
+          const ext = d.photoFile.name.split('.').pop()||'jpg';
+          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.${ext}`;
           photoUrl = await uploadPhoto(d.photoFile, path);
         } catch(e) {
-          photoFailed = d.photoFile;
+          toast('⚠️ Photo non envoyée (lieu ' + k + ') : ' + e.message);
         }
       }
-      return { row: { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
+      return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
                quantite_flyers:d.qty??1, quantite_flyers_chateau:d.qtyChateau??1,
                raison_zero_nougaterie: (d.qty??1)===0 ? (d.raisonZeroNougaterie||null) : null,
                raison_zero_chateau: (d.qtyChateau??1)===0 ? (d.raisonZeroChateau||null) : null,
                nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut, heure_validation:heure,
-               commentaire_distributeur:d.comment||null, photo_preuve:photoUrl }, photoFailed };
+               commentaire_distributeur:d.comment||null, photo_preuve:photoUrl };
     };
 
-    async function queueFailedPLPhoto(pointId, blob) {
-      if (!blob || !pointId) return;
-      try {
-        const photoId = 'pl'+pointId+'_'+Date.now();
-        await savePendingPhoto(photoId, blob);
-        addToOfflineQueue({ type:'photo_upload', pointId, tourneeId: tId, photoId, ext:'jpg' });
-        toast('📤 Photo mise en attente, sera envoyée dès que possible', 4000);
-      } catch(e) {
-        toast('⚠️ Photo non conservée (stockage plein)', 4000);
-      }
-    }
-
     if (keysToPost.length) {
-      const built = await Promise.all(keysToPost.map((k,i) => buildPoint(k, i)));
-      const insertedRes = await sbPost('points_tournee', built.map(b => b.row));
-      const inserted = Array.isArray(insertedRes) ? insertedRes : [insertedRes];
-      await Promise.all(built.map((b, i) => (b.photoFailed && inserted[i]) ? queueFailedPLPhoto(inserted[i].id, b.photoFailed) : null));
+      const pts = await Promise.all(keysToPost.map((k,i) => buildPoint(k, i)));
+      await sbPost('points_tournee', pts);
     }
     if (keysToPatch.length) {
       await Promise.all(keysToPatch.map(async (k,i) => {
-        const built = await buildPoint(k, i);
-        const {tournee_id, lieu_id, ordre_passage, ...upd} = built.row;
-        const ptId = dupMap[parseInt(k)];
-        await sbPatch('points_tournee', 'id=eq.'+ptId, upd);
-        if (built.photoFailed) await queueFailedPLPhoto(ptId, built.photoFailed);
+        const data = await buildPoint(k, i);
+        const {tournee_id, lieu_id, ordre_passage, ...upd} = data;
+        await sbPatch('points_tournee', 'id=eq.'+dupMap[parseInt(k)], upd);
       }));
     }
 
@@ -2008,23 +2418,8 @@ async function submitPointageLibre() {
     navTo('historique');
   } catch(e) {
     if (isNetworkFailure(e)) {
-      const plSelectedData = {};
-      for (const k of Object.keys(plSelected)) {
-        const d = plSelected[k] || {};
-        const copy = {...d};
-        if (copy.photoFile) {
-          try {
-            const photoId = 'pl'+k+'_'+Date.now();
-            await savePendingPhoto(photoId, copy.photoFile);
-            copy.photoId = photoId;
-          } catch(e2) {}
-        }
-        delete copy.photoFile;
-        delete copy.photoB64;
-        plSelectedData[k] = copy;
-      }
-      addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData });
-      toast('📤 Sauvegardé hors-ligne', 4000);
+      addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData:{...plSelected} });
+      toast('📤 Sauvegardé hors-ligne — photos non incluses', 4000);
       plSelected = {};
       navTo('historique');
     } else { toast('Erreur : '+e.message); }
@@ -2045,46 +2440,6 @@ function distMeters(lat1,lon1,lat2,lon2){
 function fmtDist(m){
   if(m==null) return '';
   return m<1000 ? (Math.round(m/10)*10)+' m' : (m/1000).toFixed(1).replace('.',',')+' km';
-}
-const MARGE_TRAJET_PCT = 0.03;
-function fmtDureeMin(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h>0?h+'h '+m+'min':m+' min'; }
-async function refreshEtaTimes() {
-  const stops = ST.activePoints.filter(p => p.statut==='a_faire' && !isRepere(p) && p.lieux && p.lieux.latitude && p.lieux.longitude);
-  if (!stops.length) { ST.etaState = null; ST.etaTimes = {}; return; }
-  const geo = await refreshGeo();
-  if (!geo) {
-    ST.etaState = 'unavailable'; ST.etaTimes = {};
-    if (ST.screen === 'tournee') renderTourneeDetail();
-    return;
-  }
-  try {
-    const coords = `${geo.lon},${geo.lat};` + stops.map(p => `${p.lieux.longitude},${p.lieux.latitude}`).join(';');
-    const r = await fetch(`https://router.project-osrm.org/table/v1/driving/${coords}?sources=0`);
-    const d = await r.json();
-    if (!d.durations || !d.durations[0]) throw new Error('no durations');
-    const durations = d.durations[0];
-    const times = {};
-    stops.forEach((p, i) => {
-      const sec = durations[i+1];
-      times[p.id] = (sec!=null) ? Math.round(sec*(1+MARGE_TRAJET_PCT)/60) : null;
-    });
-    ST.etaTimes = times;
-    ST.etaState = 'ok';
-  } catch(e) {
-    ST.etaTimes = {};
-    ST.etaState = 'unavailable';
-  }
-  if (ST.screen === 'tournee') renderTourneeDetail();
-}
-function etaLineHTML(p) {
-  if (ST.etaState === 'ok') {
-    const min = ST.etaTimes[p.id];
-    return (min!=null) ? `<div class="stop-addr" style="color:var(--blue);font-weight:600">🚗 ${fmtDureeMin(min)}</div>` : '';
-  }
-  if (ST.etaState === 'unavailable') {
-    return `<div class="stop-addr" style="color:var(--grey)">⏱ Temps indisponible</div>`;
-  }
-  return '';
 }
 function withProximity(list){
   if(!ST.geoPos) return list.map(l=>({...l,_dist:null}));
@@ -2555,3 +2910,6 @@ function toast(msg,dur=2000) {
   el.textContent=msg; el.classList.add('show');
   clearTimeout(_toastT); _toastT=setTimeout(()=>el.classList.remove('show'),dur);
 }
+</script>
+</body>
+</html>

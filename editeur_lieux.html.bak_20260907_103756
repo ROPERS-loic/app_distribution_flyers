@@ -1,4 +1,850 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Éditeur de lieux – Nougaterie du Pont d'Arc</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#header{background:#2B2B2B;color:#fff;padding:0 10px;display:flex;align-items:center;gap:7px;height:50px;flex-shrink:0}
+#header h1{font-size:12px;font-weight:bold;flex:1}
+#header-search-wrap{position:relative;flex:1;max-width:320px;display:flex;align-items:center;gap:8px}
+#header-search-input{flex:1;padding:6px 9px;border:1px solid #555;border-radius:5px;font-size:12px;outline:none;background:#3a3a3a;color:#fff}
+#header-search-input::placeholder{color:#bbb}
+#header-search-input:focus{border-color:#E8A020}
+#header-rappel-only-label{display:flex;align-items:center;gap:4px;font-size:10px;color:#ddd;white-space:nowrap;cursor:pointer}
+#header-search-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:0 0 6px 6px;max-height:280px;overflow-y:auto;z-index:2000;display:none;box-shadow:0 4px 14px rgba(0,0,0,0.25)}
+.header-search-item{padding:7px 9px;font-size:12px;color:#2B2B2B;cursor:pointer;border-bottom:1px solid #f0f0f0}
+.header-search-item:hover{background:#f5f5f5}
+.hbtn{padding:5px 9px;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-weight:bold;white-space:nowrap}
+#btn-add{background:#43A047;color:#fff}
+#btn-zones{background:#546E7A;color:#fff}
+#btn-route{background:#1E88E5;color:#fff}
+/* Mini login Supabase */
+#sb-login-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center}
+#sb-login-overlay.hidden{display:none}
+#sb-login-box{background:#fff;border-radius:12px;padding:28px 32px;width:320px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
+#sb-login-box h3{font-size:15px;font-weight:bold;margin-bottom:16px;color:#2B2B2B}
+#sb-login-box input{width:100%;padding:9px 11px;border:1.5px solid #ddd;border-radius:6px;font-size:13px;margin-bottom:10px;outline:none;box-sizing:border-box}
+#sb-login-box input:focus{border-color:#E8A020}
+#sb-login-btn{width:100%;padding:10px;background:#E8A020;color:#2B2B2B;border:none;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer}
+#sb-login-btn:hover{background:#d4911a}
+#sb-login-err{color:#E53935;font-size:11px;margin-top:6px;display:none}
+.hbtn:hover{filter:brightness(1.15)}
+.hbtn-dropdown{position:relative;display:inline-flex}
+.hbtn-dropdown-trigger{display:flex;align-items:center;gap:4px}
+.hbtn-dropdown-trigger .caret{font-size:9px;opacity:.75}
+.hbtn-dropdown-menu{position:absolute;top:100%;left:0;margin-top:4px;background:#3a3a3a;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,0.4);padding:6px;display:none;flex-direction:column;gap:4px;min-width:210px;z-index:3000}
+.hbtn-dropdown-menu.open{display:flex}
+.hbtn-dropdown-menu .hbtn{width:100%;text-align:left;white-space:normal}
+#btn-undo{background:#37474F;color:#fff}
+#btn-undo:disabled{opacity:.35;cursor:not-allowed;filter:none}
+#save-indicator{font-size:10px;white-space:nowrap;padding:2px 8px;border-radius:8px;border:1px solid #555;background:rgba(255,255,255,0.08);color:#aaa;cursor:default}
+#save-indicator.saved{color:#81C784;border-color:#43A047}
+#save-indicator.unsaved{color:#E8A020;border-color:#E8A020;animation:pulse-badge .9s infinite alternate}
+@keyframes pulse-badge{from{opacity:1}to{opacity:.45}}
+#restore-banner{position:fixed;top:0;left:0;right:0;z-index:9000;background:#1E88E5;color:#fff;padding:9px 16px;display:flex;align-items:center;gap:10px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,0.3);flex-wrap:wrap}
+#restore-banner.hidden{display:none}
+.rb-btn{padding:5px 13px;border:none;border-radius:5px;font-weight:bold;font-size:11px;cursor:pointer;white-space:nowrap}
+.rb-restore{background:#fff;color:#1E88E5}
+.rb-dismiss{background:rgba(255,255,255,0.2);color:#fff}
+#btn-add.active,#btn-route.active{background:#E53935}
+#total-badge{background:#E8A020;color:#2B2B2B;font-weight:bold;font-size:10px;padding:2px 7px;border-radius:10px;white-space:nowrap}
+#main{display:flex;flex:1;overflow:hidden;position:relative}
+/* LEFT PANEL */
+#panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2;overflow-y:auto}
+#tournee-left-panel{display:none;flex-direction:column;flex-shrink:0}
+#tournee-left-panel.open{display:flex}
+#search-bar{display:none}
+#search-input{width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:5px;font-size:12px;outline:none}
+#search-input:focus{border-color:#E8A020}
+.filter-row{display:flex;gap:5px}
+.filter-row select{flex:1;padding:4px 5px;border:1px solid #ccc;border-radius:4px;font-size:11px;outline:none}
+#poi-list{display:none}
+.poi-item{padding:7px 9px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:.1s;display:flex;align-items:center;gap:6px}
+.poi-item:hover{background:#fff8ea}
+.poi-item.selected{background:#fff3dc;border-left:3px solid #E8A020}
+.poi-item.route-selected{background:#E3F2FD;border-left:3px solid #1E88E5}
+.poi-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.poi-info{flex:1;min-width:0}
+.poi-nom{font-size:11px;font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poi-sub{font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route-num{width:17px;height:17px;border-radius:50%;background:#1E88E5;color:#fff;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#poi-count{display:none}
+/* EDIT PANEL */
+#edit-panel{border-top:2px solid #E8A020;background:#fff;flex-shrink:0;max-height:270px;overflow-y:auto;padding:9px}
+#edit-panel h3{font-size:11px;color:#E8A020;margin-bottom:7px;font-weight:bold}
+#edit-panel.hidden{display:none}
+.field-row{margin-bottom:5px}
+.field-row label{display:block;font-size:9px;font-weight:bold;color:#777;text-transform:uppercase;margin-bottom:2px}
+.field-row input,.field-row select,.field-row textarea{width:100%;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:Arial,sans-serif;outline:none}
+.field-row input:focus,.field-row select:focus{border-color:#E8A020}
+.field-row textarea{resize:vertical;min-height:34px}
+.field-coords{display:flex;gap:5px}
+.field-coords input{flex:1}
+.btn-row{display:flex;gap:5px;margin-top:7px}
+.btn-save{flex:1;padding:6px;background:#E8A020;color:#2B2B2B;border:none;border-radius:5px;font-weight:bold;font-size:12px;cursor:pointer}
+.btn-del{padding:6px 9px;background:#E53935;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer}
+.btn-cancel{padding:6px 8px;background:#eee;color:#555;border:none;border-radius:5px;font-size:11px;cursor:pointer}
+/* MAP */
+#map{flex:1;position:relative}
+/* LEGEND */
+#legend{position:absolute;bottom:10px;left:10px;z-index:900;background:rgba(255,255,255,0.95);border:1px solid #ddd;border-radius:8px;padding:7px 11px;box-shadow:0 2px 8px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto}
+#legend h4{font-size:10px;color:#2B2B2B;font-weight:bold;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.leg-item{display:flex;align-items:center;gap:6px;padding:2px 3px;cursor:pointer;border-radius:3px}
+.leg-item:hover,.leg-item.active-filter{background:#f0f0f0}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.leg-label{font-size:10px;color:#444}
+/* ROUTE PANEL */
+#route-panel{position:absolute;bottom:0;right:0;width:290px;background:#fff;border-top:2px solid #1E88E5;border-left:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:420px}
+#route-panel.open{display:flex}
+#route-header{background:#1E88E5;color:#fff;padding:7px 10px;display:flex;align-items:center;justify-content:space-between}
+#route-header h3{font-size:12px;font-weight:bold}
+#route-list{flex:1;overflow-y:auto;padding:5px}
+.route-stop{display:flex;align-items:center;gap:6px;padding:5px;border-bottom:1px solid #f0f0f0;font-size:11px;cursor:default;transition:background .1s}
+.route-stop.drag-over{border-top:2px solid #1E88E5;background:#E3F2FD}
+.route-stop.dragging{opacity:.35}
+.route-drag{cursor:grab;color:#bbb;font-size:15px;flex-shrink:0;padding:0 2px;user-select:none;line-height:1}
+.route-drag:active{cursor:grabbing}
+.route-stop-num{width:18px;height:18px;border-radius:50%;background:#1E88E5;color:#fff;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.route-stop-info{flex:1;min-width:0}
+.route-stop-nom{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route-stop-sub{font-size:10px;color:#888}
+.route-stop-del{color:#E53935;cursor:pointer;font-size:14px;flex-shrink:0}
+#route-actions{padding:7px;border-top:1px solid #eee;display:flex;gap:5px;flex-direction:column}
+#route-result{background:#E3F2FD;border-radius:6px;padding:8px;font-size:12px;text-align:center;display:none}
+#route-result .result-main{font-size:14px;font-weight:bold;color:#1E88E5}
+#route-result .result-sub{font-size:10px;color:#666;margin-top:2px}
+.route-action-row{display:flex;gap:5px}
+.rbtn{flex:1;padding:6px;border:none;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer}
+.rbtn-calc{background:#1E88E5;color:#fff}
+.rbtn-opt{background:#546E7A;color:#fff}
+.rbtn-clear{background:#eee;color:#555}
+.rbtn-save{background:#6A1B9A;color:#fff;flex:2}
+.rbtn-gmap{background:#34A853;color:#fff;flex:2}
+.rbtn:hover{filter:brightness(1.12)}
+#route-empty{text-align:center;padding:14px;color:#aaa;font-size:11px;font-style:italic}
+/* GMAP SEGMENTS MODAL */
+#gmap-modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2500;display:none;align-items:center;justify-content:center}
+#gmap-modal.open{display:flex}
+#gmap-box{background:#fff;border-radius:10px;width:400px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 24px rgba(0,0,0,0.35);overflow:hidden}
+#gmap-box-header{background:#34A853;color:#fff;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#gmap-box-header h2{font-size:13px;font-weight:bold}
+#gmap-box-header button{background:none;border:none;color:#fff;font-size:17px;cursor:pointer}
+#gmap-box-body{padding:12px;overflow-y:auto;flex:1}
+#gmap-box-body p{font-size:11px;color:#555;margin-bottom:10px;line-height:1.5}
+.gmap-seg-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;margin-bottom:7px;background:#f5fdf6;border:1px solid #c8e6c9;border-radius:7px;cursor:pointer;text-align:left;font-size:11px;font-family:Arial,sans-serif}
+.gmap-seg-btn:hover{background:#e8f5e9;border-color:#34A853}
+.gmap-seg-label{font-weight:bold;color:#2B2B2B}
+.gmap-seg-sub{font-size:10px;color:#888;margin-top:2px}
+.gmap-seg-arrow{color:#34A853;font-size:16px;flex-shrink:0}
+.gmap-all-btn{display:block;width:100%;padding:10px 12px;margin-bottom:4px;background:#E8A020;color:#2B2B2B;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:bold;font-family:Arial,sans-serif}
+.gmap-all-btn:hover{background:#d4911a}
+/* ZONE MODAL */
+#zone-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;display:none;align-items:center;justify-content:center}
+#zone-modal.open{display:flex}
+#zone-box{background:#fff;border-radius:10px;width:460px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+#zone-box-header{background:#546E7A;color:#fff;padding:11px 14px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between}
+#zone-box-header h2{font-size:13px;font-weight:bold}
+#zone-box-header button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+#zone-list-editor{flex:1;overflow-y:auto;padding:9px}
+.zone-row{display:flex;align-items:center;gap:7px;padding:6px;border-bottom:1px solid #f0f0f0}
+.zone-color-pick{width:26px;height:26px;border:none;border-radius:4px;cursor:pointer;padding:0;flex-shrink:0}
+.zone-name-input{flex:1;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:12px;outline:none}
+.zone-name-input:focus{border-color:#546E7A}
+.zone-count{font-size:10px;color:#999;white-space:nowrap;min-width:46px;text-align:right}
+.zone-del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:15px;flex-shrink:0}
+.zone-del-btn:hover{color:#E53935}
+#zone-box-footer{padding:9px 12px;border-top:1px solid #eee;display:flex;gap:7px}
+.zfbtn{padding:7px 12px;border:none;border-radius:5px;font-size:12px;font-weight:bold;cursor:pointer}
+.zfbtn-add{background:#43A047;color:#fff;flex:1}
+.zfbtn-save{background:#E8A020;color:#2B2B2B;flex:1}
+.zfbtn-cancel{background:#eee;color:#555}
+#open-tournee-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;display:none;align-items:center;justify-content:center}
+#open-tournee-modal.open{display:flex}
+#open-tournee-box{background:#fff;border-radius:10px;width:420px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+#open-tournee-header{background:#546E7A;color:#fff;padding:11px 14px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#open-tournee-header h2{font-size:13px;font-weight:bold}
+#open-tournee-header button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+#open-tournee-list{overflow-y:auto;padding:8px}
+.ot-item{padding:10px;border-radius:6px;border:1px solid #eee;margin-bottom:6px;cursor:pointer}
+.ot-item:hover{background:#f5f5f5}
+.ot-item-nom{font-weight:bold;font-size:13px;color:#2B2B2B}
+.ot-item-sub{font-size:11px;color:#777;margin-top:2px}
+.ot-empty{padding:24px;text-align:center;color:#999;font-size:13px}
 
+/* SAVE NAME MODAL */
+#save-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2100;display:none;align-items:center;justify-content:center}
+#save-modal.open{display:flex}
+#save-box{background:#fff;border-radius:10px;width:360px;box-shadow:0 4px 20px rgba(0,0,0,0.3);overflow:hidden}
+#save-box-header{background:#6A1B9A;color:#fff;padding:11px 14px;display:flex;align-items:center;justify-content:space-between}
+#save-box-header h2{font-size:13px;font-weight:bold}
+#save-box-header button{background:none;border:none;color:#fff;font-size:17px;cursor:pointer}
+#save-box-body{padding:14px}
+#save-box-body label{display:block;font-size:11px;font-weight:bold;color:#555;margin-bottom:5px}
+#save-name-input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none}
+#save-name-input:focus{border-color:#6A1B9A}
+.save-stops-preview{font-size:10px;color:#888;margin-top:6px}
+#save-box-footer{padding:10px 14px;border-top:1px solid #eee;display:flex;gap:7px}
+.sfbtn{flex:1;padding:8px;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer}
+.sfbtn-ok{background:#6A1B9A;color:#fff}
+.sfbtn-cancel{background:#eee;color:#555}
+/* SAVED ITINERARIES PANEL */
+#saved-panel{position:absolute;top:0;right:0;width:300px;height:100%;background:#fff;border-left:1px solid #ddd;z-index:950;display:none;flex-direction:column;box-shadow:-3px 0 12px rgba(0,0,0,0.1)}
+#saved-panel.open{display:flex}
+#saved-header{background:#6A1B9A;color:#fff;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#saved-header h3{font-size:13px;font-weight:bold}
+#saved-header button{background:none;border:none;color:#fff;font-size:17px;cursor:pointer}
+#saved-list{flex:1;overflow-y:auto;padding:8px}
+.saved-item{border:1px solid #e0e0e0;border-radius:8px;padding:10px;margin-bottom:8px;background:#fafafa}
+.saved-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.saved-item-name{font-size:13px;font-weight:bold;color:#2B2B2B}
+.saved-item-meta{font-size:10px;color:#888;margin-bottom:6px}
+.saved-item-stops{font-size:10px;color:#555;line-height:1.5;margin-bottom:7px;max-height:50px;overflow:hidden;text-overflow:ellipsis}
+.saved-actions{display:flex;gap:5px}
+.sa-btn{flex:1;padding:5px 6px;border:none;border-radius:5px;font-size:10px;font-weight:bold;cursor:pointer}
+.sa-load{background:#1E88E5;color:#fff}
+.sa-gmap{background:#34A853;color:#fff}
+.sa-pdf{background:#E8A020;color:#2B2B2B}
+.sa-del{background:#eee;color:#E53935}
+.sa-btn:hover{filter:brightness(1.1)}
+#saved-empty{text-align:center;padding:20px;color:#aaa;font-size:12px;font-style:italic}
+/* ADD BANNER */
+#add-banner{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:800;background:#43A047;color:#fff;padding:6px 16px;border-radius:18px;font-size:12px;font-weight:bold;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);pointer-events:none}
+/* STATUT BADGES */
+.statut-badge{font-size:9px;padding:1px 5px;border-radius:8px;font-weight:bold;margin-left:3px;flex-shrink:0}
+.statut-no-flyer{background:#FFF3DC;color:#E8A020;border:1px solid #E8A020}
+.statut-closed-perm{background:#FFEBEE;color:#E53935;border:1px solid #E53935}
+.statut-closed-temp{background:#F3E5F5;color:#8E24AA;border:1px solid #8E24AA}
+.poi-item.statut-dim{opacity:0.55}
+/* TOURNÉE PANEL */
+#tournee-panel{position:absolute;bottom:0;right:0;width:360px;background:#fff;border-top:2px solid #27AE60;border-left:1px solid #ddd;z-index:1000;display:none;flex-direction:column;max-height:min(640px,calc(100vh - 30px));overflow-y:auto}
+#tournee-panel.open{display:flex}
+#tournee-header{background:#27AE60;color:#fff;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#tournee-header h3{font-size:13px;font-weight:bold}
+.tournee-section-label{font-size:10px;font-weight:bold;color:#546E7A;text-transform:uppercase;letter-spacing:.4px;padding:7px 10px 4px;background:#fff;border-top:1px solid #eee;flex-shrink:0;display:flex;align-items:center;gap:4px}
+#tournee-resize-handle{height:9px;flex-shrink:0;cursor:ns-resize;background:#eee;display:flex;align-items:center;justify-content:center}
+#tournee-resize-handle::after{content:'';width:32px;height:3px;border-radius:2px;background:#bbb}
+#tournee-resize-handle:hover{background:#e0e0e0}
+#tournee-list{padding:5px;min-height:60px;max-height:260px;overflow-y:auto;border-bottom:1px solid #ddd;box-shadow:inset 0 -6px 6px -6px rgba(0,0,0,.08)}
+#tournee-empty{text-align:center;padding:14px;color:#aaa;font-size:11px;font-style:italic}
+.tournee-stop{display:flex;align-items:center;gap:7px;padding:6px 5px;border-bottom:1px solid #f0f0f0;font-size:12px;cursor:default;transition:background .1s}
+.tournee-stop.drag-over{border-top:2px solid #27AE60;background:#E8F8EF}
+.tournee-stop.dragging{opacity:.35}
+.tournee-drag{cursor:grab;color:#bbb;font-size:16px;flex-shrink:0;padding:0 2px;user-select:none}
+.tournee-stop-num{width:20px;height:20px;border-radius:50%;background:#27AE60;color:#fff;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tournee-stop-repere{background:#8D6E63;font-size:11px}
+.tournee-repere-badge{font-size:9px;background:#EFEBE9;color:#5D4037;padding:1px 5px;border-radius:8px;margin-left:4px;font-weight:normal}
+.tournee-stop-info{flex:1;min-width:0}
+.tournee-stop-nom{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tournee-stop-sub{font-size:10px;color:#888}
+.tournee-stop-del{color:#E53935;cursor:pointer;font-size:15px;flex-shrink:0;padding:0 2px}
+.tournee-stop.is-livraison{background:#FBF3E7}
+.tournee-stop-num.is-livraison{background:#C87F0A}
+.tournee-stop-livraison-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.4;filter:grayscale(1)}
+.tournee-stop-livraison-btn.active{opacity:1;filter:none}
+.tournee-stop-desc{font-size:10px;color:#C87F0A;font-style:italic;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tournee-route-controls{padding:8px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;background:#f9f9f9;flex-shrink:0}
+#tournee-form{padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff;flex-shrink:0}
+.tf-label{font-size:9px;font-weight:bold;color:#777;text-transform:uppercase;margin-bottom:1px}
+.tf-input{width:100%;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:11px;outline:none;box-sizing:border-box}
+.tf-input:focus{border-color:#27AE60}
+#tournee-save-wrap{padding:0 8px 8px;flex-shrink:0}
+.tbtn{flex:1;padding:6px;border:none;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer}
+.tbtn-opt{background:#546E7A;color:#fff}
+.tbtn-calc{background:#1E88E5;color:#fff}
+.tbtn-clear{background:#eee;color:#555}
+.tbtn-save{background:#27AE60;color:#fff;width:100%}
+.tbtn:hover{filter:brightness(1.1)}
+#btn-tournee.active{background:#E53935!important}
+#btn-pointage.active{background:#E53935!important}
+/* Visite rapide modal */
+#visite-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center}
+#visite-modal.open{display:flex}
+#visite-box{background:#fff;border-radius:10px;padding:18px;width:300px;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+#visite-box h3{font-size:13px;font-weight:bold;margin-bottom:12px;color:#27AE60}
+.visite-row{margin-bottom:10px}
+.visite-row label{display:block;font-size:11px;font-weight:bold;color:#555;margin-bottom:3px}
+.visite-row select,.visite-row input,.visite-row textarea{width:100%;padding:6px;border:1px solid #ddd;border-radius:5px;font-size:12px;box-sizing:border-box}
+.visite-row textarea{resize:none;height:60px}
+.visite-btns{display:flex;gap:8px;margin-top:12px}
+.visite-btn-ok{flex:1;padding:8px;background:#27AE60;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer}
+.visite-btn-cancel{padding:8px 14px;background:#eee;border:none;border-radius:6px;cursor:pointer}
+.btn-nougat{width:100%;padding:7px;background:#eee;border:2px solid #ddd;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;color:#888;margin-bottom:8px;transition:all 0.15s}
+.btn-nougat.active{background:#FFF3DC;border-color:#E8A020;color:#E8A020}
+/* Pointage panel */
+#pointage-panel{position:absolute;bottom:0;right:0;width:340px;background:#fff;border-top:2px solid #8E24AA;border-left:1px solid #ddd;z-index:999;display:none;flex-direction:column;max-height:520px}
+#pointage-panel.open{display:flex}
+#pointage-header{background:#8E24AA;color:#fff;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#pointage-header h3{margin:0;font-size:12px}
+#pointage-list{overflow-y:auto;flex:1;padding:8px}
+.pointage-item{background:#F3E5F5;border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px}
+.pointage-item-name{font-weight:bold;margin-bottom:6px;color:#4A148C}
+.pointage-item select,.pointage-item input,.pointage-item textarea{width:100%;padding:4px;border:1px solid #CE93D8;border-radius:4px;font-size:11px;box-sizing:border-box;margin-top:3px}
+.pointage-item textarea{resize:none;height:40px}
+#pointage-footer{padding:10px;border-top:1px solid #E1BEE7;flex-shrink:0}
+#btn-save-pointage{width:100%;padding:9px;background:#8E24AA;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px}
+
+
+/* HISTORIQUE PANEL */
+.hp-item{display:flex;gap:7px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
+.hp-item:last-child{border-bottom:none}
+.hp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.hp-date{font-weight:bold;color:#333;min-width:70px;flex-shrink:0}
+.hp-statut{font-weight:bold}
+.hp-meta{color:#888;font-size:10px;margin-top:1px}
+.hp-comment{font-size:10px;color:#555;background:#f5f5f5;border-radius:4px;padding:3px 6px;margin-top:3px;font-style:italic}
+.hp-photo{width:36px;height:36px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0}
+.hp-stats{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.hp-stat{background:#f0f0f0;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:bold;color:#333}
+
+/* TOAST */
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#2B2B2B;color:#fff;padding:8px 15px;border-radius:7px;font-size:12px;z-index:9999;display:none;border-left:4px solid #E8A020;white-space:nowrap}
+/* STATS MODAL */
+#stats-modal{display:none;position:fixed;inset:0;background:#f5f5f5;z-index:3000;flex-direction:column}
+#stats-modal.open{display:flex}
+#stats-header{background:#2B2B2B;color:#fff;padding:0 14px;display:flex;align-items:center;gap:10px;height:48px;flex-shrink:0}
+#stats-header h2{font-size:13px;font-weight:bold;flex:1}
+#stats-header button{padding:5px 10px;border:none;border-radius:5px;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;cursor:pointer;font-weight:bold}
+#stats-header button:hover{background:rgba(255,255,255,0.25)}
+#stats-summary{display:flex;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+.stat-card{flex:1;min-width:90px;background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;text-align:center}
+.stat-card .sc-val{font-size:22px;font-weight:bold;color:#2B2B2B}
+.stat-card .sc-lbl{font-size:10px;color:#888;margin-top:2px}
+#stats-filters{display:flex;gap:7px;padding:8px 14px;background:#fff;border-bottom:1px solid #e0e0e0;flex-shrink:0;flex-wrap:wrap}
+#stats-filters select{padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;outline:none;cursor:pointer}
+#stats-filters select:focus{border-color:#E8A020}
+#stats-list{flex:1;overflow-y:auto;padding:10px 14px}
+.sv-row{background:#fff;border:1px solid #e8e8e8;border-radius:7px;padding:9px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;font-size:11px}
+.sv-lieu{flex:1;min-width:0}
+.sv-nom{font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-sub{font-size:10px;color:#888;margin-top:1px}
+.sv-badge{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.sv-b-distribue{background:#E8F5E9;color:#27AE60}
+.sv-b-ferme{background:#FFEBEE;color:#E53935}
+.sv-b-refus{background:#FFF3E0;color:#E8A020}
+.sv-b-absent{background:#EDE7F6;color:#8E24AA}
+.sv-b-other{background:#f0f0f0;color:#666}
+.sv-qty{font-weight:bold;color:#2B2B2B;white-space:nowrap;flex-shrink:0}
+.sv-nougat{font-size:14px;flex-shrink:0}
+.sv-date{font-size:10px;color:#999;white-space:nowrap;flex-shrink:0}
+#stats-empty{text-align:center;padding:40px;color:#aaa;font-size:12px;font-style:italic}
+:root{--gold-dk:#DBA10E;--grey:#6B6B6B;--grey-lt:#F0F0F0;--cream:#F7F6F2;--white:#fff;--green:#27AE60;--green-lt:#E8F8EF;--red:#E53935;--red-lt:#FFEBEE;--orange:#E8870A;--orange-lt:#FFF3E0}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:16px;width:1000px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:'Inter',Arial,sans-serif}
+.modal-header{padding:22px 32px;border-bottom:1px solid var(--grey-lt);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
+.modal-header h3{font-family:'Montserrat',Arial,sans-serif;font-size:23px;font-weight:800;color:#1A1A1A}
+.modal-header .fiche-subtitle{font-size:13px;color:var(--grey);margin-top:4px}
+.modal-close{background:none;border:none;font-size:20px;color:var(--grey);line-height:1;cursor:pointer;width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.modal-close:hover{background:var(--grey-lt)}
+.modal-body{padding:26px 32px 32px}
+.badge{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+.b-distribue{background:var(--green-lt);color:var(--green)}
+.b-ferme{background:var(--red-lt);color:var(--red)}
+.b-refus{background:#F3E5F5;color:#7B1FA2}
+.b-absent{background:var(--orange-lt);color:var(--orange)}
+.fed-filter-btn{padding:6px 14px;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',Arial,sans-serif}
+.fiche-stats-d{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.fsd-tile{background:var(--cream);border-radius:10px;padding:16px 10px;text-align:center}
+.fsd-tile .sv{font-family:'Montserrat',Arial,sans-serif;font-size:28px;font-weight:800}
+.fsd-tile .sl{font-size:11px;color:var(--grey);margin-top:4px}
+.ftd-item{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--grey-lt)}
+.ftd-item:last-child{border-bottom:none}
+.ftd-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;margin-top:4px;border:2px solid white}
+.ftd-content{flex:1;min-width:0}
+.ftd-date{font-size:14px;font-weight:700;margin-bottom:6px;text-transform:capitalize}
+.ftd-comment{font-size:13px;background:var(--cream);border-radius:7px;padding:8px 12px;margin-top:6px;color:#1A1A1A}
+.ftd-photo{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;flex-shrink:0}
+.photo-grid-d{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px}
+.photo-grid-d img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer;display:block;transition:.15s}
+.photo-grid-d img:hover{opacity:.8}
+.photo-lb-d{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:3000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.photo-lb-d img{max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain}
+.photo-lb-d-close{position:absolute;top:14px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1}
+.loader-d{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--gold-dk);border-radius:50%;animation:spin-d .7s linear infinite}
+@keyframes spin-d{to{transform:rotate(360deg)}}
+.btn-fiche{background:#1E88E5;color:#fff}
+</style>
+</head>
+<body>
+<!-- RESTORE BANNER -->
+<div id="restore-banner" class="hidden">
+  <span id="restore-msg">📂 Des modifications locales ont été trouvées.</span>
+  <button class="rb-btn rb-restore" onclick="applyRestore()">✓ Restaurer mes modifications</button>
+  <button class="rb-btn rb-dismiss" onclick="dismissRestore()">✕ Ignorer – repartir des données d'origine</button>
+</div>
+<div id="header">
+  <div id="header-search-wrap">
+  <input id="header-search-input" type="text" placeholder="🔍 Chercher un lieu…" oninput="renderHeaderSearchResults()" onfocus="renderHeaderSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('header-search-results'); if(b) b.style.display='none';},150)">
+  <label id="header-rappel-only-label">
+    <input type="checkbox" id="filter-rappel-only" onchange="applyFilters(); renderHeaderSearchResults();"> 🔁 À faire
+  </label>
+  <div id="header-search-results"></div>
+</div>
+  <span id="total-badge">290 lieux</span>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('carte')" style="background:#1E88E5;color:#fff">🗺️ Carte <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-carte">
+      <button class="hbtn" id="btn-add" onclick="toggleAddMode()">➕ Ajouter</button>
+      <button class="hbtn" id="btn-route" onclick="toggleRouteMode()">📍 Itinéraire</button>
+      <button class="hbtn" id="btn-tournee" onclick="toggleTourneeMode()" style="background:#27AE60;color:#fff">🗺️ Créer tournée</button>
+      <button class="hbtn" id="btn-pointage" onclick="togglePointageMode()" style="background:#8E24AA;color:#fff">Pointage</button>
+    </div>
+  </div>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('affichage')" style="background:#00897B;color:#fff">🎨 Affichage <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-affichage">
+      <button class="hbtn" id="btn-zones" onclick="openZoneModal()">🎨 Zones</button>
+      <button class="hbtn" id="btn-toggle-saisons" onclick="toggleSaisonsAffichage()" style="background:#78909C;color:#fff" title="Afficher/masquer sur la carte les lieux fermés ou bientôt fermés (saison)">🔒 Saisons : OFF</button>
+    </div>
+  </div>
+
+  <div class="hbtn-dropdown">
+    <button class="hbtn hbtn-dropdown-trigger" onclick="toggleHeaderDropdown('import')" style="background:#455A64;color:#fff">📦 Import / Export <span class="caret">▾</span></button>
+    <div class="hbtn-dropdown-menu" id="dd-menu-import">
+      <div id="import-history" style="padding:4px 10px 8px;font-size:10px;line-height:1.6;color:#666;border-bottom:1px solid #ddd;margin-bottom:6px"></div>
+      <button class="hbtn" id="btn-generer-import-saisons" onclick="genererFichierImportSaisons()" style="background:#455A64;color:#fff" title="Générer un fichier CSV (tous les lieux) prêt à remplir avec les dates de saison — inclut les sources déjà connues">📥 Générer fichier d'import</button>
+      <button class="hbtn" id="btn-generer-nouveaux-lieux" onclick="genererFichierNouveauxLieux()" style="background:#00695C;color:#fff" title="Générer un fichier CSV vierge pour créer de nouveaux lieux avec leur saison en une fois (colonnes : nom, categorie, adresse, code_postal, ville, latitude, longitude, telephone, zone_tournee, date_ouverture, date_fermeture, commentaire, source). À importer en 2 temps : 📂 Importer CSV puis 🗓 Importer saisons.">🆕 Nouveaux lieux (modèle)</button>
+      <button class="hbtn" id="btn-import-lieux" onclick="document.getElementById('csv-import-input').click()" style="background:#8D6E63;color:#fff" title="Importer des lieux depuis un fichier CSV ou JSON">📂 Importer CSV</button>
+      <button class="hbtn" id="btn-import-zones" onclick="document.getElementById('zones-import-input').click()" style="background:#546E7A;color:#fff" title="Synchroniser les zones de tournée depuis un fichier zones_export.json">🗂 Sync zones</button>
+      <button class="hbtn" id="btn-import-saisons" onclick="document.getElementById('saisons-import-input').click()" style="background:#2E7D32;color:#fff" title="Importer les dates d'ouverture/fermeture depuis un CSV (modèle saisons_etablissements.xlsx exporté en CSV)">🗓 Importer saisons</button>
+    </div>
+  </div>
+  <input type="file" id="csv-import-input" accept=".csv,.json" style="display:none" onchange="importLieux(this)">
+  <input type="file" id="zones-import-input" accept=".json" style="display:none" onchange="importZones(this)">
+  <input type="file" id="saisons-import-input" accept=".csv" style="display:none" onchange="importSaisons(this)">
+
+  <button class="hbtn" id="btn-undo" onclick="undoState()" disabled title="Annuler la dernière modification">↩ Annuler</button>
+  <button class="hbtn" id="btn-reset" onclick="resetToOriginal()" style="background:#546E7A;color:#fff" title="Effacer les sauvegardes locales et revenir aux données d'origine">↺ Réinitialiser</button>
+  <button class="hbtn" id="btn-goto-gestion" onclick="window.location.href='gestion_lieux.html'" style="background:#5E35B1;color:#fff;margin-left:auto" title="Ouvrir l'application de gestion des tournées">📋 Gestion →</button>
+</div>
+
+<!-- Login Supabase -->
+<div id="sb-login-overlay" class="hidden">
+  <div id="sb-login-box">
+    <h3>🔐 Connexion Supabase</h3>
+    <input id="sb-email" type="email" placeholder="Email" value="ropersloic@gmail.com">
+    <input id="sb-pwd" type="password" placeholder="Mot de passe">
+    <button id="sb-login-btn" onclick="sbLogin()">Se connecter</button>
+    <p id="sb-login-err"></p>
+  </div>
+</div>
+<div id="main">
+  <div id="panel">
+    <div id="tournee-left-panel">
+      <div id="tournee-search-wrap" style="padding:8px;border-bottom:1px solid #eee;position:relative;flex-shrink:0">
+        <input id="tournee-search-input" type="text" placeholder="🔎 Chercher un lieu à ajouter…" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px" oninput="renderTourneeSearchResults()" onfocus="renderTourneeSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('tournee-search-results'); if(b) b.style.display='none';},150)">
+        <div id="tournee-search-results" style="position:absolute;top:100%;left:8px;right:8px;background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:1500;display:none;box-shadow:0 4px 10px rgba(0,0,0,0.15)"></div>
+        <button id="tf-add-all-rappels" onclick="addAllRappelsToTournee()" style="margin-top:6px;width:100%;box-sizing:border-box;padding:6px 8px;background:#fff;color:#E53935;border:1px solid #E53935;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer">🔁 Ajouter tous les lieux "à faire" visibles</button>
+      </div>
+      <div class="tournee-section-label">🚏 Arrêts <span id="tournee-stop-count"></span></div>
+      <div id="tournee-list"><div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div></div>
+    </div>
+    <div id="search-bar">
+      <input id="search-input" type="text" placeholder="🔍  Nom, commune…" oninput="applyFilters()">
+      <div class="filter-row">
+        <select id="filter-zone" onchange="applyFilters()"><option value="">Toutes les zones</option></select>
+        <select id="filter-type" onchange="applyFilters()">
+          <option value="">Tous types</option>
+          <option>Camping</option><option>Hôtel</option>
+          <option>Office de tourisme</option><option>Site touristique</option>
+          <option>Commerce</option><option>Village de gîtes</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select id="filter-statut" onchange="applyFilters()" style="width:100%">
+          <option value="">Tous statuts</option>
+          <option value="active">✅ Actifs seulement</option>
+          <option value="no_flyer">🚫 Ne prend pas les flyers</option>
+          <option value="closed_perm">🔒 Fermés définitivement</option>
+          <option value="closed_temp">⏳ Fermés temporairement</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select id="filter-mois-saison" onchange="onMoisFilterChange()" style="width:100%">
+          <option value="">🗓 Ouvert en… (tous les mois)</option>
+          <option value="1">Ouvert en janvier</option>
+          <option value="2">Ouvert en février</option>
+          <option value="3">Ouvert en mars</option>
+          <option value="4">Ouvert en avril</option>
+          <option value="5">Ouvert en mai</option>
+          <option value="6">Ouvert en juin</option>
+          <option value="7">Ouvert en juillet</option>
+          <option value="8">Ouvert en août</option>
+          <option value="9">Ouvert en septembre</option>
+          <option value="10">Ouvert en octobre</option>
+          <option value="11">Ouvert en novembre</option>
+          <option value="12">Ouvert en décembre</option>
+        </select>
+      </div>
+    </div>
+    <div id="poi-list"></div>
+    <div id="poi-count">— lieux</div>
+    <div id="edit-panel" class="hidden">
+      <h3 id="edit-title">✏️ Modifier</h3>
+      <div class="field-row"><label>Nom</label><input id="f-nom" type="text"></div>
+      <div class="field-row"><label>Type</label><select id="f-type"><option value="Camping">Camping</option>
+<option value="Hôtel">Hôtel</option>
+<option value="Office de tourisme">Office de tourisme</option>
+<option value="Site touristique">Site touristique</option>
+<option value="Commerce">Commerce</option>
+<option value="Village de gîtes">Village de gîtes</option>
+<option value="Point de départ">Point de départ</option></select></div>
+      <div class="field-row"><label>Commune</label><input id="f-commune" type="text"></div>
+      <div class="field-row"><label>Code postal</label><input id="f-cp" type="text"></div>
+      <div class="field-row"><label>Département</label><select id="f-dept"><option value="">— Choisir —</option><option value="Ardèche">Ardèche (07)</option><option value="Gard">Gard (30)</option><option value="Drôme">Drôme (26)</option><option value="Autre">Autre</option></select></div>
+      <div class="field-row"><label>Adresse</label><textarea id="f-adresse" rows="2"></textarea></div>
+      <div class="field-row"><label>Zone de tournée</label><select id="f-zone"></select></div>
+      <div class="field-row"><label>Lat / Lon</label>
+        <div class="field-coords">
+          <input id="f-lat" type="number" step="0.000001">
+          <input id="f-lon" type="number" step="0.000001">
+        </div>
+      </div>
+      <div class="field-row"><label>Contact</label><input id="f-contact" type="text"></div>
+      <div class="field-row"><label>Statut</label><select id="f-statut"><option value="">✅ Actif</option><option value="no_flyer">🚫 Ne prend pas les flyers</option><option value="closed_perm">🔒 Fermé définitivement</option><option value="closed_temp">⏳ Fermé – revenir plus tard</option></select></div>
+      <div class="btn-row">
+        <button class="btn-save" onclick="saveEdit()">✓ Enregistrer</button>
+        <button class="btn-del" onclick="deletePoi()">🗑</button>
+        <button class="btn-cancel" onclick="closeEdit()">✕</button>
+        <button class="btn-save btn-fiche" onclick="openFicheLieuEditeur()" style="margin-top:4px">👁️ Fiche complète</button>
+        <button class="btn-save" onclick="openVisiteRapide()" style="background:#27AE60;margin-top:4px">Visite rapide</button>
+        <button class="btn-save" onclick="deletePoiSupabase()" style="background:#C62828;margin-top:4px;font-size:10px">🗑 Supprimer définitivement (base)</button>
+      </div>
+    </div>
+    <!-- RAPPEL / A FAIRE (toujours visible, acces rapide) -->
+    <div id="rappel-panel" style="border-top:2px solid #E53935;background:#fff;flex-shrink:0;padding:9px;display:none">
+      <h3 style="font-size:11px;color:#E53935;font-weight:bold;margin:0 0 7px">🔁 À faire</h3>
+      <div id="rappel-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+    </div>
+    <!-- SAISON (repliable) -->
+    <div id="saison-panel" style="border-top:2px solid #8D6E63;background:#fff;flex-shrink:0;padding:9px;display:none">
+      <h3 style="font-size:11px;color:#8D6E63;font-weight:bold;margin:0;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="togglePanelDetail('saison-panel-content','saison-chevron')">📅 Saison <span id="saison-chevron" style="font-size:10px">▸</span></h3>
+      <div id="saison-panel-content" style="display:none;margin-top:7px"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+    </div>
+    <!-- HISTORIQUE SUPABASE -->
+    <div id="hist-panel" style="border-top:2px solid #1E88E5;background:#fff;flex-shrink:0;max-height:300px;overflow-y:auto;padding:9px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;cursor:pointer" onclick="togglePanelDetail('hist-panel-content','hist-chevron')">
+        <h3 style="font-size:11px;color:#1E88E5;font-weight:bold;margin:0">📊 Passages cette année</h3>
+        <span style="display:flex;align-items:center;gap:5px"><span id="hist-panel-count" style="font-size:10px;color:#888"></span><span id="hist-chevron" style="font-size:10px;color:#1E88E5">▸</span></span>
+      </div>
+      <div id="hist-panel-content" style="display:none;margin-top:7px"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+    </div>
+  </div>
+
+  <div id="map">
+    <div id="legend"><h4 onclick="toggleLegend()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0">Zones <span id="legend-toggle-icon" style="font-size:10px">▾</span></h4><div id="legend-items" style="margin-top:5px"></div></div>
+    <div id="add-banner">📍 Cliquez sur la carte pour placer le lieu</div>
+  </div>
+
+  <!-- ROUTE PANEL -->
+  <div id="route-panel">
+    <div id="route-header">
+      <h3>📍 Itinéraire en cours</h3>
+      <button onclick="toggleRouteMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button>
+    </div>
+    <div id="route-list"><div id="route-empty">Cliquez sur des lieux pour les ajouter</div></div>
+    <div id="route-actions">
+      <div id="route-result">
+        <div class="result-main" id="result-main">—</div>
+        <div class="result-sub" id="result-sub">—</div>
+      </div>
+      <div class="route-action-row">
+        <button class="rbtn rbtn-calc" onclick="calcRoute()">🧭 Calculer</button>
+        <button class="rbtn rbtn-opt" onclick="optimizeRoute()">⚡ Optimiser</button>
+        <button class="rbtn rbtn-clear" onclick="clearRoute()">🗑</button>
+      </div>
+      <div class="route-action-row">
+      </div>
+      <div class="route-action-row" id="gmap-row" style="display:none">
+        <button class="rbtn rbtn-gmap" onclick="openInGoogleMaps()">🗺 Ouvrir dans Google Maps</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOURNÉE PANEL -->
+  <div id="tournee-panel">
+    <div id="tournee-resize-handle"></div>
+    <div id="tournee-header">
+      <h3>🗺️ Nouvelle tournée Supabase</h3>
+      <button onclick="toggleTourneeMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button>
+    </div>
+    <div class="tournee-section-label">🧭 Itinéraire</div>
+    <div id="tournee-route-controls">
+      <div style="display:flex;gap:6px">
+        <div style="flex:1"><div class="tf-label">Départ</div><select class="tf-input" id="tf-depart" onchange="onDepartChange()"><option value="">— Automatique —</option></select></div>
+        <div style="flex:1"><div class="tf-label">Arrivée</div><select class="tf-input" id="tf-arrivee" onchange="onArriveeChange()"><option value="">— Automatique —</option></select></div>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button class="tbtn tbtn-calc" onclick="calcTournee()">🧭 Calculer</button>
+        <button class="tbtn tbtn-opt" onclick="optimizeTournee()">⚡ Optimiser</button>
+        <button class="tbtn tbtn-clear" onclick="clearTournee()">🗑</button>
+      </div>
+      <div id="tournee-result" style="background:#E8F8EF;border-radius:6px;padding:8px;font-size:12px;text-align:center;display:none">
+        <div id="tournee-result-main" style="font-size:14px;font-weight:bold;color:#27AE60">—</div>
+        <div id="tournee-result-sub" style="font-size:10px;color:#666;margin-top:2px">—</div>
+      </div>
+    </div>
+    <div class="tournee-section-label">📋 Détails de la tournée</div>
+    <div id="tournee-form">
+      <div><div class="tf-label">Nom de la tournée *</div><input class="tf-input" id="tf-nom" type="text" placeholder="ex: Vallon / Ruoms"></div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1"><div class="tf-label">Date *</div><input class="tf-input" id="tf-date" type="date"></div>
+        <div style="flex:1"><div class="tf-label">Paquets/lieu</div><select class="tf-input" id="tf-qty">
+          <option value="1" selected>1 paquet</option>
+          <option value="2">2 paquets</option>
+          <option value="3">3 paquets</option>
+          <option value="4">4 paquets</option>
+        </select></div>
+      </div>
+      <div><div class="tf-label">Distributeur</div><select class="tf-input" id="tf-distributeur"><option value="">— Choisir —</option></select></div>
+      <div><div class="tf-label">Secteur</div><input class="tf-input" id="tf-secteur" type="text" placeholder="ex: Zone Ardèche"></div>
+      <div><div class="tf-label">Commentaire</div><input class="tf-input" id="tf-comment" type="text" placeholder="Instructions…"></div>
+    </div>
+    <div id="tournee-save-wrap">
+      <button class="tbtn" style="background:#546E7A;color:#fff;width:100%;margin-bottom:6px" onclick="openOuvrirTourneeModal()">📂 Ouvrir une tournée</button>
+      <button class="tbtn tbtn-save" id="btn-save-tournee" onclick="saveTourneeSupabase()">☁️ Créer la tournée dans Supabase</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- OUVRIR TOURNEE MODAL -->
+<div id="open-tournee-modal">
+  <div id="open-tournee-box">
+    <div id="open-tournee-header">
+      <h2>📂 Ouvrir une tournée</h2>
+      <button onclick="closeOuvrirTourneeModal()">✕</button>
+    </div>
+    <div id="open-tournee-list"></div>
+  </div>
+</div>
+
+<!-- GMAP SEGMENTS MODAL -->
+<div id="gmap-modal">
+  <div id="gmap-box">
+    <div id="gmap-box-header">
+      <h2 id="gmap-modal-title">🗺 Navigation Google Maps</h2>
+      <button onclick="closeGmapModal()">✕</button>
+    </div>
+    <div id="gmap-box-body"></div>
+  </div>
+</div>
+
+<!-- ZONE MODAL -->
+<div id="zone-modal">
+  <div id="zone-box">
+    <div id="zone-box-header">
+      <h2>🎨 Gérer les zones de tournée</h2>
+      <button onclick="closeZoneModal()">✕</button>
+    </div>
+    <div id="zone-list-editor"></div>
+    <div id="zone-box-footer">
+      <button class="zfbtn zfbtn-add" onclick="addZone()">➕ Nouvelle zone</button>
+      <button class="zfbtn zfbtn-save" onclick="saveZones()">✓ Enregistrer</button>
+      <button class="zfbtn zfbtn-cancel" onclick="closeZoneModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- VISITE RAPIDE MODAL -->
+<div id="visite-modal">
+  <div id="visite-box">
+    <h3>Visite rapide &mdash; <span id="visite-nom"></span></h3>
+    <div class="visite-row"><label>Resultat</label>
+      <select id="visite-statut">
+        <option value="distribue">Fait</option>
+        <option value="ferme">Ferme</option>
+        <option value="refus">Refus</option>
+        <option value="absent">Absent</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>🍬 Paquets Nougaterie</label>
+      <select id="visite-qty">
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>🎟️ Paquets Château des Roure</label>
+      <select id="visite-qty-chateau">
+        <option value="1" selected>1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>🍬 Paquets nougat offerts</label>
+      <select id="visite-nougat">
+        <option value="0" selected>Aucun</option>
+        <option value="1">1 paquet</option>
+        <option value="2">2 paquets</option>
+        <option value="3">3 paquets</option>
+        <option value="4">4 paquets</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>🎟️ Entrées gratuites Château offertes</label>
+      <select id="visite-entree">
+        <option value="0" selected>Aucune</option>
+        <option value="1">1 entrée</option>
+        <option value="2">2 entrées</option>
+        <option value="3">3 entrées</option>
+        <option value="4">4 entrées</option>
+        <option value="5">5 entrées</option>
+        <option value="6">6 entrées</option>
+      </select>
+    </div>
+    <div class="visite-row"><label>Remarque</label>
+      <textarea id="visite-comment" placeholder="Optionnel..."></textarea>
+    </div>
+    <div id="visite-rappel-info" style="font-size:10px;color:#E53935;margin:2px 0 6px"></div>
+    <div class="visite-row">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="visite-rappel" onchange="document.getElementById('visite-rappel-comment-wrap').style.display=this.checked?'block':'none'">
+        🔁 Prévoir un nouveau passage
+      </label>
+    </div>
+    <div class="visite-row" id="visite-rappel-comment-wrap" style="display:none">
+      <label>Pourquoi revenir ?</label>
+      <textarea id="visite-rappel-comment" placeholder="Optionnel..."></textarea>
+    </div>
+    <div class="visite-btns">
+      <button class="visite-btn-ok" onclick="saveVisiteRapide()">Enregistrer</button>
+      <button class="visite-btn-cancel" onclick="closeVisiteModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- POINTAGE PANEL -->
+<div id="pointage-panel">
+  <div id="pointage-header">
+    <h3>Pointage en cours</h3>
+    <button onclick="togglePointageMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">x</button>
+  </div>
+  <div id="pointage-list"></div>
+  <div id="pointage-footer">
+    <div style="margin-bottom:7px;font-size:11px">
+      <label style="font-weight:bold;color:#555;display:block;margin-bottom:3px">Date de visite</label>
+      <input id="pointage-date" type="date" style="width:100%;padding:5px;border:1px solid #CE93D8;border-radius:5px;font-size:12px;box-sizing:border-box">
+    </div>
+    <button id="btn-save-pointage" onclick="savePointageSupabase()">Valider tout</button>
+  </div>
+</div>
+
+<!-- STATS MODAL -->
+<div id="stats-modal">
+  <div id="stats-header">
+    <h2>📊 Statistiques des visites</h2>
+    <button onclick="closeStats()">✕ Fermer</button>
+  </div>
+  <div id="stats-summary">
+    <div class="stat-card"><div class="sc-val" id="sc-total">—</div><div class="sc-lbl">Visites totales</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-paquets">—</div><div class="sc-lbl">Paquets distribués</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-taux">—</div><div class="sc-lbl">Taux distribution</div></div>
+    <div class="stat-card"><div class="sc-val" id="sc-nougat">—</div><div class="sc-lbl">Nougats offerts</div></div>
+  </div>
+  <div id="stats-filters">
+    <select id="sf-periode" onchange="applyStatsFilters()">
+      <option value="all">Toutes périodes</option>
+      <option value="month">Ce mois</option>
+      <option value="year">Cette année</option>
+    </select>
+    <select id="sf-statut" onchange="applyStatsFilters()">
+      <option value="">Tous statuts</option>
+      <option value="distribue">Fait</option>
+      <option value="ferme">Fermé</option>
+      <option value="refus">Refus</option>
+      <option value="absent">Absent</option>
+    </select>
+    <select id="sf-nougat" onchange="applyStatsFilters()">
+      <option value="">Tous</option>
+      <option value="1">🍬 Avec nougat</option>
+      <option value="0">Sans nougat</option>
+    </select>
+    <select id="sf-sort" onchange="applyStatsFilters()">
+      <option value="date_desc">Date ↓</option>
+      <option value="date_asc">Date ↑</option>
+      <option value="lieu_az">Lieu A→Z</option>
+      <option value="qty_desc">Paquets ↓</option>
+    </select>
+  </div>
+  <div id="stats-list"><div id="stats-empty">Chargement…</div></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Modal fiche lieu -->
+<div class="modal-overlay" id="modal-fiche-lieu">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <h3 id="fiche-lieu-title">Fiche lieu</h3>
+        <div class="fiche-subtitle" id="fiche-lieu-subtitle"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="fiche-btn-ajouter-tournee" class="btn-save" style="display:none;white-space:nowrap" onclick="confirmAjoutTournee()">➕ Ajouter à la tournée</button>
+        <button id="fiche-btn-depart-arrivee" class="btn-save" style="display:none;white-space:nowrap;background:#8D6E63" onclick="confirmDepartArriveeTournee()">🏠 Départ/Arrivée</button>
+        <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="fiche-lieu-body">
+      <div style="text-align:center;padding:40px;color:var(--grey)">Chargement…</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-rappel-type-el">
+  <div class="modal-box" style="width:400px">
+    <div class="modal-header">
+      <h3>🔁 Nouveau rappel</h3>
+      <button class="modal-close" onclick="closeModal('modal-rappel-type-el')">✕</button>
+    </div>
+    <div class="modal-body">
+      <label style="font-size:12px;font-weight:700;color:var(--grey);display:block;margin-bottom:5px">Commentaire (optionnel)</label>
+      <textarea id="rt-comment-el" rows="2" placeholder="Pourquoi revenir ?" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;font-size:13px;font-family:inherit"></textarea>
+      <label style="font-size:12px;font-weight:700;color:var(--grey);display:block;margin:14px 0 5px">Type de rappel</label>
+      <div style="display:flex;gap:8px">
+        <label id="rt-lbl-repassage-el" style="flex:1;display:flex;align-items:center;gap:6px;padding:9px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:12px">
+          <input type="radio" name="rt-type-el" value="repassage" checked onchange="updateRappelTypeLabelsEl()">🔁 Repassage simple
+        </label>
+        <label id="rt-lbl-commercial-el" style="flex:1;display:flex;align-items:center;gap:6px;padding:9px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:12px">
+          <input type="radio" name="rt-type-el" value="rdv_commercial" onchange="updateRappelTypeLabelsEl()">📅 RDV commercial
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+        <button class="btn-save" style="background:#B0BEC5" onclick="closeModal('modal-rappel-type-el')">Annuler</button>
+        <button class="btn-save" onclick="confirmRappelTypeModalEl()">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-saisons">
+  <div class="modal-box" style="width:640px">
+    <div class="modal-header">
+      <div>
+        <h3 id="saisons-modal-title">Gérer les saisons</h3>
+        <div class="fiche-subtitle" id="saisons-modal-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-saisons')">✕</button>
+    </div>
+    <div class="modal-body" id="saisons-modal-body">
+      <div style="text-align:center;padding:40px;color:var(--grey)">Chargement…</div>
+    </div>
+  </div>
+</div>
+
+<script>
 // ══════════════════════════════════════════════════════════
 //  SUPABASE
 // ══════════════════════════════════════════════════════════
@@ -162,6 +1008,8 @@ async function openFicheLieuEditeur(id, forTournee){
   window._ficheForTourneeId = forTournee ? p.id : null;
   var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
   if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
+  var daBtn = document.getElementById('fiche-btn-depart-arrivee');
+  if(daBtn) daBtn.style.display = (forTournee && p.type_lieu==='Point de départ') ? 'inline-flex' : 'none';
   document.getElementById('fiche-lieu-title').textContent = p.nom;
   document.getElementById('fiche-lieu-subtitle').textContent = [p.type_lieu, p.zone_tournee?zoneKey(p.zone_tournee):''].filter(Boolean).join(' · ');
   document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:60px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
@@ -608,6 +1456,51 @@ function buildMarkers(){
 //  LIST
 // ══════════════════════════════════════════════════════════
 var filteredPois=POIS.slice();
+
+function renderHeaderSearchResults(){
+  var input = document.getElementById('header-search-input');
+  var box = document.getElementById('header-search-results');
+  if(!input || !box) return;
+  var q = norm(input.value.trim());
+  var onlyRappel = document.getElementById('filter-rappel-only');
+  var checked = onlyRappel && onlyRappel.checked;
+  if(!q && !checked){ box.style.display='none'; box.innerHTML=''; return; }
+  var candidats = POIS.filter(function(p){
+    if(checked && !poiRappelActif(p)) return false;
+    return !q || norm(p.nom+' '+p.commune).includes(q);
+  }).slice(0,20);
+  if(!candidats.length){
+    box.innerHTML = '<div style="padding:8px;font-size:12px;color:#999">Aucun résultat</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = candidats.map(function(p){
+    return '<div class="header-search-item" data-id="'+p.id+'">'
+      + escHtml(p.nom) + '<span style="color:#999"> · '+escHtml(p.commune)+'</span>'
+      + '</div>';
+  }).join('');
+  box.style.display = 'block';
+  Array.prototype.forEach.call(box.querySelectorAll('.header-search-item'), function(el){
+    el.addEventListener('mousedown', function(ev){
+      ev.preventDefault();
+      var id = parseInt(el.getAttribute('data-id'), 10);
+      selectPoi(id);
+      input.value = '';
+      box.style.display = 'none';
+      box.innerHTML = '';
+    });
+  });
+}
+
+function togglePanelDetail(contentId, chevronId){
+  var el = document.getElementById(contentId);
+  if(!el) return;
+  var hidden = el.style.display === 'none';
+  el.style.display = hidden ? 'block' : 'none';
+  var arrow = document.getElementById(chevronId);
+  if(arrow) arrow.textContent = hidden ? '\u25BE' : '\u25B8';
+}
+
 function applyFilters(){
   var q=norm(document.getElementById('search-input').value).trim();
   var zf=document.getElementById('filter-zone').value;
@@ -1265,6 +2158,22 @@ async function genererFichierImportSaisons(){
   showToast('📥 Fichier généré : '+rows.length+' lieux');
 }
 
+// Modèle vierge pour créer de nouveaux lieux + leur saison en une fois.
+// A importer en 2 temps avec les boutons existants : d'abord "Importer CSV" (creation
+// du lieu), puis "Importer saisons" (attache les dates, une fois le lieu cree).
+function genererFichierNouveauxLieux(){
+  var header = "nom;categorie;adresse;code_postal;ville;latitude;longitude;telephone;zone_tournee;date_ouverture;date_fermeture;commentaire;source";
+  var csv = '\uFEFF' + header + '\r\n';
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'nouveaux_lieux_a_importer_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 Modele genere - a remplir puis importer 2x (Importer CSV, puis Importer saisons)');
+}
+
 function parseDateFR(str){
   if(!str) return null;
   str = String(str).trim();
@@ -1818,6 +2727,7 @@ function toggleTourneeMode(){
   btn.textContent = tourneeMode ? '✕ Annuler tournée' : '🗺️ Créer tournée';
   btn.classList.toggle('active', tourneeMode);
   document.getElementById('tournee-panel').classList.toggle('open', tourneeMode);
+  document.getElementById('tournee-left-panel').classList.toggle('open', tourneeMode);
   Object.keys(markers).forEach(function(id){
     var m = markers[id]; if(m && m.dragging){ tourneeMode ? m.dragging.disable() : m.dragging.enable(); }
   });
@@ -1867,6 +2777,21 @@ function confirmAjoutTournee(){
   toggleTourneeStop(id);
 }
 
+function confirmDepartArriveeTournee(){
+  if(window._ficheForTourneeId==null) return;
+  var id = window._ficheForTourneeId;
+  window._ficheForTourneeId = null;
+  closeModal('modal-fiche-lieu');
+  if(tourneeStops.indexOf(id) < 0){ tourneeStops.push(id); }
+  renderDepartArriveeSelects();
+  var depSel = document.getElementById('tf-depart');
+  var arrSel = document.getElementById('tf-arrivee');
+  if(depSel){ depSel.value = String(id); onDepartChange(); }
+  if(arrSel){ arrSel.value = String(id); onArriveeChange(); }
+  var p = POIS.find(function(pp){ return pp.id===id; });
+  showToast('🏠 '+(p?p.nom:'Lieu')+' regle comme depart et arrivee de la tournee');
+}
+
 function removeTourneeStop(idx){
   var removedId = tourneeStops[idx];
   tourneeStops.splice(idx,1);
@@ -1892,7 +2817,14 @@ function toggleLivraisonType(id){
 function renderTourneeList(){
   var list = document.getElementById('tournee-list');
   var countEl = document.getElementById('tournee-stop-count');
-  if(countEl) countEl.textContent = tourneeStops.length ? '('+tourneeStops.length+')' : '';
+  var departSelVal = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
+  var arriveeSelVal = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
+  var departId = departSelVal ? parseInt(departSelVal,10) : null;
+  var arriveeId = arriveeSelVal ? parseInt(arriveeSelVal,10) : null;
+  var isBoucleDA = departId!==null && departId===arriveeId;
+  function isRepereStop(id){ return (departId!==null && id===departId) || (arriveeId!==null && id===arriveeId); }
+  var realCount = tourneeStops.filter(function(id){ return !isRepereStop(id); }).length;
+  if(countEl) countEl.textContent = realCount ? '('+realCount+')' : '';
   if(tourneeStops.length === 0){
     list.innerHTML = '<div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div>';
     renderDepartArriveeSelects();
@@ -1900,14 +2832,24 @@ function renderTourneeList(){
   }
   list.innerHTML = '';
   var dragSrcIdx = null;
+  var realIdx = 0;
   tourneeStops.forEach(function(id, i){
     var p = POIS.find(function(p){ return p.id===id; }); if(!p) return;
     var hasLivraison = !!tourneeStopTypes[id];
+    var repere = isRepereStop(id);
+    var numHtml;
+    if(repere){
+      numHtml = '<div class="tournee-stop-num tournee-stop-repere" title="Depart/arrivee - non compte dans les arrets">🏠</div>';
+    } else {
+      realIdx++;
+      numHtml = '<div class="tournee-stop-num">'+realIdx+'</div>';
+    }
+    var repereLabel = isBoucleDA ? '🏠 Départ/Arrivée' : (id===departId ? '🏠 Départ' : '🏠 Arrivée');
     var div = document.createElement('div');
-    div.className = 'tournee-stop'+(hasLivraison?' is-livraison':''); div.draggable = true; div.dataset.idx = i;
+    div.className = 'tournee-stop'+(hasLivraison?' is-livraison':'')+(repere?' is-repere':''); div.draggable = true; div.dataset.idx = i;
     div.innerHTML = '<span class="tournee-drag">⋮⋮</span>'
-      + '<div class="tournee-stop-num">'+(i+1)+'</div>'
-      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div>'
+      + numHtml
+      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+(repere?' <span class="tournee-repere-badge">'+repereLabel+'</span>':'')+'</div>'
       + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
       + (hasLivraison ? '<div class="tournee-stop-desc">📦 '+escHtml(tourneeStopLivraisonDesc[id]||'(à préciser)')+'</div>' : '')
       + '</div>'
@@ -2705,3 +3647,6 @@ checkStoredHandle();
     ind.textContent = '💾 non sauvegardé'; ind.className = '';
   }
 })();
+</script>
+</body>
+</html>

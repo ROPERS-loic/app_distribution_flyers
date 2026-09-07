@@ -1037,8 +1037,8 @@ async function genererSyntheseTournee(){
 
     const statutColors = {distribue:[39,174,96], ferme:[120,120,120], refus:[229,57,53], absent:[232,135,10], a_faire:[160,160,160]};
     const statutTexts = isLivraisonOnly
-      ? {a_faire:'À livrer', distribue:'✅ Livré', absent:'❌ Non livré', ferme:'❌ Non livré', refus:'❌ Non livré'}
-      : {a_faire:'⬜ Non visité', distribue:'✅ Fait', ferme:'🔒 Fermé', refus:'🚫 Refus', absent:'👻 Absent'};
+      ? {a_faire:'À livrer', distribue:'Livré', absent:'Non livré', ferme:'Non livré', refus:'Non livré'}
+      : {a_faire:'Non visité', distribue:'Fait', ferme:'Fermé', refus:'Refus', absent:'Absent'};
     const col1 = statutColors[s.statut] || [100,100,100];
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(col1[0],col1[1],col1[2]);
     let statutLine = statutTexts[s.statut] || s.statut;
@@ -1049,18 +1049,18 @@ async function genererSyntheseTournee(){
 
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(60,60,60);
     if(isLivraisonOnly){
-      doc.text('📦 '+truncSynthese(cmd?.description||'Livraison', 40), tx, y+21, {maxWidth: tw});
+      doc.text('Livraison : '+truncSynthese(cmd?.description||'', 40), tx, y+21, {maxWidth: tw});
     } else if(s.statut==='distribue'){
       const flyTagSyn = r => r==='stock_suffisant' ? '(S)' : r==='refuse' ? '(R)' : '';
-      let qtyLine = '🗞 '+(s.quantite_flyers||0)+((s.quantite_flyers||0)===0?flyTagSyn(s.raison_zero_nougaterie):'')+' Ngt · '+(s.quantite_flyers_chateau||0)+((s.quantite_flyers_chateau||0)===0?flyTagSyn(s.raison_zero_chateau):'')+' Chât.';
-      if(s.nb_nougat_offert>0) qtyLine += '  🍬×'+s.nb_nougat_offert;
-      if(s.entree_gratuite>0) qtyLine += '  🎟️×'+s.entree_gratuite;
+      let qtyLine = 'Flyers : '+(s.quantite_flyers||0)+((s.quantite_flyers||0)===0?flyTagSyn(s.raison_zero_nougaterie):'')+' Ngt · '+(s.quantite_flyers_chateau||0)+((s.quantite_flyers_chateau||0)===0?flyTagSyn(s.raison_zero_chateau):'')+' Chât.';
+      if(s.nb_nougat_offert>0) qtyLine += '  ·  Nougat dégust. x'+s.nb_nougat_offert;
+      if(s.entree_gratuite>0) qtyLine += '  ·  Entrées offertes x'+s.entree_gratuite;
       doc.text(qtyLine, tx, y+21, {maxWidth: tw});
     } else {
       const rappelActif = ST.rappels && ST.rappels[s.lieu_id];
       if(rappelActif){
         doc.setTextColor(232,135,10); doc.setFont('helvetica','bold');
-        doc.text('🔁 Repassage prévu', tx, y+21);
+        doc.text('Repassage prévu', tx, y+21);
       } else {
         doc.setTextColor(160,160,160);
         doc.text('Pas de repassage prévu', tx, y+21);
@@ -1069,7 +1069,7 @@ async function genererSyntheseTournee(){
 
     if(s.commentaire_distributeur){
       doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(90,90,90);
-      const lines = doc.splitTextToSize('💬 '+truncSynthese(s.commentaire_distributeur, 90), tw);
+      const lines = doc.splitTextToSize(truncSynthese(s.commentaire_distributeur, 90), tw);
       doc.text(lines.slice(0,2), tx, y+25.5);
     }
 

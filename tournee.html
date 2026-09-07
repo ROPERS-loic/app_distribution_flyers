@@ -479,6 +479,7 @@ textarea.form-input{resize:vertical;min-height:60px}
               <input type="file" id="pl-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePLPhoto(this)">
               <button id="pl-photo-btn" onclick="document.getElementById('pl-photo-input').click()">📷 Ajouter une photo</button>
               <img id="pl-photo-preview" alt="Photo preuve">
+              <button type="button" id="pl-photo-save-btn" style="display:none;width:100%;margin-top:8px;padding:8px;font-size:12px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer" onclick="savePLPhotoToDevice()">💾 Enregistrer aussi sur mon téléphone</button>
             </div>
             <div id="pl-sheet-hist" style="padding:0 16px 16px"></div>
           </div>
@@ -649,6 +650,8 @@ const ST = {
   rtChannel: null,
   rappels: {},
   livraisons: {},
+  etaTimes: {},
+  etaState: null,
   form: { pointId:null, statut:null, flyers:1, flyersChateau:1, commentaire:'', photoB64:null, photoFile:null, nougat:false, entreeGratuite:false, raisonZeroNougaterie:null, raisonZeroChateau:null }
 };
 
@@ -659,6 +662,96 @@ const ST = {
 //  FILE D'ATTENTE HORS-LIGNE
 // ════════════════════════════════════════════
 const QUEUE_KEY = 'nougaterie_offline_queue';
+
+// ── Stockage local durable des photos en attente (IndexedDB, quota bien plus large que localStorage) ──
+const PHOTO_DB_NAME = 'nougaterie_photos';
+const PHOTO_STORE = 'pending';
+function openPhotoDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PHOTO_DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(PHOTO_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function savePendingPhoto(id, blob) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).put(blob, id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getPendingPhoto(id) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readonly');
+    const req = tx.objectStore(PHOTO_STORE).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deletePendingPhoto(id) {
+  try {
+    const db = await openPhotoDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(PHOTO_STORE, 'readwrite');
+      tx.objectStore(PHOTO_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch(e) {}
+}
+
+// ── Compression de la photo avant envoi/stockage (réduit fortement le poids) ──
+function compressImage(file, maxDim, quality) {
+  maxDim = maxDim || 1600; quality = quality || 0.72;
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        resolve(blob || file);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+// ── Enregistrement volontaire d'une copie de la photo sur l'appareil (partage natif ou téléchargement) ──
+async function savePhotoToDevice(blob, filename) {
+  try {
+    const file = new File([blob], filename, { type: blob.type||'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch(e) {}
+      return;
+    }
+  } catch(e) {}
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
+}
+function saveCurrentPhotoToDevice() {
+  if (!ST.form.photoFile) { toast('Aucune photo à enregistrer'); return; }
+  savePhotoToDevice(ST.form.photoFile, 'photo_'+Date.now()+'.jpg');
+}
+function savePLPhotoToDevice() {
+  if (!plPhotoBlob) { toast('Aucune photo à enregistrer'); return; }
+  savePhotoToDevice(plPhotoBlob, 'photo_'+Date.now()+'.jpg');
+}
 
 function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e) { return []; }
@@ -720,9 +813,12 @@ async function syncOfflineQueue() {
   // Photo uploads sync last, so a stale queued validation patch never overwrites a fresh photo URL
   for (const item of photoItems) {
     try {
-      const path = `tournee_${item.tourneeId}/p${item.pointId}_${Date.now()}.${item.ext}`;
-      const url = await uploadPhoto(dataURLtoBlob(item.photoB64), path);
+      const blob = item.photoId ? await getPendingPhoto(item.photoId) : (item.photoB64 ? dataURLtoBlob(item.photoB64) : null);
+      if (!blob) throw new Error('photo introuvable localement');
+      const path = `tournee_${item.tourneeId}/p${item.pointId}_${Date.now()}.${item.ext||'jpg'}`;
+      const url = await uploadPhoto(blob, path);
       await sbPatch('points_tournee','id=eq.'+item.pointId, { photo_preuve: url });
+      if (item.photoId) await deletePendingPhoto(item.photoId);
       synced++;
     } catch(e) { remaining.push(item); }
   }
@@ -745,7 +841,8 @@ async function syncPointageLibreItem(item) {
     tId = (Array.isArray(res)?res[0]:res).id;
   }
   const heure = new Date(dateVal+'T12:00:00').toISOString();
-  const points = Object.keys(plSelectedData).map((k,i) => {
+  const keys = Object.keys(plSelectedData);
+  const points = keys.map((k,i) => {
     const d = plSelectedData[k];
     return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
              quantite_flyers:d.qty||1, quantite_flyers_chateau:d.qtyChateau||1,
@@ -754,12 +851,25 @@ async function syncPointageLibreItem(item) {
              nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut:d.statut||'distribue',
              heure_validation:heure, commentaire_distributeur:d.comment||null };
   });
-  await sbPost('points_tournee', points);
-  await Promise.all(Object.keys(plSelectedData).map(async (k) => {
+  const insertedRes = await sbPost('points_tournee', points);
+  const inserted = Array.isArray(insertedRes) ? insertedRes : [insertedRes];
+  await Promise.all(keys.map(async (k, i) => {
     const d = plSelectedData[k] || {};
     try { await applyRappelUpdate(parseInt(k), !!d.rappel, d.rappelComment||null, 'pointage', d.rappelType); } catch(e) {}
     if (d.dateOuverture || d.dateFermeture) {
       try { await saveSaisonLieu(parseInt(k), d.dateOuverture||null, d.dateFermeture||null, d.anneeOuverture, d.anneeFermeture); } catch(e) {}
+    }
+    if (d.photoId) {
+      try {
+        const blob = await getPendingPhoto(d.photoId);
+        const ptId = inserted[i] && inserted[i].id;
+        if (blob && ptId) {
+          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.jpg`;
+          const url = await uploadPhoto(blob, path);
+          await sbPatch('points_tournee','id=eq.'+ptId, { photo_preuve: url });
+          await deletePendingPhoto(d.photoId);
+        }
+      } catch(e) {}
     }
   }));
 }
@@ -1014,6 +1124,7 @@ async function handleRefresh() {
       await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
       renderTourneeDetail();
       toast('🔄 Tournée mise à jour');
+      refreshEtaTimes();
     } else {
       await loadTournees();
       renderAccueil();
@@ -1094,6 +1205,7 @@ async function openTournee(id) {
   await Promise.all([loadPoints(id), loadRappels(), loadLivraisons()]);
   subscribeRealtime(id);
   renderTourneeDetail();
+  refreshEtaTimes();
 }
 
 // ════════════════════════════════════════════
@@ -1190,6 +1302,7 @@ function stopCardHTML(p, i, pts) {
             ? `<div class="stop-addr" style="color:#C87F0A;font-weight:600">📦 ${esc(livraisonDesc||'Livraison')}</div>`
             : `<div class="stop-addr">${esc(l.ville||l.adresse||'')}</div>${hasCommande?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(livraisonDesc||'Livraison')}${livraisonDone?' ✓':''}</div>`:''}`}
           ${ST.livraisons[l.id]?`<div class="stop-addr" style="color:#C87F0A;font-weight:600;margin-top:1px">📦 ${esc(ST.livraisons[l.id].description||'Livraison à faire')}</div>`:''}
+          ${(!repere && s==='a_faire') ? etaLineHTML(p) : ''}
           ${p.commentaire_distributeur?`<div class="stop-addr" style="font-style:italic">💬 ${esc(p.commentaire_distributeur)}</div>`:''}
           ${pendingSyncPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--orange);font-weight:600;margin-top:1px">📡 En attente réseau</div>':''}
           ${pendingPhotoPointIds().has(String(p.id))?'<div class="stop-addr" style="color:var(--red);font-weight:600;margin-top:1px">📷 Photo en attente d\'envoi</div>':''}
@@ -1477,6 +1590,7 @@ function renderValidation() {
             p.photo_preuve?`<img src="${p.photo_preuve}" class="photo-preview" alt="Photo existante">`:''
           }
         </div>
+        ${f.photoB64?`<button type="button" class="btn-secondary" style="width:100%;margin-top:8px;padding:8px;font-size:12px" onclick="event.stopPropagation();saveCurrentPhotoToDevice()">💾 Enregistrer aussi sur mon téléphone</button>`:''}
       </div>
 
       ${isLivraisonOnly ? '' : `
@@ -1729,24 +1843,29 @@ async function applyRappelUpdate(lieuId, wantOpen, commentaire, origine, type) {
   }
 }
 
-function handlePLPhoto(input) {
+async function handlePLPhoto(input) {
   const file = input.files[0]; if (!file) return;
+  const compressed = await compressImage(file);
+  plPhotoBlob = compressed;
   const r = new FileReader();
   r.onload = e => {
     const prev = document.getElementById('pl-photo-preview');
     const btn  = document.getElementById('pl-photo-btn');
+    const saveBtn = document.getElementById('pl-photo-save-btn');
     prev.src = e.target.result; prev.classList.add('show');
     btn.textContent = '📷 Photo ajoutée ✓'; btn.classList.add('has-photo');
+    if (saveBtn) saveBtn.style.display = 'block';
   };
-  r.readAsDataURL(file);
+  r.readAsDataURL(compressed);
 }
 
-function handlePhoto(input) {
+async function handlePhoto(input) {
   const file = input.files[0]; if (!file) return;
-  ST.form.photoFile = file;
+  const compressed = await compressImage(file);
+  ST.form.photoFile = compressed;
   const r = new FileReader();
   r.onload = e => { ST.form.photoB64 = e.target.result; renderValidation(); };
-  r.readAsDataURL(file);
+  r.readAsDataURL(compressed);
 }
 
 async function submitValidation() {
@@ -1760,14 +1879,19 @@ async function submitValidation() {
   let photoUrl = ST.activePoints.find(x=>x.id===ST.form.pointId)?.photo_preuve || null;
   let photoQueued = false;
   if (ST.form.photoFile) {
+    const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.jpg`;
     try {
-      const ext = ST.form.photoFile.name.split('.').pop()||'jpg';
-      const path = `tournee_${ST.activeTournee.id}/p${ST.form.pointId}_${Date.now()}.${ext}`;
       photoUrl = await uploadPhoto(ST.form.photoFile, path);
     } catch(e) {
-      addToOfflineQueue({ type:'photo_upload', pointId: ST.form.pointId, tourneeId: ST.activeTournee.id, photoB64: ST.form.photoB64, ext: (ST.form.photoFile.name.split('.').pop()||'jpg') });
-      photoQueued = true;
-      toast('📤 Photo mise en attente, sera envoyée dès que possible', 5000);
+      try {
+        const photoId = 'pt'+ST.form.pointId+'_'+Date.now();
+        await savePendingPhoto(photoId, ST.form.photoFile);
+        addToOfflineQueue({ type:'photo_upload', pointId: ST.form.pointId, tourneeId: ST.activeTournee.id, photoId, ext:'jpg' });
+        photoQueued = true;
+        toast('📤 Photo mise en attente, sera envoyée dès que possible', 5000);
+      } catch(e2) {
+        toast('⚠️ Photo non conservée (stockage plein), le reste est enregistré', 5000);
+      }
     }
   }
 
@@ -1853,6 +1977,7 @@ async function submitValidation() {
     else toast('Arrêt validé ✓');
   }
   navTo('tournee');
+  refreshEtaTimes();
 }
 
 // ════════════════════════════════════════════
@@ -2117,6 +2242,7 @@ async function exportListePDF() {
 // ════════════════════════════════════════════
 let plSelected = {}; // id -> {statut,qty,nougat,note}
 let plRaisonNougaterie = null, plRaisonChateau = null;
+let plPhotoBlob = null;
 let plAllLieux = [];
 
 async function renderPointageLibre() {
@@ -2225,13 +2351,17 @@ function openPLSheet(k) {
   const photoInput = document.getElementById('pl-photo-input');
   const photoPrev  = document.getElementById('pl-photo-preview');
   const photoBtn   = document.getElementById('pl-photo-btn');
+  const photoSaveBtn = document.getElementById('pl-photo-save-btn');
   photoInput.value = '';
+  plPhotoBlob = prev.photoFile || null;
   if (prev.photoB64) {
     photoPrev.src = prev.photoB64; photoPrev.classList.add('show');
     photoBtn.textContent = '📷 Photo ajoutée ✓'; photoBtn.classList.add('has-photo');
+    if (photoSaveBtn) photoSaveBtn.style.display = plPhotoBlob ? 'block' : 'none';
   } else {
     photoPrev.src = ''; photoPrev.classList.remove('show');
     photoBtn.textContent = '📷 Ajouter une photo'; photoBtn.classList.remove('has-photo');
+    if (photoSaveBtn) photoSaveBtn.style.display = 'none';
   }
   setPLStatut(prev.statut||'distribue');
   document.getElementById('pl-sheet-overlay').classList.add('open');
@@ -2291,8 +2421,7 @@ function validatePLSheet() {
   const anneeFermeture = fermInputEl ? (parseInt(fermInputEl.dataset.annee,10) || new Date().getFullYear()) : (prevSaison.anneeFermeture || null);
   const anneeOuverture = ouvInputEl ? (parseInt(ouvInputEl.dataset.annee,10) || (new Date().getFullYear()+1)) : (prevSaison.anneeOuverture || null);
   const saisonOrder = document.getElementById('pl-saison-fields-row')?.dataset.order || prevSaison.saisonOrder || 'fermeture-first';
-  const photoInput2 = document.getElementById('pl-photo-input');
-  const photoFile = photoInput2.files[0] || null;
+  const photoFile = plPhotoBlob;
   const photoB64 = document.getElementById('pl-photo-preview').src || null;
   plSelected[k] = { statut, qty, qtyChateau, nougat, entree, comment, rappel, rappelComment, rappelType, dateFermeture, dateOuverture, anneeFermeture, anneeOuverture, saisonOrder, photoFile, photoB64: photoFile ? photoB64 : null, raisonZeroNougaterie: qty===0?(plRaisonNougaterie||null):null, raisonZeroChateau: qtyChateau===0?(plRaisonChateau||null):null };
   const btn = document.getElementById('pladd-'+k);
@@ -2374,32 +2503,48 @@ async function submitPointageLibre() {
       const d = (typeof plSelected[k]==='object') ? plSelected[k] : {};
       const statut = d.statut||'distribue';
       let photoUrl = null;
+      let photoFailed = null;
       if (d.photoFile) {
         try {
-          const ext = d.photoFile.name.split('.').pop()||'jpg';
-          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.${ext}`;
+          const path = `pl_${dateVal}/lieu${k}_${Date.now()}.jpg`;
           photoUrl = await uploadPhoto(d.photoFile, path);
         } catch(e) {
-          toast('⚠️ Photo non envoyée (lieu ' + k + ') : ' + e.message);
+          photoFailed = d.photoFile;
         }
       }
-      return { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
+      return { row: { tournee_id:tId, lieu_id:parseInt(k), ordre_passage:i+1,
                quantite_flyers:d.qty??1, quantite_flyers_chateau:d.qtyChateau??1,
                raison_zero_nougaterie: (d.qty??1)===0 ? (d.raisonZeroNougaterie||null) : null,
                raison_zero_chateau: (d.qtyChateau??1)===0 ? (d.raisonZeroChateau||null) : null,
                nb_nougat_offert:d.nougat||0, entree_gratuite:d.entree||0, statut, heure_validation:heure,
-               commentaire_distributeur:d.comment||null, photo_preuve:photoUrl };
+               commentaire_distributeur:d.comment||null, photo_preuve:photoUrl }, photoFailed };
     };
 
+    async function queueFailedPLPhoto(pointId, blob) {
+      if (!blob || !pointId) return;
+      try {
+        const photoId = 'pl'+pointId+'_'+Date.now();
+        await savePendingPhoto(photoId, blob);
+        addToOfflineQueue({ type:'photo_upload', pointId, tourneeId: tId, photoId, ext:'jpg' });
+        toast('📤 Photo mise en attente, sera envoyée dès que possible', 4000);
+      } catch(e) {
+        toast('⚠️ Photo non conservée (stockage plein)', 4000);
+      }
+    }
+
     if (keysToPost.length) {
-      const pts = await Promise.all(keysToPost.map((k,i) => buildPoint(k, i)));
-      await sbPost('points_tournee', pts);
+      const built = await Promise.all(keysToPost.map((k,i) => buildPoint(k, i)));
+      const insertedRes = await sbPost('points_tournee', built.map(b => b.row));
+      const inserted = Array.isArray(insertedRes) ? insertedRes : [insertedRes];
+      await Promise.all(built.map((b, i) => (b.photoFailed && inserted[i]) ? queueFailedPLPhoto(inserted[i].id, b.photoFailed) : null));
     }
     if (keysToPatch.length) {
       await Promise.all(keysToPatch.map(async (k,i) => {
-        const data = await buildPoint(k, i);
-        const {tournee_id, lieu_id, ordre_passage, ...upd} = data;
-        await sbPatch('points_tournee', 'id=eq.'+dupMap[parseInt(k)], upd);
+        const built = await buildPoint(k, i);
+        const {tournee_id, lieu_id, ordre_passage, ...upd} = built.row;
+        const ptId = dupMap[parseInt(k)];
+        await sbPatch('points_tournee', 'id=eq.'+ptId, upd);
+        if (built.photoFailed) await queueFailedPLPhoto(ptId, built.photoFailed);
       }));
     }
 
@@ -2418,8 +2563,23 @@ async function submitPointageLibre() {
     navTo('historique');
   } catch(e) {
     if (isNetworkFailure(e)) {
-      addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData:{...plSelected} });
-      toast('📤 Sauvegardé hors-ligne — photos non incluses', 4000);
+      const plSelectedData = {};
+      for (const k of Object.keys(plSelected)) {
+        const d = plSelected[k] || {};
+        const copy = {...d};
+        if (copy.photoFile) {
+          try {
+            const photoId = 'pl'+k+'_'+Date.now();
+            await savePendingPhoto(photoId, copy.photoFile);
+            copy.photoId = photoId;
+          } catch(e2) {}
+        }
+        delete copy.photoFile;
+        delete copy.photoB64;
+        plSelectedData[k] = copy;
+      }
+      addToOfflineQueue({ type:'pointage_libre', dateVal, distributeurId:ST.user?.id||null, plSelectedData });
+      toast('📤 Sauvegardé hors-ligne', 4000);
       plSelected = {};
       navTo('historique');
     } else { toast('Erreur : '+e.message); }
@@ -2440,6 +2600,46 @@ function distMeters(lat1,lon1,lat2,lon2){
 function fmtDist(m){
   if(m==null) return '';
   return m<1000 ? (Math.round(m/10)*10)+' m' : (m/1000).toFixed(1).replace('.',',')+' km';
+}
+const MARGE_TRAJET_PCT = 0.03;
+function fmtDureeMin(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h>0?h+'h '+m+'min':m+' min'; }
+async function refreshEtaTimes() {
+  const stops = ST.activePoints.filter(p => p.statut==='a_faire' && !isRepere(p) && p.lieux && p.lieux.latitude && p.lieux.longitude);
+  if (!stops.length) { ST.etaState = null; ST.etaTimes = {}; return; }
+  const geo = await refreshGeo();
+  if (!geo) {
+    ST.etaState = 'unavailable'; ST.etaTimes = {};
+    if (ST.screen === 'tournee') renderTourneeDetail();
+    return;
+  }
+  try {
+    const coords = `${geo.lon},${geo.lat};` + stops.map(p => `${p.lieux.longitude},${p.lieux.latitude}`).join(';');
+    const r = await fetch(`https://router.project-osrm.org/table/v1/driving/${coords}?sources=0`);
+    const d = await r.json();
+    if (!d.durations || !d.durations[0]) throw new Error('no durations');
+    const durations = d.durations[0];
+    const times = {};
+    stops.forEach((p, i) => {
+      const sec = durations[i+1];
+      times[p.id] = (sec!=null) ? Math.round(sec*(1+MARGE_TRAJET_PCT)/60) : null;
+    });
+    ST.etaTimes = times;
+    ST.etaState = 'ok';
+  } catch(e) {
+    ST.etaTimes = {};
+    ST.etaState = 'unavailable';
+  }
+  if (ST.screen === 'tournee') renderTourneeDetail();
+}
+function etaLineHTML(p) {
+  if (ST.etaState === 'ok') {
+    const min = ST.etaTimes[p.id];
+    return (min!=null) ? `<div class="stop-addr" style="color:var(--blue);font-weight:600">🚗 ${fmtDureeMin(min)}</div>` : '';
+  }
+  if (ST.etaState === 'unavailable') {
+    return `<div class="stop-addr" style="color:var(--grey)">⏱ Temps indisponible</div>`;
+  }
+  return '';
 }
 function withProximity(list){
   if(!ST.geoPos) return list.map(l=>({...l,_dist:null}));

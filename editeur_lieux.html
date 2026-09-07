@@ -12,6 +12,14 @@
 body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #header{background:#2B2B2B;color:#fff;padding:0 10px;display:flex;align-items:center;gap:7px;height:50px;flex-shrink:0}
 #header h1{font-size:12px;font-weight:bold;flex:1}
+#header-search-wrap{position:relative;flex:1;max-width:320px;display:flex;align-items:center;gap:8px}
+#header-search-input{flex:1;padding:6px 9px;border:1px solid #555;border-radius:5px;font-size:12px;outline:none;background:#3a3a3a;color:#fff}
+#header-search-input::placeholder{color:#bbb}
+#header-search-input:focus{border-color:#E8A020}
+#header-rappel-only-label{display:flex;align-items:center;gap:4px;font-size:10px;color:#ddd;white-space:nowrap;cursor:pointer}
+#header-search-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:0 0 6px 6px;max-height:280px;overflow-y:auto;z-index:2000;display:none;box-shadow:0 4px 14px rgba(0,0,0,0.25)}
+.header-search-item{padding:7px 9px;font-size:12px;color:#2B2B2B;cursor:pointer;border-bottom:1px solid #f0f0f0}
+.header-search-item:hover{background:#f5f5f5}
 .hbtn{padding:5px 9px;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-weight:bold;white-space:nowrap}
 #btn-add{background:#43A047;color:#fff}
 #btn-zones{background:#546E7A;color:#fff}
@@ -49,12 +57,14 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #main{display:flex;flex:1;overflow:hidden;position:relative}
 /* LEFT PANEL */
 #panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid #ddd;background:#fafafa;z-index:2;overflow-y:auto}
-#search-bar{padding:6px;border-bottom:1px solid #e0e0e0;display:flex;gap:5px;flex-direction:column}
+#tournee-left-panel{display:none;flex-direction:column;flex:1;min-height:0}
+#tournee-left-panel.open{display:flex}
+#search-bar{display:none}
 #search-input{width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:5px;font-size:12px;outline:none}
 #search-input:focus{border-color:#E8A020}
 .filter-row{display:flex;gap:5px}
 .filter-row select{flex:1;padding:4px 5px;border:1px solid #ccc;border-radius:4px;font-size:11px;outline:none}
-#poi-list{flex:1;overflow-y:auto}
+#poi-list{display:none}
 .poi-item{padding:7px 9px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:.1s;display:flex;align-items:center;gap:6px}
 .poi-item:hover{background:#fff8ea}
 .poi-item.selected{background:#fff3dc;border-left:3px solid #E8A020}
@@ -64,9 +74,9 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .poi-nom{font-size:11px;font-weight:bold;color:#2B2B2B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .poi-sub{font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .route-num{width:17px;height:17px;border-radius:50%;background:#1E88E5;color:#fff;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-#poi-count{font-size:10px;color:#999;text-align:center;padding:3px;background:#f0f0f0;flex-shrink:0}
+#poi-count{display:none}
 /* EDIT PANEL */
-#edit-panel{border-top:2px solid #E8A020;background:#fff;flex-shrink:0;max-height:270px;overflow-y:auto;padding:9px}
+#edit-panel{border-top:2px solid #E8A020;background:#fff;flex-shrink:0;padding:9px}
 #edit-panel h3{font-size:11px;color:#E8A020;margin-bottom:7px;font-weight:bold}
 #edit-panel.hidden{display:none}
 .field-row{margin-bottom:5px}
@@ -220,13 +230,15 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 #tournee-resize-handle{height:9px;flex-shrink:0;cursor:ns-resize;background:#eee;display:flex;align-items:center;justify-content:center}
 #tournee-resize-handle::after{content:'';width:32px;height:3px;border-radius:2px;background:#bbb}
 #tournee-resize-handle:hover{background:#e0e0e0}
-#tournee-list{padding:5px;min-height:60px;max-height:260px;overflow-y:auto;border-bottom:1px solid #ddd;box-shadow:inset 0 -6px 6px -6px rgba(0,0,0,.08)}
+#tournee-list{padding:5px;flex:1;min-height:120px;overflow-y:auto;border-bottom:1px solid #ddd;box-shadow:inset 0 -6px 6px -6px rgba(0,0,0,.08)}
 #tournee-empty{text-align:center;padding:14px;color:#aaa;font-size:11px;font-style:italic}
 .tournee-stop{display:flex;align-items:center;gap:7px;padding:6px 5px;border-bottom:1px solid #f0f0f0;font-size:12px;cursor:default;transition:background .1s}
 .tournee-stop.drag-over{border-top:2px solid #27AE60;background:#E8F8EF}
 .tournee-stop.dragging{opacity:.35}
 .tournee-drag{cursor:grab;color:#bbb;font-size:16px;flex-shrink:0;padding:0 2px;user-select:none}
 .tournee-stop-num{width:20px;height:20px;border-radius:50%;background:#27AE60;color:#fff;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tournee-stop-repere{background:#8D6E63;font-size:11px}
+.tournee-repere-badge{font-size:9px;background:#EFEBE9;color:#5D4037;padding:1px 5px;border-radius:8px;margin-left:4px;font-weight:normal}
 .tournee-stop-info{flex:1;min-width:0}
 .tournee-stop-nom{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tournee-stop-sub{font-size:10px;color:#888}
@@ -367,7 +379,13 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
   <button class="rb-btn rb-dismiss" onclick="dismissRestore()">✕ Ignorer – repartir des données d'origine</button>
 </div>
 <div id="header">
-  <h1>🗺 Éditeur de lieux – Nougaterie du Pont d'Arc</h1>
+  <div id="header-search-wrap">
+  <input id="header-search-input" type="text" placeholder="🔍 Chercher un lieu…" oninput="renderHeaderSearchResults()" onfocus="renderHeaderSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('header-search-results'); if(b) b.style.display='none';},150)">
+  <label id="header-rappel-only-label">
+    <input type="checkbox" id="filter-rappel-only" onchange="applyFilters(); renderHeaderSearchResults();"> 🔁 À faire
+  </label>
+  <div id="header-search-results"></div>
+</div>
   <span id="total-badge">290 lieux</span>
 
   <div class="hbtn-dropdown">
@@ -393,6 +411,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
     <div class="hbtn-dropdown-menu" id="dd-menu-import">
       <div id="import-history" style="padding:4px 10px 8px;font-size:10px;line-height:1.6;color:#666;border-bottom:1px solid #ddd;margin-bottom:6px"></div>
       <button class="hbtn" id="btn-generer-import-saisons" onclick="genererFichierImportSaisons()" style="background:#455A64;color:#fff" title="Générer un fichier CSV (tous les lieux) prêt à remplir avec les dates de saison — inclut les sources déjà connues">📥 Générer fichier d'import</button>
+      <button class="hbtn" id="btn-generer-nouveaux-lieux" onclick="genererFichierNouveauxLieux()" style="background:#00695C;color:#fff" title="Générer un fichier CSV vierge pour créer de nouveaux lieux avec leur saison en une fois (colonnes : nom, categorie, adresse, code_postal, ville, latitude, longitude, telephone, zone_tournee, date_ouverture, date_fermeture, commentaire, source). À importer en 2 temps : 📂 Importer CSV puis 🗓 Importer saisons.">🆕 Nouveaux lieux (modèle)</button>
       <button class="hbtn" id="btn-import-lieux" onclick="document.getElementById('csv-import-input').click()" style="background:#8D6E63;color:#fff" title="Importer des lieux depuis un fichier CSV ou JSON">📂 Importer CSV</button>
       <button class="hbtn" id="btn-import-zones" onclick="document.getElementById('zones-import-input').click()" style="background:#546E7A;color:#fff" title="Synchroniser les zones de tournée depuis un fichier zones_export.json">🗂 Sync zones</button>
       <button class="hbtn" id="btn-import-saisons" onclick="document.getElementById('saisons-import-input').click()" style="background:#2E7D32;color:#fff" title="Importer les dates d'ouverture/fermeture depuis un CSV (modèle saisons_etablissements.xlsx exporté en CSV)">🗓 Importer saisons</button>
@@ -419,6 +438,15 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 </div>
 <div id="main">
   <div id="panel">
+    <div id="tournee-left-panel">
+      <div id="tournee-search-wrap" style="padding:8px;border-bottom:1px solid #eee;position:relative;flex-shrink:0">
+        <input id="tournee-search-input" type="text" placeholder="🔎 Chercher un lieu à ajouter…" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px" oninput="renderTourneeSearchResults()" onfocus="renderTourneeSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('tournee-search-results'); if(b) b.style.display='none';},150)">
+        <div id="tournee-search-results" style="position:absolute;top:100%;left:8px;right:8px;background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:1500;display:none;box-shadow:0 4px 10px rgba(0,0,0,0.15)"></div>
+        <button id="tf-add-all-rappels" onclick="addAllRappelsToTournee()" style="margin-top:6px;width:100%;box-sizing:border-box;padding:6px 8px;background:#fff;color:#E53935;border:1px solid #E53935;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer">🔁 Ajouter tous les lieux "à faire" visibles</button>
+      </div>
+      <div class="tournee-section-label">🚏 Arrêts <span id="tournee-stop-count"></span></div>
+      <div id="tournee-list"><div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div></div>
+    </div>
     <div id="search-bar">
       <input id="search-input" type="text" placeholder="🔍  Nom, commune…" oninput="applyFilters()">
       <div class="filter-row">
@@ -456,11 +484,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
           <option value="12">Ouvert en décembre</option>
         </select>
       </div>
-      <div class="filter-row">
-        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#555;cursor:pointer;width:100%">
-          <input type="checkbox" id="filter-rappel-only" onchange="applyFilters()"> 🔁 "À faire" uniquement
-        </label>
-      </div>
     </div>
     <div id="poi-list"></div>
     <div id="poi-count">— lieux</div>
@@ -496,23 +519,23 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
         <button class="btn-save" onclick="deletePoiSupabase()" style="background:#C62828;margin-top:4px;font-size:10px">🗑 Supprimer définitivement (base)</button>
       </div>
     </div>
-    <!-- SAISON -->
-    <div id="saison-panel" style="border-top:2px solid #8D6E63;background:#fff;flex-shrink:0;padding:9px;display:none">
-      <h3 style="font-size:11px;color:#8D6E63;font-weight:bold;margin:0 0 7px">📅 Saison</h3>
-      <div id="saison-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
-    </div>
-    <!-- RAPPEL / A FAIRE -->
+    <!-- RAPPEL / A FAIRE (toujours visible, acces rapide) -->
     <div id="rappel-panel" style="border-top:2px solid #E53935;background:#fff;flex-shrink:0;padding:9px;display:none">
       <h3 style="font-size:11px;color:#E53935;font-weight:bold;margin:0 0 7px">🔁 À faire</h3>
       <div id="rappel-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
     </div>
+    <!-- SAISON (repliable) -->
+    <div id="saison-panel" style="border-top:2px solid #8D6E63;background:#fff;flex-shrink:0;padding:9px;display:none">
+      <h3 style="font-size:11px;color:#8D6E63;font-weight:bold;margin:0;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="togglePanelDetail('saison-panel-content','saison-chevron')">📅 Saison <span id="saison-chevron" style="font-size:10px">▾</span></h3>
+      <div id="saison-panel-content" style="margin-top:7px"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+    </div>
     <!-- HISTORIQUE SUPABASE -->
-    <div id="hist-panel" style="border-top:2px solid #1E88E5;background:#fff;flex-shrink:0;max-height:300px;overflow-y:auto;padding:9px;display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+    <div id="hist-panel" style="border-top:2px solid #1E88E5;background:#fff;flex:1;min-height:0;overflow-y:auto;padding:9px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;cursor:pointer" onclick="togglePanelDetail('hist-panel-content','hist-chevron')">
         <h3 style="font-size:11px;color:#1E88E5;font-weight:bold;margin:0">📊 Passages cette année</h3>
-        <span id="hist-panel-count" style="font-size:10px;color:#888"></span>
+        <span style="display:flex;align-items:center;gap:5px"><span id="hist-panel-count" style="font-size:10px;color:#888"></span><span id="hist-chevron" style="font-size:10px;color:#1E88E5">▾</span></span>
       </div>
-      <div id="hist-panel-content"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
+      <div id="hist-panel-content" style="margin-top:7px"><div style="font-size:11px;color:#aaa;font-style:italic">Chargement…</div></div>
     </div>
   </div>
 
@@ -553,13 +576,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       <h3>🗺️ Nouvelle tournée Supabase</h3>
       <button onclick="toggleTourneeMode()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button>
     </div>
-    <div id="tournee-search-wrap" style="padding:8px;border-bottom:1px solid #eee;position:relative;flex-shrink:0">
-      <input id="tournee-search-input" type="text" placeholder="🔎 Chercher un lieu à ajouter…" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px" oninput="renderTourneeSearchResults()" onfocus="renderTourneeSearchResults()" onblur="setTimeout(function(){var b=document.getElementById('tournee-search-results'); if(b) b.style.display='none';},150)">
-      <div id="tournee-search-results" style="position:absolute;top:100%;left:8px;right:8px;background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:1500;display:none;box-shadow:0 4px 10px rgba(0,0,0,0.15)"></div>
-      <button id="tf-add-all-rappels" onclick="addAllRappelsToTournee()" style="margin-top:6px;width:100%;box-sizing:border-box;padding:6px 8px;background:#fff;color:#E53935;border:1px solid #E53935;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer">🔁 Ajouter tous les lieux "à faire" visibles</button>
-    </div>
-    <div class="tournee-section-label">🚏 Arrêts <span id="tournee-stop-count"></span></div>
-    <div id="tournee-list"><div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div></div>
     <div class="tournee-section-label">🧭 Itinéraire</div>
     <div id="tournee-route-controls">
       <div style="display:flex;gap:6px">
@@ -777,6 +793,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <button id="fiche-btn-ajouter-tournee" class="btn-save" style="display:none;white-space:nowrap" onclick="confirmAjoutTournee()">➕ Ajouter à la tournée</button>
+        <button id="fiche-btn-depart-arrivee" class="btn-save" style="display:none;white-space:nowrap;background:#8D6E63" onclick="confirmDepartArriveeTournee()">🏠 Départ/Arrivée</button>
         <button class="modal-close" onclick="closeModal('modal-fiche-lieu')">✕</button>
       </div>
     </div>
@@ -991,6 +1008,8 @@ async function openFicheLieuEditeur(id, forTournee){
   window._ficheForTourneeId = forTournee ? p.id : null;
   var addBtn = document.getElementById('fiche-btn-ajouter-tournee');
   if(addBtn) addBtn.style.display = forTournee ? 'inline-flex' : 'none';
+  var daBtn = document.getElementById('fiche-btn-depart-arrivee');
+  if(daBtn) daBtn.style.display = (forTournee && p.type_lieu==='Point de départ') ? 'inline-flex' : 'none';
   document.getElementById('fiche-lieu-title').textContent = p.nom;
   document.getElementById('fiche-lieu-subtitle').textContent = [p.type_lieu, p.zone_tournee?zoneKey(p.zone_tournee):''].filter(Boolean).join(' · ');
   document.getElementById('fiche-lieu-body').innerHTML = '<div style="text-align:center;padding:60px;color:var(--grey)"><div class="loader-d"></div><div style="margin-top:10px">Chargement…</div></div>';
@@ -1417,7 +1436,8 @@ function refreshMarkerIcon(id){
   var color=zoneColor(p.zone_tournee);
   var rn=routeStops.indexOf(id); rn=rn>=0?rn+1:null;
   var badge=null;
-  if(tourneeStops.indexOf(id)>=0){badge='T';color='#27AE60';}
+  var tn=tourneeStops.indexOf(id);
+  if(tn>=0){badge=String(tn+1);color='#27AE60';}
   if(pointageStops.indexOf(id)>=0){badge='P';color='#8E24AA';}
   markers[id].setIcon(makeIcon(color,selectedId===id,rn,badge,poiSaisonRing(p),poiRappelObj(p),p.type_lieu==='Point de départ',!!p.a_valider));
 }
@@ -1436,6 +1456,51 @@ function buildMarkers(){
 //  LIST
 // ══════════════════════════════════════════════════════════
 var filteredPois=POIS.slice();
+
+function renderHeaderSearchResults(){
+  var input = document.getElementById('header-search-input');
+  var box = document.getElementById('header-search-results');
+  if(!input || !box) return;
+  var q = norm(input.value.trim());
+  var onlyRappel = document.getElementById('filter-rappel-only');
+  var checked = onlyRappel && onlyRappel.checked;
+  if(!q && !checked){ box.style.display='none'; box.innerHTML=''; return; }
+  var candidats = POIS.filter(function(p){
+    if(checked && !poiRappelActif(p)) return false;
+    return !q || norm(p.nom+' '+p.commune).includes(q);
+  }).slice(0,20);
+  if(!candidats.length){
+    box.innerHTML = '<div style="padding:8px;font-size:12px;color:#999">Aucun résultat</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = candidats.map(function(p){
+    return '<div class="header-search-item" data-id="'+p.id+'">'
+      + escHtml(p.nom) + '<span style="color:#999"> · '+escHtml(p.commune)+'</span>'
+      + '</div>';
+  }).join('');
+  box.style.display = 'block';
+  Array.prototype.forEach.call(box.querySelectorAll('.header-search-item'), function(el){
+    el.addEventListener('mousedown', function(ev){
+      ev.preventDefault();
+      var id = parseInt(el.getAttribute('data-id'), 10);
+      selectPoi(id);
+      input.value = '';
+      box.style.display = 'none';
+      box.innerHTML = '';
+    });
+  });
+}
+
+function togglePanelDetail(contentId, chevronId){
+  var el = document.getElementById(contentId);
+  if(!el) return;
+  var hidden = el.style.display === 'none';
+  el.style.display = hidden ? 'block' : 'none';
+  var arrow = document.getElementById(chevronId);
+  if(arrow) arrow.textContent = hidden ? '\u25BE' : '\u25B8';
+}
+
 function applyFilters(){
   var q=norm(document.getElementById('search-input').value).trim();
   var zf=document.getElementById('filter-zone').value;
@@ -2093,6 +2158,22 @@ async function genererFichierImportSaisons(){
   showToast('📥 Fichier généré : '+rows.length+' lieux');
 }
 
+// Modèle vierge pour créer de nouveaux lieux + leur saison en une fois.
+// A importer en 2 temps avec les boutons existants : d'abord "Importer CSV" (creation
+// du lieu), puis "Importer saisons" (attache les dates, une fois le lieu cree).
+function genererFichierNouveauxLieux(){
+  var header = "nom;categorie;adresse;code_postal;ville;latitude;longitude;telephone;zone_tournee;date_ouverture;date_fermeture;commentaire;source";
+  var csv = '\uFEFF' + header + '\r\n';
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'nouveaux_lieux_a_importer_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 Modele genere - a remplir puis importer 2x (Importer CSV, puis Importer saisons)');
+}
+
 function parseDateFR(str){
   if(!str) return null;
   str = String(str).trim();
@@ -2646,6 +2727,7 @@ function toggleTourneeMode(){
   btn.textContent = tourneeMode ? '✕ Annuler tournée' : '🗺️ Créer tournée';
   btn.classList.toggle('active', tourneeMode);
   document.getElementById('tournee-panel').classList.toggle('open', tourneeMode);
+  document.getElementById('tournee-left-panel').classList.toggle('open', tourneeMode);
   Object.keys(markers).forEach(function(id){
     var m = markers[id]; if(m && m.dragging){ tourneeMode ? m.dragging.disable() : m.dragging.enable(); }
   });
@@ -2695,6 +2777,21 @@ function confirmAjoutTournee(){
   toggleTourneeStop(id);
 }
 
+function confirmDepartArriveeTournee(){
+  if(window._ficheForTourneeId==null) return;
+  var id = window._ficheForTourneeId;
+  window._ficheForTourneeId = null;
+  closeModal('modal-fiche-lieu');
+  if(tourneeStops.indexOf(id) < 0){ tourneeStops.push(id); }
+  renderDepartArriveeSelects();
+  var depSel = document.getElementById('tf-depart');
+  var arrSel = document.getElementById('tf-arrivee');
+  if(depSel){ depSel.value = String(id); onDepartChange(); }
+  if(arrSel){ arrSel.value = String(id); onArriveeChange(); }
+  var p = POIS.find(function(pp){ return pp.id===id; });
+  showToast('🏠 '+(p?p.nom:'Lieu')+' regle comme depart et arrivee de la tournee');
+}
+
 function removeTourneeStop(idx){
   var removedId = tourneeStops[idx];
   tourneeStops.splice(idx,1);
@@ -2720,7 +2817,14 @@ function toggleLivraisonType(id){
 function renderTourneeList(){
   var list = document.getElementById('tournee-list');
   var countEl = document.getElementById('tournee-stop-count');
-  if(countEl) countEl.textContent = tourneeStops.length ? '('+tourneeStops.length+')' : '';
+  var departSelVal = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
+  var arriveeSelVal = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
+  var departId = departSelVal ? parseInt(departSelVal,10) : null;
+  var arriveeId = arriveeSelVal ? parseInt(arriveeSelVal,10) : null;
+  var isBoucleDA = departId!==null && departId===arriveeId;
+  function isRepereStop(id){ return (departId!==null && id===departId) || (arriveeId!==null && id===arriveeId); }
+  var realCount = tourneeStops.filter(function(id){ return !isRepereStop(id); }).length;
+  if(countEl) countEl.textContent = realCount ? '('+realCount+')' : '';
   if(tourneeStops.length === 0){
     list.innerHTML = '<div id="tournee-empty">Cliquez sur des lieux pour les ajouter</div>';
     renderDepartArriveeSelects();
@@ -2728,14 +2832,24 @@ function renderTourneeList(){
   }
   list.innerHTML = '';
   var dragSrcIdx = null;
+  var realIdx = 0;
   tourneeStops.forEach(function(id, i){
     var p = POIS.find(function(p){ return p.id===id; }); if(!p) return;
     var hasLivraison = !!tourneeStopTypes[id];
+    var repere = isRepereStop(id);
+    var numHtml;
+    if(repere){
+      numHtml = '<div class="tournee-stop-num tournee-stop-repere" title="Depart/arrivee - non compte dans les arrets">🏠</div>';
+    } else {
+      realIdx++;
+      numHtml = '<div class="tournee-stop-num">'+realIdx+'</div>';
+    }
+    var repereLabel = isBoucleDA ? '🏠 Départ/Arrivée' : (id===departId ? '🏠 Départ' : '🏠 Arrivée');
     var div = document.createElement('div');
-    div.className = 'tournee-stop'+(hasLivraison?' is-livraison':''); div.draggable = true; div.dataset.idx = i;
+    div.className = 'tournee-stop'+(hasLivraison?' is-livraison':'')+(repere?' is-repere':''); div.draggable = true; div.dataset.idx = i;
     div.innerHTML = '<span class="tournee-drag">⋮⋮</span>'
-      + '<div class="tournee-stop-num">'+(i+1)+'</div>'
-      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+'</div>'
+      + numHtml
+      + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+(repere?' <span class="tournee-repere-badge">'+repereLabel+'</span>':'')+'</div>'
       + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
       + (hasLivraison ? '<div class="tournee-stop-desc">📦 '+escHtml(tourneeStopLivraisonDesc[id]||'(à préciser)')+'</div>' : '')
       + '</div>'
