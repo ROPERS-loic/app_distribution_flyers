@@ -247,10 +247,7 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .tournee-stop-num.is-livraison{background:#C87F0A}
 .tournee-stop-livraison-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.4;filter:grayscale(1)}
 .tournee-stop-livraison-btn.active{opacity:1;filter:none}
-.tournee-stop-fiche-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.55}
-.tournee-stop-fiche-btn:hover{opacity:1}
 .tournee-stop-desc{font-size:10px;color:#C87F0A;font-style:italic;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tournee-stop-eta{font-size:10px;color:#2E7D32;font-weight:600;margin-top:1px}
 #tournee-route-controls{padding:8px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;background:#f9f9f9;flex-shrink:0}
 #tournee-form{padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff;flex-shrink:0}
 .tf-label{font-size:9px;font-weight:bold;color:#777;text-transform:uppercase;margin-bottom:1px}
@@ -2854,10 +2851,8 @@ function renderTourneeList(){
       + numHtml
       + '<div class="tournee-stop-info"><div class="tournee-stop-nom">'+escHtml(p.nom)+(repere?' <span class="tournee-repere-badge">'+repereLabel+'</span>':'')+'</div>'
       + '<div class="tournee-stop-sub">'+escHtml(p.commune)+' · '+escHtml(p.zone_tournee?p.zone_tournee.split(' ')[0]:'')+'</div>'
-      + ((tourneeCalcResult && tourneeCalcResult.sig===tourneeCalcSignature() && tourneeCalcResult.legByToIdx && tourneeCalcResult.legByToIdx[i]!==undefined) ? '<div class="tournee-stop-eta">🕐 ≈ '+fmtDureeMin(Math.round(tourneeCalcResult.legByToIdx[i]/60))+' depuis l\'arrêt précédent</div>' : '')
       + (hasLivraison ? '<div class="tournee-stop-desc">📦 '+escHtml(tourneeStopLivraisonDesc[id]||'(à préciser)')+'</div>' : '')
       + '</div>'
-      + '<span class="tournee-stop-fiche-btn" onclick="openFicheLieuEditeur('+id+', false)" title="Voir la fiche du lieu">👁️</span>'
       + '<span class="tournee-stop-livraison-btn'+(hasLivraison?' active':'')+'" onclick="toggleLivraisonType('+id+')" title="Ajouter/retirer une livraison sur cet arrêt">📦</span>'
       + '<span class="tournee-stop-del" onclick="removeTourneeStop('+i+')">✕</span>';
     div.addEventListener('dragstart', function(e){
@@ -2974,11 +2969,10 @@ function tourneeCalcSignature(){
 
 async function computeTourneeEstimate(){
   if(tourneeStops.length < 2) return null;
-  var wps = [], wpsIdx = [];
-  tourneeStops.forEach(function(id, idx){
+  var wps = tourneeStops.map(function(id){
     var p = POIS.find(function(p){ return p.id===id; });
-    if(p && !isNaN(parseFloat(p.lat))){ wps.push([parseFloat(p.lat), parseFloat(p.lon)]); wpsIdx.push(idx); }
-  });
+    return p ? [parseFloat(p.lat), parseFloat(p.lon)] : null;
+  }).filter(function(w){ return w && !isNaN(w[0]); });
   var departValCalc = document.getElementById('tf-depart') ? document.getElementById('tf-depart').value : '';
   var arriveeValCalc = document.getElementById('tf-arrivee') ? document.getElementById('tf-arrivee').value : '';
   var departIdCalc = departValCalc ? parseInt(departValCalc,10) : null;
@@ -2988,14 +2982,14 @@ async function computeTourneeEstimate(){
     if(loopP && !isNaN(parseFloat(loopP.lat))) wps.push([parseFloat(loopP.lat), parseFloat(loopP.lon)]);
   }
   if(wps.length < 2) return null;
-  var allCoords = [], totalDist = 0, totalDur = 0, allLegs = [], MAX = 25;
+  var allCoords = [], totalDist = 0, totalDur = 0, MAX = 25;
   for(var s = 0; s < wps.length-1; s += MAX-1){
     var batch = wps.slice(s, Math.min(s+MAX, wps.length));
     var qs = batch.map(function(c){ return c[1]+','+c[0]; }).join(';');
     try {
       var r = await fetch('https://router.project-osrm.org/route/v1/driving/'+qs+'?overview=full&geometries=geojson');
       var d = await r.json();
-      if(d.routes&&d.routes[0]){ totalDist+=d.routes[0].distance; totalDur+=d.routes[0].duration; d.routes[0].geometry.coordinates.forEach(function(c){ allCoords.push([c[1],c[0]]); }); if(d.routes[0].legs) allLegs = allLegs.concat(d.routes[0].legs); }
+      if(d.routes&&d.routes[0]){ totalDist+=d.routes[0].distance; totalDur+=d.routes[0].duration; d.routes[0].geometry.coordinates.forEach(function(c){ allCoords.push([c[1],c[0]]); }); }
     } catch(e){ break; }
   }
   var nbVisite = tourneeStops.filter(function(id){
@@ -3005,11 +2999,7 @@ async function computeTourneeEstimate(){
   var dureeRouteMin = Math.round((totalDur*(1+MARGE_TRAJET_PCT))/60);
   var dureeVisiteMin = nbVisite*TEMPS_ARRET_MIN;
   var dureeTotaleMin = dureeRouteMin+dureeVisiteMin;
-  var legByToIdx = {};
-  for(var lk=0; lk+1<wpsIdx.length; lk++){
-    if(allLegs[lk] && allLegs[lk].duration!==undefined) legByToIdx[wpsIdx[lk+1]] = allLegs[lk].duration;
-  }
-  return {distanceKm:distanceKm, dureeRouteMin:dureeRouteMin, dureeVisiteMin:dureeVisiteMin, dureeTotaleMin:dureeTotaleMin, coords:allCoords, legByToIdx:legByToIdx, sig:tourneeCalcSignature()};
+  return {distanceKm:distanceKm, dureeRouteMin:dureeRouteMin, dureeVisiteMin:dureeVisiteMin, dureeTotaleMin:dureeTotaleMin, coords:allCoords, sig:tourneeCalcSignature()};
 }
 
 async function calcTournee(){
@@ -3018,7 +3008,6 @@ async function calcTournee(){
   var res = await computeTourneeEstimate();
   if(!res){ showToast('⚠ Coordonnées manquantes'); return; }
   tourneeCalcResult = res;
-  renderTourneeList();
   if(res.coords.length > 0){
     tourneeRouteLayer = L.polyline(res.coords, {color:'#27AE60', weight:4, opacity:.85}).addTo(map);
     map.fitBounds(tourneeRouteLayer.getBounds(), {padding:[30,30]});

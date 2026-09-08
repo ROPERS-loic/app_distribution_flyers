@@ -247,8 +247,6 @@ body{font-family:Arial,sans-serif;display:flex;flex-direction:column;height:100v
 .tournee-stop-num.is-livraison{background:#C87F0A}
 .tournee-stop-livraison-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.4;filter:grayscale(1)}
 .tournee-stop-livraison-btn.active{opacity:1;filter:none}
-.tournee-stop-fiche-btn{cursor:pointer;font-size:13px;flex-shrink:0;padding:0 2px;opacity:.55}
-.tournee-stop-fiche-btn:hover{opacity:1}
 .tournee-stop-desc{font-size:10px;color:#C87F0A;font-style:italic;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tournee-stop-eta{font-size:10px;color:#2E7D32;font-weight:600;margin-top:1px}
 #tournee-route-controls{padding:8px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;background:#f9f9f9;flex-shrink:0}
@@ -2857,7 +2855,6 @@ function renderTourneeList(){
       + ((tourneeCalcResult && tourneeCalcResult.sig===tourneeCalcSignature() && tourneeCalcResult.legByToIdx && tourneeCalcResult.legByToIdx[i]!==undefined) ? '<div class="tournee-stop-eta">🕐 ≈ '+fmtDureeMin(Math.round(tourneeCalcResult.legByToIdx[i]/60))+' depuis l\'arrêt précédent</div>' : '')
       + (hasLivraison ? '<div class="tournee-stop-desc">📦 '+escHtml(tourneeStopLivraisonDesc[id]||'(à préciser)')+'</div>' : '')
       + '</div>'
-      + '<span class="tournee-stop-fiche-btn" onclick="openFicheLieuEditeur('+id+', false)" title="Voir la fiche du lieu">👁️</span>'
       + '<span class="tournee-stop-livraison-btn'+(hasLivraison?' active':'')+'" onclick="toggleLivraisonType('+id+')" title="Ajouter/retirer une livraison sur cet arrêt">📦</span>'
       + '<span class="tournee-stop-del" onclick="removeTourneeStop('+i+')">✕</span>';
     div.addEventListener('dragstart', function(e){
@@ -3018,7 +3015,6 @@ async function calcTournee(){
   var res = await computeTourneeEstimate();
   if(!res){ showToast('⚠ Coordonnées manquantes'); return; }
   tourneeCalcResult = res;
-  renderTourneeList();
   if(res.coords.length > 0){
     tourneeRouteLayer = L.polyline(res.coords, {color:'#27AE60', weight:4, opacity:.85}).addTo(map);
     map.fitBounds(tourneeRouteLayer.getBounds(), {padding:[30,30]});

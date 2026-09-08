@@ -2127,7 +2127,7 @@ function exportStatsPDF() {
   const statColors = {distribue:[39,174,96],ferme:[229,57,53],refus:[232,135,10],absent:[142,36,170]};
   doc.autoTable({
     startY: 48,
-    head:[['Lieu','Ville','Statut','Ngt Pkts','Cht Pkts','Ngt','Entr.','Date','Distributeur','Commentaire']],
+    head:[['Lieu','Ville','Statut','Flyers Ngt','Flyers Cht','Nougat off.','Entr. grat.','Date','Distributeur','Commentaire']],
     body: rows,
     styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica' },
     headStyles:{ fillColor:[26,26,26], textColor:255, fontStyle:'bold', fontSize:7 },
@@ -2136,19 +2136,19 @@ function exportStatsPDF() {
       0:{fontStyle:'bold', cellWidth:38},
       1:{cellWidth:22, textColor:[100,100,100]},
       2:{cellWidth:22},
-      3:{cellWidth:14, halign:'center'},
-      4:{cellWidth:14, halign:'center'},
-      5:{cellWidth:10, halign:'center'},
-      6:{cellWidth:10, halign:'center'},
+      3:{cellWidth:16, halign:'center'},
+      4:{cellWidth:16, halign:'center'},
+      5:{cellWidth:16, halign:'center'},
+      6:{cellWidth:14, halign:'center'},
       7:{cellWidth:20, textColor:[100,100,100]},
       8:{cellWidth:28},
       9:{textColor:[130,130,130], fontStyle:'italic'},
     },
-    didDrawCell(data){
+    didParseCell(data){
       if(data.section==='body' && data.column.index===2){
         const raw = filtered[data.row.index];
         const col = statColors[raw?.statut];
-        if(col){ doc.setTextColor(...col); doc.setFont('helvetica','bold'); doc.text(data.cell.text.join(''), data.cell.x+1, data.cell.y+data.cell.height/2+1); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); }
+        if(col){ data.cell.styles.textColor = col; data.cell.styles.fontStyle = 'bold'; }
       }
     },
     didDrawPage(data){
